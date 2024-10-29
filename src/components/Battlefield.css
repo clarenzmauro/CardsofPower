@@ -10,9 +10,21 @@
     background-image: url("../assets/backgrounds/battlefield.jpg");
     background-size: cover;
     height: 100vh;
+}
+
+.background, .timer, .row, .graveyardCards, .carousel, .deck, .stats, .stats p, .mid-row, .card-slot {
     display: flex;
+}
+
+.background, .timer, .stats {
     flex-direction: column;
+}
+
+.background, .stats {
     justify-content: center;
+}
+
+.background, .stats, .row, .mid-row, .timer {
     align-items: center;
 }
 
@@ -23,18 +35,12 @@ img {
 }
 
 .row, .mid-row {
-    display: flex;
     justify-content: space-between;
-    align-items: center;
     width: 80%;
 }
 
-.row {
+.row, .deck img, .graveyardCards img {
     height: 17.86vh;
-}
-
-.carousel, .deck {
-    display: flex;
 }
 
 .carousel button img {
@@ -42,24 +48,34 @@ img {
 }
 
 .deck img {
-    height: 17.86vh;
+    transition: transform 0.3s ease;
+}
+
+.deck img:hover {
+    transform: translateY(-10px);
 }
 
 .stats {
     height: 100%;
     width: 17.86vh;
-    background-color: rgba(0, 0, 0, 0.7);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
     border-radius: 10%;
     font-size: 1.2rem;
 }
 
+.stats img {
+    height: 1.5em;
+}
+
+.timer, .stats, .graveyard {
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.mid-row {
+    justify-content: space-evenly;
+}
+
 .card-slot {
     height: 25vh;
-    display: flex;
 }
 
 .card-slot img {
@@ -71,11 +87,10 @@ img {
 }
 
 .last-card {
-    height: calc(50vh);
+    height: 50vh;
 }
 
 .graveyard {
-    background-color: rgba(0, 0, 0, 0.7);
     position: fixed;
     width: 75%;
     height: 75%;
@@ -85,7 +100,7 @@ img {
 }
 
 .graveyardCards {
-    display: flex;
+    flex-wrap: wrap;
 }
 
 .timer {
@@ -96,16 +111,11 @@ img {
     width: 20rem;
     height: 20rem;
     border-radius: 50%;
-    background-color: rgba(0, 0, 0, 0.7);
     padding: 1rem;
-    z-index: 1000;
-    display: flex;
-    flex-direction: column;
+    z-index: 9999;
     justify-content: end;
-    align-items: center;
     font-size: 1.4rem;
 }
-
 
 @media (max-width: 768px) {
     /* rotate */

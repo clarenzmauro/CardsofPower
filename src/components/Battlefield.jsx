@@ -4,8 +4,12 @@ import './Battlefield.css';
 
 import backCard from '../assets/cards/back-card.png';
 import graveyardCard from '../assets/cards/graveyard.png';
+import blankCard from '../assets/cards/blank.png';
 import leftBtn from '../assets/others/leftBtn.png';
 import rightBtn from '../assets/others/rightBtn.png';
+import heartIcon from '../assets/others/heart.png';
+import cardsIcon from '../assets/others/card.png';
+import boneIcon from '../assets/others/bone.png';
 
 // delete imports, get from firebase
 import card1 from '../assets/cards/Divine/AethersWrath.png';
@@ -26,23 +30,23 @@ import card13 from '../assets/cards/Light/LightbinderPaladin.png';
 import card14 from '../assets/cards/Light/LunarWolf.png';
 import card15 from '../assets/cards/Light/SolarGuardian.png';
 
-const opponentCards = [card1, backCard, card2, backCard, backCard];
-const opponentDeck = [backCard, backCard, backCard, backCard, backCard];
-const opponentGraveyard = [backCard, backCard, backCard, backCard, backCard];
-const myCards = [backCard, card3, backCard, card4, card5];
+const opponentCards = [blankCard, blankCard, blankCard, blankCard, blankCard];
+const opponentDeck = [backCard, backCard, backCard, backCard, backCard, backCard];
+const opponentGraveyard = [card2, card3, card5, card1, card2, card3, card5, card1, card2, card3, card5, card1, card2, card3, card5, card1];
+const myCards = [blankCard, blankCard, blankCard, blankCard, blankCard];
 const myDeck = [card6, card7, card8, card9, card10, card11, card12, card13, card14, card15];
 const myGraveyard = [backCard, backCard, backCard, backCard, backCard];
 
 // add logic
-let lastCard = card1;
-let turn = 6;
+let lastCard = blankCard;
+let turn = 1;
 
 // let opponentHp = 5000;
 // let myHp = 5000;
 
 function Timer() {
     return(
-        <div class="timer">
+        <div className="timer">
             <p>Turn {turn}</p>
             <p>30s</p>
         </div>
@@ -53,7 +57,6 @@ function Utilities({ username, deck, graveyard }) {
     const [isGraveyardVisible, setIsGraveyardVisible] = useState(false);
     const [currentIndex, setCurrentIndex] = useState(0);
     const cardsToShow = 6;
-    const blankCard = backCard; // temporary
 
     const toggleGraveyard = () => {
         setIsGraveyardVisible(!isGraveyardVisible);
@@ -79,14 +82,13 @@ function Utilities({ username, deck, graveyard }) {
             graveyardContent = (
                 <div className='graveyardCards'>
                     {graveyard.map((card, index) => (
-                        <img class='m-2' key={index} src={card} alt={`Graveyard Card ${index + 1}`} />
+                        <img className='m-1' key={index} src={card} alt={`Graveyard Card ${index + 1}`} />
                     ))}
                 </div>
             );
         }
     }
 
-    // Calculate how many blank cards are needed
     const visibleCards = deck.slice(currentIndex, currentIndex + cardsToShow);
     const blankCardCount = Math.max(0, cardsToShow - visibleCards.length);
 
@@ -94,8 +96,8 @@ function Utilities({ username, deck, graveyard }) {
         <>
             {isGraveyardVisible && (
                 <div className="graveyard">
-                    <button onClick={toggleGraveyard}>Close</button>
-                    <h2>{username}'s Graveyard</h2>
+                    <button className='float-end' onClick={toggleGraveyard}><img className='h-' src={boneIcon} alt="" /></button>
+                    <h2 className='text-center text-5xl mb-6'>{username}'s Graveyard</h2>
                     {graveyardContent}
                 </div>
             )}
@@ -123,9 +125,9 @@ function Utilities({ username, deck, graveyard }) {
                 </div>
 
                 <div className="stats">
-                    <p>{username}</p>
-                    <p>HP: 5000</p>
-                    <p>Cards: 10</p>
+                    <p className='text-2xl'>{username}</p>
+                    <p className='my-2'><img className='me-2' src={heartIcon} alt='' />HP: 5000</p>
+                    <p><img className='me-2' src={cardsIcon} alt='' />Cards: 10</p>
                 </div>
             </div>
         </>
