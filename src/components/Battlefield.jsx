@@ -45,9 +45,9 @@ function Battlefield() {
         const fetchAssets = async () => {
             try {
                 const [bgUrl, leftBtnUrl, rightBtnUrl] = await Promise.all([
-                    getDownloadURL(storageRef('assets/backgrounds/battlefield.jpg')),
-                    getDownloadURL(storageRef('assets/others/leftBtn.png')),
-                    getDownloadURL(storageRef('assets/others/rightBtn.png')),
+                    getDownloadURL(storageRef(storage, 'assets/backgrounds/battlefield.jpg')),
+                    getDownloadURL(storageRef(storage, 'assets/others/leftBtn.png')),
+                    getDownloadURL(storageRef(storage, 'assets/others/rightBtn.png')),
                 ]);
 
                 setBackground(bgUrl);
@@ -73,7 +73,7 @@ function Battlefield() {
                 ];
 
                 const urls = await Promise.all(
-                    cardPaths.map((path) => getDownloadURL(storageRef(path)))
+                    cardPaths.map((path) => getDownloadURL(storageRef(storage, path)))
                 );
 
                 setOpponentCards([urls[0], placeholderCard, urls[1], placeholderCard, placeholderCard]);
@@ -98,6 +98,7 @@ function Battlefield() {
             const unsubscribeGameState = onValue(gameStateRef, (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
+                    console.log('Game State Updated:', data);
                     setGameStage(data.gameStage);
                     setTimer(data.timer);
                     setCurrentRound(data.currentRound);
@@ -122,6 +123,7 @@ function Battlefield() {
                 if (playerCount === 2) {
                     if (playerId === 'player1') {
                         // Only player1 sets the gameStage and timer
+                        console.log('Both players have joined. Starting preparation stage.');
                         setGameStage('preparation');
                         setTimer(60);
                         updateGameState('gameStage', 'preparation');
@@ -300,49 +302,41 @@ function Battlefield() {
             {isRoomJoined && (
                 <>
                     <Timer gameStage={gameStage} timer={timer} currentRound={currentRound} totalRounds={totalRounds} />
+                    
                     {gameStage === 'waiting' && (
                         <WaitingForPlayer />
                     )}
+                    
                     {gameStage === 'preparation' && (
                         <PreparationStage />
                     )}
+                    
                     {gameStage === 'battle' && (
-                        <Utilities
-                            username={username}
-                            deck={playerId === 'player1' ? opponentCards : myCards}
-                            graveyard={playerId === 'player1' ? [] : []}
-                            leftBtn={leftButton}
-                            rightBtn={rightButton}
-                            currentRound={currentRound}
-                            totalRounds={totalRounds}
-                            roomId={roomId}
-                            playerId={playerId}
-                        />
+                        <>
+                            <Utilities
+                                username={username}
+                                deck={playerId === 'player1' ? opponentCards : myCards}
+                                graveyard={playerId === 'player1' ? [] : []}
+                                leftBtn={leftButton}
+                                rightBtn={rightButton} // Corrected
+                                currentRound={currentRound}
+                                totalRounds={totalRounds}
+                                roomId={roomId}
+                                playerId={playerId}
+                            />
+
+                            <div className='mid-row'>
+                                <div>
+                                    <CardSlots cards={playerId === 'player1' ? opponentCards : myCards} />
+                                    <CardSlots cards={playerId === 'player1' ? myCards : opponentCards} />
+                                </div>
+                                <img className='last-card' src={lastCard} alt="Last Card" />
+                            </div>
+                        </>
                     )}
+
                     {gameStage === 'finished' && (
                         <EndStage />
-                    )}
-
-                    <div className='mid-row'>
-                        <div>
-                            <CardSlots cards={playerId === 'player1' ? opponentCards : myCards} />
-                            <CardSlots cards={playerId === 'player1' ? myCards : opponentCards} />
-                        </div>
-                        <img className='last-card' src={lastCard} alt="Last Card" />
-                    </div>
-
-                    {gameStage === 'battle' && (
-                        <Utilities
-                            username={playerId === 'player1' ? 'player two' : 'player one'}
-                            deck={playerId === 'player1' ? myDeck : opponentCards}
-                            graveyard={playerId === 'player1' ? [] : []}
-                            leftBtn={leftButton}
-                            rightBtn={rightBtn}
-                            currentRound={currentRound}
-                            totalRounds={totalRounds}
-                            roomId={roomId}
-                            playerId={playerId}
-                        />
                     )}
                 </>
             )}
@@ -445,7 +439,7 @@ function Utilities({ username, deck, graveyard, leftBtn, rightBtn, currentRound,
                     </div>
 
                     <button onClick={handleNext} disabled={currentIndex + cardsToShow >= deck.length}>
-                        <img src={rightBtn} alt="Next" />
+                        <img src={rightBtn} alt="Next" /> {/* Corrected prop */}
                     </button>
                 </div>
 
