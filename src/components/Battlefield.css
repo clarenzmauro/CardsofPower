@@ -1,0 +1,112 @@
+@import url('https://fonts.googleapis.com/css2?family=Pirata+One&display=swap');
+
+* {
+    cursor: url('../assets/others/cursor.png'), auto;
+    color: white;
+    font-family: "Pirata One", system-ui;
+}
+
+.background {
+    background-image: url("../assets/backgrounds/battlefield.jpg");
+    background-size: cover;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+img {
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s;
+}
+
+.row, .mid-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 80%;
+}
+
+.row {
+    height: 17.86vh;
+}
+
+.carousel, .deck {
+    display: flex;
+}
+
+.carousel button img {
+    height: 3rem;
+}
+
+.deck img {
+    height: 17.86vh;
+}
+
+.stats {
+    height: 100%;
+    width: 17.86vh;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border-radius: 10%;
+    font-size: 1.2rem;
+}
+
+.card-slot {
+    height: 25vh;
+    display: flex;
+}
+
+.card-slot img {
+    margin-right: 0.5em;
+}
+
+.card-slot img:hover {
+    transform: scale(1.05);
+}
+
+.last-card {
+    height: calc(50vh);
+}
+
+.graveyard {
+    background-color: rgba(0, 0, 0, 0.7);
+    position: fixed;
+    width: 75%;
+    height: 75%;
+    padding: 2em;
+    border-radius: 3rem;
+    z-index: 9999;
+}
+
+.graveyardCards {
+    display: flex;
+}
+
+.timer {
+    position: fixed;
+    top: -14rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 20rem;
+    height: 20rem;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.7);
+    padding: 1rem;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    justify-content: end;
+    align-items: center;
+    font-size: 1.4rem;
+}
+
+
+@media (max-width: 768px) {
+    /* rotate */
+}
