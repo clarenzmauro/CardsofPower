@@ -238,6 +238,7 @@ function Battlefield() {
     const [leftButton, setLeftButton] = useState('');
     const [rightButton, setRightButton] = useState('');
     const [opponentCards, setOpponentCards] = useState([]);
+    const [opponentDeck, setOpponentDeck] = useState([]);
     const [myCards, setMyCards] = useState([]);
     const [myDeck, setMyDeck] = useState([]);
     const [lastCard, setLastCard] = useState(placeholderCard); // Default last card
@@ -303,10 +304,13 @@ function Battlefield() {
                 );
 
                 // Assuming the order corresponds to the card paths
-                setOpponentCards([urls[0], placeholderCard, urls[1], placeholderCard, placeholderCard]);
-                setMyCards([placeholderCard, urls[2], placeholderCard, urls[3], urls[4]]);
-                setMyDeck(urls.slice(5, 15));
-                setLastCard(urls[0]); // Set initial last card dynamically
+                setOpponentCards([urls[3],urls[1],urls[2],urls[5],urls[4]]);//opp card
+                setOpponentDeck([blankCardImage,blankCardImage,blankCardImage,blankCardImage,blankCardImage])//for database (opponent)
+
+                setMyCards([urls[0],urls[2],urls[9],urls[2]]);//player cards inventory
+                setMyDeck([blankCardImage,blankCardImage,urls[7],blankCardImage,urls[5]]);//for database
+            
+                setLastCard(urls[0],); // Set initial last card dynamically
             } catch (error) {
                 console.error('Error fetching Firebase assets:', error);
             }
@@ -677,7 +681,7 @@ function Battlefield() {
                                 key="opponent"
                                 isOpponent={true} // Indicates this Utilities is for the opponent
                                 username={opponentUsername || 'Opponent'} // Correct opponent username
-                                deck={playerId === 'player1' ? opponentCards : myCards}
+                                deck={playerId === 'player1' ? opponentDeck : myDeck}
                                 graveyard={opponentGraveyard}
                                 leftBtn={leftButton}
                                 rightBtn={rightButton}
@@ -691,8 +695,8 @@ function Battlefield() {
 
                             <div className='mid-row'>
                                 <div>
-                                    <CardSlots cards={playerId === 'player1' ? opponentCards : myCards} />
-                                    <CardSlots cards={playerId === 'player1' ? myCards : opponentCards} />
+                                    <CardSlots cards={playerId === 'player1' ? opponentDeck : myDeck} />
+                                    <CardSlots cards={playerId === 'player1' ? myDeck : opponentDeck} />
                                 </div>
                                 <img className='last-card' src={lastCard} alt="Last Card" />
                             </div>
