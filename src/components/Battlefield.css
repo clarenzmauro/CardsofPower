@@ -4,6 +4,7 @@
     cursor: url('../assets/others/cursor.png'), auto;
     color: white;
     font-family: "Pirata One", system-ui;
+    overflow: hidden;
 }
 
 .background {
