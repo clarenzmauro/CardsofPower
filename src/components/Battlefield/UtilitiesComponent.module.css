@@ -1,0 +1,168 @@
+
+/* UtilitiesComponent.module.css */
+
+.utilitiesRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px;
+    width: 100%;
+}
+
+.graveyardIcon {
+    width: 50px; /* Increased size */
+    height: 50px;
+    cursor: pointer;
+}
+
+.carousel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+}
+
+.navButton {
+    background: none;
+    border: none;
+    cursor: pointer;
+    width: 40px; /* Increased size */
+    height: 40px;
+    transition: transform 0.3s;
+}
+
+.navButton:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.navButton:hover:not(:disabled) {
+    transform: scale(1.2);
+}
+
+.deck {
+    display: flex;
+    gap: 15px;
+}
+
+.deckCard, .blankCard {
+    width: 150px; /* Increased size */
+    height: 225px;
+    object-fit: cover;
+    border: 2px solid #ccc;
+    border-radius: 10px;
+    transition: border-color 0.3s, transform 0.3s;
+}
+
+.deckCard:hover {
+    border-color: #007bff;
+    transform: scale(1.05);
+}
+
+.selected {
+    border-color: #28a745 !important;
+    transform: scale(1.1) !important;
+}
+
+.dimmed {
+    opacity: 0.6;
+}
+
+.stats {
+    text-align: right;
+}
+
+.username {
+    font-size: 1.5em; /* Increased size */
+    font-weight: bold;
+}
+
+.stat {
+    font-size: 1.3em; /* Increased size */
+    margin: 5px 0;
+}
+
+.icon {
+    width: 25px; /* Increased size */
+    height: 25px;
+    margin-right: 8px;
+}
+
+.graveyardOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.closeButton {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.graveyardTitle {
+    color: #fff;
+    font-size: 2em; /* Increased size */
+    margin-bottom: 20px;
+}
+
+.graveyardCards {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.graveyardCard {
+    width: 150px; /* Increased size */
+    height: 225px;
+    object-fit: cover;
+    border: 2px solid #fff;
+    border-radius: 10px;
+}
+
+.emptyMessage {
+    color: #ccc;
+    font-size: 1.5em; /* Increased size */
+}
+
+.battleActions {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 30px;
+}
+
+.actionButton, .actionButtonDisabled {
+    padding: 15px 30px;
+    font-size: 1.5em; /* Increased size */
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.actionButton {
+    background-color: #007bff;
+    color: white;
+}
+
+.actionButton:hover {
+    background-color: #0056b3;
+}
+
+.actionButtonDisabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}

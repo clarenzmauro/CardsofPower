@@ -1,9 +1,12 @@
-import "./InventoryPage.css"
+// InventoryPage.jsx
+import React from "react";
 
-function InventoryPage(){
-    return(
-        <h1>Inventory Page</h1>
-    );
+function InventoryPage() {
+  return (
+    <div>
+      <h1>Inventory Page</h1>
+    </div>
+  );
 }
 
-export default  InventoryPage;
+export default InventoryPage;

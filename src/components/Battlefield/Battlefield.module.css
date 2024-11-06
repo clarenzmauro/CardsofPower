@@ -1,0 +1,149 @@
+/* Battlefield.module.css */
+
+.background {
+    width: 100vw;
+    height: 100vh;
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Increase the size of the lobby */
+.lobby {
+    background-color: rgba(0, 0, 0, 0.7);
+    padding: 40px;
+    border-radius: 15px;
+    text-align: center;
+    max-width: 600px;
+    width: 90%;
+}
+
+.usernameInput, .roomIdInput {
+    width: 80%;
+    padding: 15px;
+    margin: 10px 0;
+    font-size: 1.2em;
+    border: none;
+    border-radius: 8px;
+    background-color: #2c2c2c; /* Dark background for readability */
+    color: #ffffff; /* White text */
+}
+
+.createRoomButton, .joinRoomButton {
+    padding: 15px 30px;
+    margin: 10px;
+    font-size: 1.2em;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    background-color: #28a745;
+    color: white;
+    transition: background-color 0.3s;
+}
+
+.createRoomButton:hover, .joinRoomButton:hover {
+    background-color: #218838;
+}
+
+/* Increase the size of other components as needed */
+.midRow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+
+.decksContainer {
+    display: flex;
+    gap: 50px; /* Increased gap */
+    margin-bottom: 30px;
+}
+
+.lastCardContainer {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.lastCard {
+    width: 150px; /* Increased size */
+    height: 225px;
+    object-fit: cover;
+}
+
+.readyButton {
+    margin-top: 30px;
+    padding: 15px 30px;
+    font-size: 1.3em;
+    border: none;
+    border-radius: 10px;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.readyButton:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+}
+
+.readyButton:not(:disabled):hover {
+    background-color: #0056b3;
+}
+
+.graveyardOverlay {
+    /* Adjust styles for graveyard overlay if needed */
+}
+
+.cardImage, .handCardImage, .graveyardCard, .deckCard, .lastCard {
+    /* Ensure all card images are larger */
+    width: 120px; /* Increased size */
+    height: 180px;
+    object-fit: cover;
+}
+
+/* Additional classes to handle larger elements */
+.handCards {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.handCard {
+    width: 120px; /* Increased size */
+    height: 180px;
+    border: 2px solid #ccc;
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.3s, transform 0.3s;
+}
+
+.handCard:hover {
+    border-color: #007bff;
+    transform: scale(1.05);
+}
+
+.selectedCard {
+    border-color: #28a745 !important;
+}
+
+.selected {
+    border-color: #ffc107 !important;
+}
+
+.readyStatus {
+    font-size: 1.2em;
+}
+
+.emptyHand {
+    font-style: italic;
+    color: #666;
+    font-size: 1.1em;
+}
