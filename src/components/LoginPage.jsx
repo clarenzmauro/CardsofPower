@@ -4,8 +4,9 @@
 // eslint-disable-next-line react/prop-types, no-unused-vars
 import React, { useState } from 'react';
 import { firestore } from './firebaseConfig';
-import { collection, query, where, getDocs, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, Timestamp, updateDoc, doc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from './UserContext';
 import './LoginPage.css';
 
 function LoginPage() {
@@ -34,6 +35,7 @@ function LoginForm({ onSwitch }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { setUser } =useUser();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -48,6 +50,11 @@ function LoginForm({ onSwitch }) {
       const querySnapshot = await getDocs(q);
 
       if(!querySnapshot.empty){
+        const userDoc = querySnapshot.docs[0];
+      const userDocId = userDoc.id;
+      
+      // Save to local storage
+      localStorage.setItem('user', JSON.stringify({ username, userDocId }));
         navigate('/home');
       }else{
         setError('Invalid username or password. Please try again.')
@@ -111,12 +118,31 @@ function SignupForm({ onSwitch }) {
     e.preventDefault();
     setError('');
 
-    if(password !== confirmPassword){
+    if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
     }
 
-    try{
+    try {
+      // Check for existing username
+      const usernameQuery = query(collection(firestore, 'users'), where('username', '==', username));
+      const usernameSnapshot = await getDocs(usernameQuery);
+
+      if (!usernameSnapshot.empty) {
+        setError('Username already exists');
+        return;
+      }
+
+      // Check for existing email
+      const emailQuery = query(collection(firestore, 'users'), where('email', '==', email));
+      const emailSnapshot = await getDocs(emailQuery);
+
+      if (!emailSnapshot.empty) {
+        setError('Email already exists');
+        return;
+      }
+
+      // Create new user if no duplicates found
       const newUser = {
         username,
         email,
@@ -127,22 +153,61 @@ function SignupForm({ onSwitch }) {
         gamesLost: 0,
         gamesWon: 0,
         goldCount: 300,
-        inventory: [],
-        currentCardCount: 0,
+        inventory: [], // This will be updated with card IDs
+        currentCardCount: 0, // This will be set to 10 after assigning cards
         highestCardCount: 0,
         cardsBought: 0,
         cardsSold: 0,
         cardsTraded: 0,
-        cardsCreated: 0
+        cardsCreated: 0,
       };
 
-      await addDoc(collection(firestore, 'users'), newUser);
-      navigate('/login');
-    }catch(err){
+      const userDocRef = await addDoc(collection(firestore, 'users'), newUser);
+
+      // Fetch and assign 10 random cards (6 monster, 2 spell, 2 trap) from "cards" collection
+      const cardIds = []; // Array to store chosen card IDs for user's inventory
+
+      const assignCards = async (cardType, count) => {
+        const cardQuery = query(
+          collection(firestore, 'cards'),
+          where('cardType', '==', cardType),
+          where('isOwned', '==', false)
+        );
+
+        const cardSnapshot = await getDocs(cardQuery);
+        const availableCards = cardSnapshot.docs.slice(0, count); // Get the first 'count' cards
+
+        const updateCardPromises = availableCards.map((cardDoc) => {
+          cardIds.push(cardDoc.id); // Add card ID to array for user's inventory
+
+          return updateDoc(doc(firestore, 'cards', cardDoc.id), {
+            isOwned: true,
+            currentOwnerId: userDocRef.id,
+            currentOwnerUsername: username,
+          });
+        });
+
+        await Promise.all(updateCardPromises);
+      };
+
+      // Assign cards by type
+      await assignCards('monster', 6);
+      await assignCards('spell', 2);
+      await assignCards('trap', 2);
+
+      // Update user with inventory and card count
+      await updateDoc(userDocRef, {
+        inventory: cardIds,
+        currentCardCount: 10,
+      });
+
+      navigate('/');
+    } catch (err) {
       console.error("Signup error:", err);
-      setError('An error occured during Signup. PLease try again later.');
+      setError('An error occurred during Signup. Please try again later.');
     }
   };
+
   return (
     <>
       <form onSubmit={handleSignup}>
@@ -163,7 +228,7 @@ function SignupForm({ onSwitch }) {
             onChange={(e) => setEmail(e.target.value)}
             required
           />
-        </div>  
+        </div>
 
         <div className="flex flex-wrap gap-1">
           <input
@@ -181,8 +246,8 @@ function SignupForm({ onSwitch }) {
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             required
-          />
-        </div>  
+          /> 
+        </div>
 
         {error && <p className="error" style={{ color: 'red' }}>{error}</p>}
         <button type="submit">Sign up</button>
