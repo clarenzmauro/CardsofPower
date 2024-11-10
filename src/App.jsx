@@ -13,7 +13,7 @@ function App() {
       <Routes>
         {/* Only use for actual implementation */ }
 
-        <Route path="/battlefield" element={<Battlefield />}/>
+        <Route path="/:userDocId/battlefield" element={<Battlefield />}/>
         <Route path="/" element={<LoginPage />}/> 
         <Route path="/:userDocId/home" element={<HomePage />}/> 
         <Route path="/:userDocId/inventory" element={<InventoryPage />}/>

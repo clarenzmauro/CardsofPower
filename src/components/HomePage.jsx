@@ -17,8 +17,8 @@ function HomePage() {
       <div className="overlay"></div>
 
       <div className='banners'>
-        <Link to="/battlefield"><img src={aiImage} alt="" /></Link>
-        <Link to="/battlefield"><img src={battleImage} alt="" /></Link>
+        <Link to={`/${userDocId}/battlefield`}><img src={aiImage} alt="" /></Link>
+        <Link to={`/${userDocId}/battlefield`}><img src={battleImage} alt="" /></Link>
         <Link to="/shop"><img src={shopImage} alt="" /></Link>
       </div>
 
