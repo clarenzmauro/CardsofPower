@@ -4,9 +4,9 @@
 // eslint-disable-next-line react/prop-types, no-unused-vars
 import React, { useState } from 'react';
 import { firestore } from './firebaseConfig';
-import { collection, query, where, getDocs, addDoc, Timestamp, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { useUser } from './UserContext';
+import loginBackground from '../assets/backgrounds/login.jpg';
 import './LoginPage.css';
 
 function LoginPage() {
@@ -17,7 +17,7 @@ function LoginPage() {
   };
 
   return (
-    <main>
+    <main style={{ backgroundImage: `url(${loginBackground})` }}>
       <section className='pirata-font sm:p-2 lg:p-6'>
         <h1 className='sm:text-4xl lg:text-5xl text-amber-950 uppercase'>{ currentSection }</h1>
 
@@ -29,13 +29,11 @@ function LoginPage() {
   );
 }
 
-
 function LoginForm({ onSwitch }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { setUser } =useUser();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -49,19 +47,19 @@ function LoginForm({ onSwitch }) {
       );
       const querySnapshot = await getDocs(q);
 
-      if(!querySnapshot.empty){
+      if (!querySnapshot.empty) {
         const userDoc = querySnapshot.docs[0];
-      const userDocId = userDoc.id;
-      
-      // Save to local storage
-      localStorage.setItem('user', JSON.stringify({ username, userDocId }));
-        navigate('/home');
-      }else{
-        setError('Invalid username or password. Please try again.')
+        const userDocId = userDoc.id; // Get the user's document ID
+
+        // Navigate to home with the document ID in the URL
+        navigate(`/${userDocId}/home`);
+        // navigate(`/home`);
+      } else {
+        setError('Invalid username or password. Please try again.');
       }
-    } catch (err){
+    } catch (err) {
       console.error("Login error:", err);
-      setError('An error occured. Please try again later');
+      setError('An error occurred. Please try again later.');
     }
   };
 
@@ -103,7 +101,7 @@ function ForgotPasswordForm({ onSwitch }) {
 
       <p>Don't have an account yet? <a onClick={() => onSwitch('sign up')}>Sign up</a></p>
     </>
-  )
+  );
 }
 
 function SignupForm({ onSwitch }) {
