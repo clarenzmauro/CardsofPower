@@ -1,7 +1,3 @@
-// InventoryPage.jsx
-
-//FOR JETT MARK
-
 //card.imageUrl = link of images
 //card.cardName = cardName
 //card.id = documentId
@@ -13,6 +9,11 @@ import { storage, firestore } from './firebaseConfig';
 import { ref as storageRef, getDownloadURL } from 'firebase/storage';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 
+import inventoryBg from '../assets/backgrounds/inventory.jpg';
+import './InventoryPage.css'
+
+// Change:
+import placeholderCard from '../assets/cards/Divine/Ixchel.png';
 
 function InventoryPage() {
   const { userDocId } = useParams();
@@ -54,17 +55,58 @@ function InventoryPage() {
   }, [userDocId]);
 
   return (
-    <div>
-      <h1>Inventory Page</h1>
-      <div>
-        {inventoryCards.map((card) => (
-          <div key={card.id}>
-            <img src={card.imageUrl} alt={card.cardName || "Card Image"} />
-            <p>{card.cardName}</p>
+    <main id="inventory" style={{ backgroundImage: `url(${inventoryBg})` }} className="sm:px-12 lg:px-24">
+      <div className="overlay"></div>
+
+      <div className="wrapper sm:pt-4 lg:pt-8">
+        <div className="cards">
+          {inventoryCards.map((card) => (
+            <div key={card.id} className="card sm:me-2 lg:me-4 mb-4 flex flex-col justify-between">
+              <img src={card.imageUrl} alt={card.cardName || "Card Image"} />
+
+                <div>
+                  <p className="sm:text-sm lg:text-xl">{card.cardName}</p>
+                  <p className="mb-2 sm:text-sm lg:text-xl">Card ID</p>
+                </div>
+
+                <div className="stats sm:text-xs lg:text-base">
+                  <div>
+                    <p className="text-start">Matches: 30</p>
+                    <p>Win Rate: 50%</p>
+                  </div>
+
+                  <div>
+                    <p>$99</p>
+                    {/* positive & negative color styling*/}
+                    {/* <p className="text-green-400">+25%</p> */}
+                    <p className="text-red-600">-15%</p>
+                  </div>
+                </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="lastCard sm:ms-2 lg:ms-4">
+          <h1 className="sm:text-4xl lg:text-6xl">Inventory</h1>
+
+          <img className="sm:w-4/5 lg:w-full mx-auto sm:my-2 lg:my-4" src={ placeholderCard } alt="" />
+
+          <div className="stats sm:text-sm lg:text-2xl flex justify-between sm:w-4/5 lg:w-full mx-auto">
+            <div>
+              <p className="text-start">Matches: 30</p>
+              <p>Win Rate: 50%</p>
+            </div>
+
+            <div>
+              <p>$99</p>
+              {/* positive & negative */}
+              {/* <p className="text-green-400">+25%</p> */}
+              <p className="text-red-600">-15%</p>
+            </div>
           </div>
-        ))}
+        </div>
       </div>
-    </div>
+    </main>
   );
 }
 
