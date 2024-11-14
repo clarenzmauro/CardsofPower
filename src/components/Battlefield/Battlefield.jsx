@@ -337,6 +337,50 @@ const handleSpellUsage = useCallback(async (spellCard) => {
     }
 }, [gameStage, isActiveTurnFlag, roomId, playerId, firestore]);
 
+
+const handleCardUseEffect = useCallback(() => {
+    // Debugging: Log the current selectedCard
+    console.log('Checking card effect for selectedCard:', selectedCard);
+
+    // Check if selectedCard and its nested properties are defined
+    if (!selectedCard || !selectedCard.card || !selectedCard.card.cardType) {
+        toast.error('No valid card selected.');
+        console.error('Selected card is invalid:', selectedCard);
+        return;
+    }
+
+    // Determine effect based on card type
+    const { cardType, cardName } = selectedCard.card;
+
+    switch (cardType) {
+        case 'monster':
+            // Handle monster card effect (e.g., prepare for attack)
+            toast.info(`${cardName} is ready to attack or defend.`);
+            console.log(`Monster card ${cardName} effect triggered.`);
+            break;
+
+        case 'spell':
+            // Handle spell card effect (e.g., boost attack, heal, etc.)
+            toast.info(`Activating Spell Card: ${cardName}!`);
+            console.log(`Spell card ${cardName} effect activated.`);
+            // Add specific spell effect logic here
+            break;
+
+        case 'trap':
+            // Handle trap card effect (e.g., defensive counter)
+            toast.info(`Trap Card ${cardName} Ready!.`);
+            console.log(`Trap card ${cardName} effect set.`);
+            // Add specific trap effect logic here
+            break;
+
+        default:
+            // Handle unknown or unsupported card types
+            toast.warn(`Unknown card type: ${cardType}.`);
+            console.error(`Unsupported card type: ${cardType}`);
+            break;
+    }
+}, [selectedCard]);
+
 // Handle Attack Initiation
 const handleAttackInitiation = useCallback(async () => {
     // Debugging: Log the current selectedCard
@@ -1016,21 +1060,21 @@ const handlePreparationSlotClick = useCallback(async (index) => {
  * Manages attack source selection without invoking card removal.
  */
 const handleBattleSlotClick = useCallback(async (index) => {
-    // **Added Check: Ensure it's the player's turn**
-    if (!isActiveTurnFlag) {
-        toast.warn("It's not your turn!");
-        return;
-    }
-
     const slot = myDeck[index];
-    if (slot && slot.id && slot.cardType === 'monster') { // Assuming only Monster cards can attack
-        // **Position Check: Only 'attack' position cards can be used to attack**
-        if (slot.position !== 'attack') {
-            toast.warn('Only cards in Attack position can be used to attack.');
-            console.warn(`Attempted to select a card in Defense position at index ${index}.`);
-            return;
-        }
+    if (slot && slot.id && (slot.cardType === 'spell' || slot.cardType === 'trap')) { 
+        toast.warn(`You cannot attack with a ${slot.cardType} card. You can use it.`);
+        console.warn(`Attempted to select a ${slot.cardType} card at index ${index}.`);
+        
+        // Set action as "Use" for spell/trap cards
+        setSelectedCard({
+            card: slot,
+            index,
+            action: 'Use'  // Action is "Use" for spell or trap cards
+        });
 
+        toast.info(`Selected ${slot.cardName} to use.`);
+        console.log(`Selected ${slot.cardName} to use.`);
+    } else if (slot && slot.cardType === 'monster') { 
         try {
             const cardId = slot.id;
             const cardDocRef = doc(firestore, 'cards', cardId);
@@ -1051,21 +1095,23 @@ const handleBattleSlotClick = useCallback(async (index) => {
                 return;
             }
 
-            setAttackSourceCard({
-                ...slot,
-                attackPts
+            // Set action as "Attack" for monster cards
+            setSelectedCard({
+                card: slot,
+                index,
+                source: attackPts,  // Attack points
+                action: 'Effect'  // Action is "Effect" for monster cards
             });
 
-            toast.info(`Selected ${slot.cardName} to attack with (Attack Points: ${attackPts}). Choose an opponent's card to attack.`);
-            console.log(`Selected ${slot.cardName} to attack with (Attack Points: ${attackPts}).`);
+            toast.info(`Selected ${slot.cardName} Attack Points: ${attackPts}`);
+            console.log(`Selected ${slot.cardName} Attack Points: ${attackPts}`);
+        
         } catch (error) {
-            console.error('Error fetching attackPts:', error);
+            console.error('Error fetching card data:', error);
             toast.error('Failed to fetch attack points for the selected card.');
         }
-    } else {
-        toast.warn('Please select a valid Monster card in Attack position to attack with.');
     }
-}, [myDeck, firestore, roomId, playerId, isActiveTurnFlag]);
+}, [myDeck, firestore, setSelectedCard]);
 
 // **New Function: Handle Battle Phase Card Placement**
 const handleBattleCardPlacement = useCallback(async (index) => {
@@ -1921,11 +1967,11 @@ return (
                             </button>
                             <button
                                 className={isActiveTurnFlag ? styles.actionButton : styles.actionButtonDisabled}
-                                onClick={isActiveTurnFlag ? switchTurn : undefined}
+                                onClick={isActiveTurnFlag ? handleCardUseEffect : undefined}
                                 disabled={!isActiveTurnFlag}
-                                aria-label="End Turn"
+                                aria-label={selectedCard?.card?.cardType === 'monster' ? "Use Effect" :  "Use Card"}
                             >
-                                End Turn
+                                {selectedCard?.card?.cardType === 'monster' ? "Use Effect" :  "Use Card"}
                             </button>
                             <button
                                 className={isActiveTurnFlag ? styles.actionButton : styles.actionButtonDisabled}
