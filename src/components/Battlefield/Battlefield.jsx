@@ -492,154 +492,133 @@ function Battlefield() {
     }, [selectedCard, firestore]);
 
     // Handle Target Selection for Attack
-    const handleTargetSelection = useCallback(async (targetIndex) => {
-        if (!attackSourceCard) {
-            toast.warn('No attack source selected.');
-            return;
-        }
+const handleTargetSelection = useCallback(async (targetIndex) => {
+    if (!attackSourceCard) {
+        toast.warn('No attack source selected.');
+        return;
+    }
 
-        // Ensure it's still the player's turn
-        if (!isActiveTurnFlag) {
-            toast.warn("It's not your turn!");
-            return;
-        }
+    // Ensure it's still the player's turn
+    if (!isActiveTurnFlag) {
+        toast.warn("It's not your turn!");
+        return;
+    }
 
-        const targetCard = opponentDeck[targetIndex];
-        if (!targetCard || !targetCard.id) {
-            // Direct attack
-            const damage = attackSourceCard.attackPts; // Use fetched attackPts
-            try {
-                await runTransaction(firestore, async (transaction) => {
-                    const roomDocRef = doc(firestore, 'rooms', roomId);
-                    const roomDoc = await transaction.get(roomDocRef);
-                    if (!roomDoc.exists()) {
-                        throw new Error('Room does not exist!');
-                    }
-
-                    const currentOpponentHP = roomDoc.data().hp[opponentId] || 5000;
-                    const newOpponentHP = currentOpponentHP - damage;
-                    transaction.update(roomDocRef, {
-                        [`hp.${opponentId}`]: Math.max(newOpponentHP, 0)
-                    });
-                });
-
-                toast.success(`Direct attack! Dealt ${damage} damage to ${opponentUsername}.`);
-                console.log(`Direct attack! Dealt ${damage} damage to ${opponentUsername}.`);
-            } catch (error) {
-                console.error('Error performing direct attack:', error);
-                toast.error('Failed to perform attack.');
-            }
-        } else {
-            // **Position Check: Only 'attack' position cards can be targeted**
-            if (targetCard.position !== 'attack') {
-                toast.warn('You cannot attack a card in Defense position.');
-                console.warn(`Attempted to attack a card in Defense position at index ${targetIndex}.`);
-                return;
-            }
-
-            // Attack the target card
-            const damage = attackSourceCard.attackPts; // Use fetched attackPts
-            const targetDefense = targetCard.position === 'defense' ? 5 : 0; // Example: defense reduces damage
-            const actualDamage = Math.max(damage - targetDefense, 0);
-
-            if (actualDamage > 0) {
-                try {
-                    await runTransaction(firestore, async (transaction) => {
-                        // Read roomDocRef and targetDocRef first
-                        const roomDocRef = doc(firestore, 'rooms', roomId);
-                        const roomDoc = await transaction.get(roomDocRef);
-                        if (!roomDoc.exists()) {
-                            throw new Error('Room does not exist!');
-                        }
-
-                        const targetDocRef = doc(firestore, 'rooms', roomId, 'players', opponentId, 'deck', targetIndex.toString());
-                        const targetDoc = await transaction.get(targetDocRef);
-                        if (!targetDoc.exists()) {
-                            throw new Error('Target card does not exist.');
-                        }
-
-                        const targetCardData = targetDoc.data();
-                        const currentTargetHP = targetCardData.hp || 20;
-                        const newTargetHP = currentTargetHP - actualDamage;
-
-                        if (newTargetHP <= 0) {
-                            // Move to graveyard
-                            const graveyardRef = collection(firestore, 'rooms', roomId, 'players', opponentId, 'graveyard');
-                            await addDoc(graveyardRef, { ...targetCardData });
-                            // Remove the card from deck and clear its data including 'id'
-                            transaction.update(targetDocRef, {
-                                id: null, // Clear the 'id' field
-                                imageUrl: blankCardImage,
-                                cardType: null,
-                                cardName: '',
-                                position: 'attack',
-                                hp: null
-                            });
-
-                            // **Damage to Opponent's HP based on cardLevel**
-                            const cardLevel = cards.find(c => c.id === targetCardData.id)?.cardLevel || 0;
-                            if (cardLevel > 0) {
-                                const damageToOpponent = 200 * cardLevel;
-                                const currentOpponentHP = roomDoc.data().hp[opponentId] || 5000;
-                                const newOpponentHP = currentOpponentHP - damageToOpponent;
-                                transaction.update(roomDocRef, {
-                                    [`hp.${opponentId}`]: Math.max(newOpponentHP, 0)
-                                });
-                                // **Note:** Toasts should not be called inside transactions
-                                console.log(`Card destroyed. Opponent loses ${damageToOpponent} HP.`);
-                            } else {
-                                // No damage applied for Spell/Trap cards
-                                console.log(`Card destroyed (Spell/Trap). No damage applied to opponent.`);
-                            }
-                        } else {
-                            transaction.update(targetDocRef, { hp: newTargetHP });
-                            // Toasts should not be called inside transactions
-                        }
-                    });
-
-                    // Update local opponentDeck
-                    setOpponentDeck(prevDeck => {
-                        const updatedDeck = [...prevDeck];
-                        if (updatedDeck[targetIndex]) {
-                            if ((updatedDeck[targetIndex].hp || 20) - actualDamage <= 0) {
-                                updatedDeck[targetIndex] = {
-                                    id: null, // Clear the 'id'
-                                    imageUrl: blankCardImage,
-                                    cardType: null,
-                                    cardName: '',
-                                    position: 'attack',
-                                    hp: null
-                                };
-                            } else {
-                                updatedDeck[targetIndex].hp = (updatedDeck[targetIndex].hp || 20) - actualDamage;
-                            }
-                        }
-                        return updatedDeck;
-                    });
-
-                    // **Fetch cardLevel for toast message**
-                    const destroyedCardLevel = cards.find(c => c.id === targetCard.id)?.cardLevel || 0;
-                    if (destroyedCardLevel > 0) {
-                        const damageToOpponent = 200 * destroyedCardLevel;
-                        toast.success(`${opponentUsername}'s ${opponentDeck[targetIndex].cardName} was destroyed! Opponent loses ${damageToOpponent} HP.`);
-                    } else {
-                        toast.info(`${opponentUsername}'s ${opponentDeck[targetIndex].cardName} was destroyed! No damage dealt.`);
-                    }
-                } catch (error) {
-                    console.error('Error attacking target card:', error);
-                    toast.error('Failed to attack target card.');
+    const targetCard = opponentDeck[targetIndex];
+    if (!targetCard || !targetCard.id) {
+        // Direct attack
+        const damage = attackSourceCard.atkPts; // Use fetched attackPts
+        try {
+            await runTransaction(firestore, async (transaction) => {
+                const roomDocRef = doc(firestore, 'rooms', roomId);
+                const roomDoc = await transaction.get(roomDocRef);
+                if (!roomDoc.exists()) {
+                    throw new Error('Room does not exist!');
                 }
-            } else {
-                toast.info('Attack was not strong enough to damage the target.');
-            }
+
+                const currentOpponentHP = roomDoc.data().hp[opponentId] || 5000;
+                const newOpponentHP = currentOpponentHP - damage;
+                transaction.update(roomDocRef, {
+                    [`hp.${opponentId}`]: Math.max(newOpponentHP, 0)
+                });
+            });
+
+            toast.success(`Direct attack! Dealt ${damage} damage to ${opponentUsername}.`);
+            console.log(`Direct attack! Dealt ${damage} damage to ${opponentUsername}.`);
+        } catch (error) {
+            console.error('Error performing direct attack:', error);
+            toast.error('Failed to perform attack.');
+        }
+    } else {
+        // **Position Check: Only 'attack' position cards can be targeted**
+        if (targetCard.position !== 'attack') {
+            toast.warn('You cannot attack a card in Defense position.');
+            console.warn(`Attempted to attack a card in Defense position at index ${targetIndex}.`);
+            return;
         }
 
-        // After attack, switch turn
-        await switchTurn();
+        // Retrieve inGameDefPts of the target card
+        const targetCardData = cards.find(c => c.id === targetCard.id);
+        if (!targetCardData) {
+            toast.error('Target card data not found.');
+            return;
+        }
+        
+        const inGameDefPts = targetCardData.inGameDefPts || 0; // Fetch inGameDefPts
+        const damage = attackSourceCard.attackPts; // Use fetched attackPts
 
-        // Reset attackSourceCard
-        setAttackSourceCard(null);
-    }, [attackSourceCard, opponentDeck, firestore, roomId, opponentId, opponentUsername, switchTurn, cards, isActiveTurnFlag]);
+        // Calculate newHp based on inGameDefPts and attackPts
+        const newHp = inGameDefPts - damage;
+
+        try {
+            await runTransaction(firestore, async (transaction) => {
+                // Read roomDocRef and targetDocRef first
+                const roomDocRef = doc(firestore, 'rooms', roomId);
+                const roomDoc = await transaction.get(roomDocRef);
+                if (!roomDoc.exists()) {
+                    throw new Error('Room does not exist!');
+                }
+
+                const targetDocRef = doc(firestore, 'rooms', roomId, 'players', opponentId, 'deck', targetIndex.toString());
+                const targetDoc = await transaction.get(targetDocRef);
+                if (!targetDoc.exists()) {
+                    throw new Error('Target card does not exist.');
+                }
+
+                // Update inGameDefPts in the database
+                transaction.update(targetDocRef, { inGameDefPts: Math.max(newHp, 0) });
+
+                // Additional logic if newHp <= 0 to destroy card
+                if (newHp <= 0) {
+                    const graveyardRef = collection(firestore, 'rooms', roomId, 'players', opponentId, 'graveyard');
+                    await addDoc(graveyardRef, { ...targetCardData });
+                    transaction.update(targetDocRef, {
+                        id: null,
+                        imageUrl: blankCardImage,
+                        cardType: null,
+                        cardName: '',
+                        position: 'attack',
+                        hp: null,
+                        inGameDefPts: null
+                    });
+                    console.log(`Card destroyed. Opponent's card moved to graveyard.`);
+                }
+            });
+
+            // Update local opponentDeck
+            setOpponentDeck(prevDeck => {
+                const updatedDeck = [...prevDeck];
+                if (updatedDeck[targetIndex]) {
+                    updatedDeck[targetIndex].inGameDefPts = Math.max(newHp, 0);
+                    if (newHp <= 0) {
+                        updatedDeck[targetIndex] = {
+                            id: null,
+                            imageUrl: blankCardImage,
+                            cardType: null,
+                            cardName: '',
+                            position: 'attack',
+                            hp: null,
+                            inGameDefPts: null
+                        };
+                    }
+                }
+                return updatedDeck;
+            });
+
+            toast.success(`${opponentUsername}'s ${opponentDeck[targetIndex].cardName} now has ${Math.max(newHp, 0)} defense points.`);
+        } catch (error) {
+            console.error('Error attacking target card:', error);
+            toast.error('Failed to attack target card.');
+        }
+    }
+
+    // After attack, switch turn
+    await switchTurn();
+
+    // Reset attackSourceCard
+    setAttackSourceCard(null);
+}, [attackSourceCard, opponentDeck, firestore, roomId, opponentId, opponentUsername, switchTurn, cards, isActiveTurnFlag]);
+
 
     // Handle Defend Action
     const handleDefend = useCallback(async () => {
@@ -722,7 +701,7 @@ function Battlefield() {
                 imageUrl: card.imageUrl,
                 cardType: card.cardType,
                 cardName: card.cardName,
-                hp: card.hp || 20
+                hp: card.hp|| 20
             });
 
             // Update local state
