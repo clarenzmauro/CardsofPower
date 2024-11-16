@@ -1,0 +1,150 @@
+import React, { useState, useEffect } from "react";
+import { Link, useParams } from "react-router-dom";
+import { collection, getDocs, updateDoc, doc, getDoc, arrayRemove, arrayUnion, deleteDoc } from "firebase/firestore";
+import { firestore } from "./firebaseConfig";
+import ShopPageContext from "./ShopPageContext"; // Ensure you're importing the right component
+import "./ShopPage.css";
+
+const ShopPage = () => {
+    const [shopItems, setShopItems] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const { userDocId } = useParams(); // Get the buyer's userDocId from the URL
+
+    useEffect(() => {
+        const fetchShopItems = async () => {
+            setIsLoading(true);
+            setError(null);
+
+            try {
+                const shopCollectionRef = collection(firestore, "shop");
+                const snapshot = await getDocs(shopCollectionRef);
+                const items = snapshot.docs.map((doc) => {
+                    const data = doc.data();
+                    return {
+                        id: doc.id,
+                        ...data,
+                    };
+                });
+                setShopItems(items);
+            } catch (err) {
+                console.error("Error fetching shop items:", err);
+                setError("An error occurred while loading the shop.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchShopItems();
+    }, []);
+
+    const handlePurchase = async (item) => {
+        const buyerRef = doc(firestore, "users", userDocId);  // Buyer reference
+        const sellerRef = doc(firestore, "users", item.sellerId);  // Seller reference
+        const cardRef = doc(firestore, "cards", item.sellingCardId);  // Card reference
+        const shopItemRef = doc(firestore, "shop", item.id);  // Shop item reference
+    
+        try {
+            // Fetch buyer and seller data
+            const buyerDoc = await getDoc(buyerRef);
+            const buyerData = buyerDoc.data();
+            const buyerGold = buyerData.goldCount;
+            const buyerInventory = buyerData.inventory;
+            const buyerCurrentCardCount = buyerData.currentCardCount;
+            const buyerHighestCardCount = buyerData.highestCardCount;
+    
+            const sellerDoc = await getDoc(sellerRef);
+            const sellerData = sellerDoc.data();
+            const sellerGold = sellerData.goldCount;
+            const sellerInventory = sellerData.inventory;
+            const sellerCurrentCardCount = sellerData.currentCardCount;
+    
+            // Check if buyer has enough gold
+            if (buyerGold >= item.sellingPrice) {
+                // Proceed with the transaction
+                const newBuyerGold = buyerGold - item.sellingPrice;
+                const newSellerGold = sellerGold + item.sellingPrice;
+    
+                // Update seller's inventory (remove the item)
+                await updateDoc(sellerRef, {
+                    goldCount: newSellerGold,
+                    inventory: arrayRemove(item.sellingCardId),  // Remove from seller's inventory
+                    currentCardCount: sellerCurrentCardCount - 1  // Decrease seller's card count by 1
+                });
+    
+                // Update buyer's inventory (add the item)
+                await updateDoc(buyerRef, {
+                    cardsBought: (item.cardsBought || 0) + 1,
+                    goldCount: newBuyerGold,
+                    inventory: arrayUnion(item.sellingCardId),  // Add to buyer's inventory
+                    currentCardCount: buyerCurrentCardCount + 1  // Increase buyer's card count by 1
+                });
+    
+                // Update the card details in the cards collection
+                await updateDoc(cardRef, {
+                    marketCount: (item.marketCount || 0) + 1,
+                    passCount: (item.passCount || 0) + 1,  // Increment passCount
+                    currentOwnerUsername: buyerData.username,  // Update current owner username
+                    currentOwnerId: userDocId,  // Update current owner ID
+                    boughtFor: item.sellingPrice  // Set the price at which the card was bought
+                });
+    
+                // Check if buyer's currentCardCount exceeds highestCardCount
+                if (buyerCurrentCardCount + 1 > buyerHighestCardCount) {
+                    await updateDoc(buyerRef, {
+                        highestCardCount: buyerCurrentCardCount + 1  // Update highestCardCount if needed
+                    });
+                }
+    
+                // Delete the item from the shop collection after the purchase
+                await deleteDoc(shopItemRef);
+    
+                alert(`You successfully bought ${item.sellingCardName}!`);
+            } else {
+                alert("You do not have enough gold to make this purchase.");
+            }
+        } catch (err) {
+            console.error("Error during purchase:", err);
+            alert("An error occurred while processing the transaction.");
+        }
+    };
+    
+
+    if (isLoading) {
+        return <p>Loading shop items...</p>;
+    }
+
+    if (error) {
+        return <p className="error">{error}</p>;
+    }
+
+    return (
+        <div className="shop-page">
+            <header className="header">
+                <nav className="nav-tabs">
+                    <Link to={`/${userDocId}/shop`}><div className="tab">Shop</div></Link>
+                    <Link to={`/${userDocId}/trades`}><div className="tab">Trades</div></Link>
+                    <Link to={`/${userDocId}/shop/listing`}><div className="tab">Listing</div></Link>
+                </nav>
+            </header>
+            <div className="shop-grid">
+                {shopItems.map((item) => {
+                    return (
+                        <ShopPageContext
+                            key={item.id}
+                            asset={{
+                                imageUrl: item.sellingCardUrl || "default_image_url.png", // Fallback URL
+                                cardName: item.sellingCardName || "Unnamed Card", // Fallback name
+                            }}
+                            sellerName={item.sellerName || "Unknown Seller"}
+                            buttonText={`$${item.sellingPrice || 0}`}
+                            onButtonClick={() => handlePurchase(item)} // Pass the item for purchase
+                        />
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
+export default ShopPage;

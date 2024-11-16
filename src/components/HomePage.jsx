@@ -19,7 +19,7 @@ function HomePage() {
       <div className='banners'>
         <Link to={`/${userDocId}/workshop`}><img src={workshopImage} alt="" /></Link>
         <Link to={`/${userDocId}/battlefield`}><img src={battleImage} alt="" /></Link>
-        <Link to={`/${userDocId}/shop/listing`}><img src={shopImage} alt="" /></Link>
+        <Link to={`/${userDocId}/shop`}><img src={shopImage} alt="" /></Link>
       </div>
 
       <div className='links text-white text-xl'>

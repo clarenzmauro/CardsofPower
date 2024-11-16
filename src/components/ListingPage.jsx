@@ -8,6 +8,7 @@ import {
     query,
     where,
     addDoc,
+    updateDoc,
 } from "firebase/firestore";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import { firestore } from "./firebaseConfig";
@@ -157,7 +158,23 @@ const ListingPage = () => {
     
             // Add the document to Firestore
             await addDoc(shopCollectionRef, newShopItem);
+            
+            const cardRef = doc(firestore, "cards", selectedCard.id);
+            await updateDoc(cardRef, {
+                marketCount: (selectedCard.marketCount || 0) + 1,
+            });
+
+            const sellerRef = doc(firestore, "users", userDocId);
+            const userDocSnapForSeller = await getDoc(sellerRef); // Re-fetch seller data to get current cardsListed
     
+            if (userDocSnapForSeller.exists()) {
+                const userData = userDocSnapForSeller.data();
+                const currentCardsListed = userData.cardsListed || 0;
+                await updateDoc(sellerRef, {
+                    cardsListed: currentCardsListed + 1, // Increment the cardsListed field
+                });
+            }
+
             // Notify success
             alert("Card posted successfully!");
         } catch (err) {
@@ -248,7 +265,22 @@ const ListingPage = () => {
             // Add to trades collection in Firestore
             const tradesCollectionRef = collection(firestore, "trades");
             await addDoc(tradesCollectionRef, tradeData);
+            
+            const cardRef = doc(firestore, "cards", selectedCard.id);
+            await updateDoc(cardRef, {
+                marketCount: (selectedCard.marketCount || 0) + 1,
+            });
+
+            const sellerRef = doc(firestore, "users", userDocId);
+            const userDocSnapForSeller = await getDoc(sellerRef); // Re-fetch seller data to get current cardsListed
     
+            if (userDocSnapForSeller.exists()) {
+                const userData = userDocSnapForSeller.data();
+                const currentCardsListed = userData.cardsListed || 0;
+                await updateDoc(sellerRef, {
+                    cardsListed: currentCardsListed + 1, // Increment the cardsListed field
+                });
+            }
             // Notify success
             alert("Trade posted successfully!");
             setSelectedCard(null);
