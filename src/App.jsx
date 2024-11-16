@@ -3,6 +3,7 @@ import LoginPage from "./components/LoginPage.jsx";
 import HomePage from "./components/HomePage.jsx";
 import InventoryPage from "./components/InventoryPage.jsx";
 import DictionaryPage from "./components/DictionaryPage.jsx";
+import ListingPage from "./components/ListingPage.jsx";
 import { CardsContext, CardsProvider } from "./components/Battlefield/CardsContext.jsx";
 import './styles/global.css';
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
@@ -19,6 +20,7 @@ function App() {
         <Route path="/:userDocId/home" element={<HomePage />}/> 
         <Route path="/:userDocId/inventory" element={<InventoryPage />}/>
         <Route path="/:userDocId/dictionary" element={<DictionaryPage />}/>
+        <Route path="/:userDocId/shop/listing" element={<ListingPage />}/>
         {/* Only use for testing implementation */}
         {/* <Route path="/" element={<Battlefield />}/> */}
       </Routes>

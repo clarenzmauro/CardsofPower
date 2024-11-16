@@ -408,7 +408,11 @@ function Battlefield() {
     
         switch (cardType) {
             case 'monster':
-                // Handle monster card effect (e.g., prepare for attack)
+
+                if (cardName === 'Stone Sentinel' )
+                    toast.info(`You picked Stone Sentinel bitch`);
+                else if (cardName === '')
+                console.log(`Monster card ${cardName} effect triggered.`);
                 toast.info(`${cardName} is ready to attack or defend.`);
                 console.log(`Monster card ${cardName} effect triggered.`);
                 break;
