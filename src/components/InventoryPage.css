@@ -1,4 +1,11 @@
-#inventory, #dictionary {
+body{
+    overflow: hidden;
+}
+
+main{
+    overflow: hidden;
+}
+#inventory {
     background-size: cover;
     height: 100vh;
     width: 100vw;
