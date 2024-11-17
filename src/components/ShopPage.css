@@ -1,3 +1,6 @@
+body{
+    overflow: visible;
+}
 .shop-page {
     display: flex;
     flex-direction: column;

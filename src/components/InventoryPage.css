@@ -1,3 +1,7 @@
+body{
+    overflow: hidden;
+}
+
 main{
     overflow: hidden;
 }
@@ -44,6 +48,7 @@ main{
     }
 }
 
+
 ::-webkit-scrollbar {
     width: 6px;
 }
@@ -58,3 +63,4 @@ main{
     background-color: #ffffff;
     border-radius: 0.5rem;
 }
+
