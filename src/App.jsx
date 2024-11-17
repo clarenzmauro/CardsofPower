@@ -6,7 +6,7 @@ import DictionaryPage from "./components/DictionaryPage.jsx";
 import ListingPage from "./components/ListingPage.jsx";
 import ShopPage from "./components/ShopPage.jsx";
 import { CardsContext, CardsProvider } from "./components/Battlefield/CardsContext.jsx";
-import './styles/global.css';
+import './index.css';
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 
 function App() {
