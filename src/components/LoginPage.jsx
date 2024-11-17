@@ -17,7 +17,7 @@ function LoginPage() {
   };
 
   return (
-    <main style={{ backgroundImage: `url(${loginBackground})` }}>
+    <main id='login' style={{ backgroundImage: `url(${loginBackground})` }}>
       <section className='pirata-font sm:p-2 lg:p-6'>
         <h1 className='sm:text-4xl lg:text-5xl text-amber-950 uppercase'>{ currentSection }</h1>
 
@@ -65,7 +65,7 @@ function LoginForm({ onSwitch }) {
 
   return (
     <>
-      <form id='login' onSubmit={handleLogin}>
+      <form onSubmit={handleLogin}>
         <input
           type='text'
           placeholder='Username'
