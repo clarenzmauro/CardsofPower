@@ -2,6 +2,7 @@
     background-size: cover;
     height: 100vh;
     width: 100vw;
+    position: relative;
     z-index: 0;
     
     .overlay {
@@ -11,16 +12,13 @@
         width: 100%;
         height: 100%;
         background-color: rgba(0, 0, 0, 0.75);
-        z-index: 0;
-    }
-
-    > * {
-        z-index: 2;
+        z-index: -1;
     }
 
     .wrapper {
         display: flex;
         height: 100vh;
+        z-index: 2;
 
         .cards {
             display: grid;
