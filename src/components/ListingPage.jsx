@@ -375,7 +375,7 @@ const ListingPage = () => {
     };    
 
     return (
-        <div className="listing-page">
+        <div id='listing-page' className="listing-page">
             <header className="header">
                 <nav className="nav-tabs">
                     <div className="tab">Shop</div>
