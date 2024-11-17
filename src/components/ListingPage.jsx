@@ -9,9 +9,11 @@ import {
     where,
     addDoc,
     updateDoc,
+    deleteDoc,
 } from "firebase/firestore";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import { firestore } from "./firebaseConfig";
+import ShopPageContext from "./ShopPageContext";
 import "./ListingPage.css";
 
 const ListingPage = () => {
@@ -25,6 +27,8 @@ const ListingPage = () => {
     const [selectedCardToGet, setSelectedCardToGet] = useState(null); // Card to get
     const [showRightOverlay, setShowRightOverlay] = useState(false); // Overlay for right section
     const [availableCards, setAvailableCards] = useState([]); // Cards fetched for "Card to Get"
+    const [shopHistory, setShopHistory] = useState([]);
+    const [tradeHistory, setTradeHistory] = useState([]);
 
     const [viewMode, setViewMode] = useState("sell"); // New state to toggle between layouts
 
@@ -92,6 +96,14 @@ const ListingPage = () => {
             setIsLoading(false);
         }
     };
+
+    useEffect(() => {
+        fetchShopHistory();
+    }, [userDocId]);  
+    
+    useEffect(() => {
+        fetchTradeHistory();
+    }, [userDocId]);
 
     const handleLeftSectionClick = () => {
         fetchUserCards();
@@ -182,6 +194,20 @@ const ListingPage = () => {
             setError("An error occurred while posting the card. Please try again.");
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleRemoveCard = async (cardId) => {
+        try {
+            const cardDocRef = doc(firestore, "shop", cardId);
+            await deleteDoc(cardDocRef);
+            alert("Card removed successfully!");
+
+            // Update the shop history state after deletion
+            setShopHistory((prevHistory) => prevHistory.filter((item) => item.id !== cardId));
+        } catch (err) {
+            console.error("Error removing card:", err);
+            alert("Failed to remove card. Please try again.");
         }
     };
     
@@ -293,6 +319,52 @@ const ListingPage = () => {
         }
     };
 
+    const fetchShopHistory = async () => {
+        setIsLoading(true);
+        setError(null);
+    
+        try {
+            const shopCollectionRef = collection(firestore, "shop");
+            const q = query(shopCollectionRef, where("sellerId", "==", userDocId));
+            const shopSnapshot = await getDocs(q);
+    
+            const historyData = shopSnapshot.docs.map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+            }));
+    
+            setShopHistory(historyData);
+        } catch (err) {
+            console.error("Error fetching shop history:", err);
+            setError("An error occurred while fetching shop history.");
+        } finally {
+            setIsLoading(false);
+        }
+    };    
+
+    const fetchTradeHistory = async () => {
+        setIsLoading(true);
+        setError(null);
+    
+        try {
+            const shopCollectionRef = collection(firestore, "trades");
+            const q = query(shopCollectionRef, where("tradeGiverId", "==", userDocId));
+            const shopSnapshot = await getDocs(q);
+    
+            const historyData = shopSnapshot.docs.map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+            }));
+    
+            setTradeHistory(historyData);
+        } catch (err) {
+            console.error("Error fetching shop history:", err);
+            setError("An error occurred while fetching shop history.");
+        } finally {
+            setIsLoading(false);
+        }
+    };    
+
     return (
         <div className="listing-page">
             <header className="header">
@@ -365,7 +437,31 @@ const ListingPage = () => {
                     >
                         Post
                     </button>
-                </div>
+                    <div className="shop-history">
+                <h3>Shop History</h3>
+                {isLoading ? (
+                    <p>Loading...</p>
+                ) : error ? (
+                    <p className="error">{error}</p>
+                ) : shopHistory.length > 0 ? (
+                    shopHistory.map((item) => (
+                        <div key={item.id} className="shop-history-card">
+                            <ShopPageContext
+                                asset={{
+                                    imageUrl: item.sellingCardUrl,
+                                    cardName: item.sellingCardName,
+                                }}
+                                sellerName={item.sellerName}
+                                buttonText="Remove"
+                                onButtonClick={() => handleRemoveCard(item.id)}
+                            />
+                        </div>
+                    ))
+                ) : (
+                    <p>No shop history found.</p>
+                )}
+            </div>
+        </div>
             )}
 
             {viewMode === "trade" && (
@@ -415,7 +511,31 @@ const ListingPage = () => {
                                 "Card To Get"
                             )}
                     </button>   
-                </div>
+                    <div className="trade-history">
+                <h3>Trade History</h3>
+                {isLoading ? (
+                    <p>Loading...</p>
+                ) : error ? (
+                    <p className="error">{error}</p>
+                ) : tradeHistory.length > 0 ? (
+                    tradeHistory.map((item) => (
+                        <div key={item.id} className="trade-history-card">
+                            <ShopPageContext
+                                asset={{
+                                    imageUrl: item.sellingCardUrl,
+                                    cardName: item.sellingCardName,
+                                }}
+                                sellerName={item.sellerName}
+                                buttonText="Remove"
+                                onButtonClick={() => handleRemoveCard(item.id)}
+                            />
+                        </div>
+                    ))
+                ) : (
+                    <p>No shop history found.</p>
+                )}
+            </div>
+        </div>
             )}
 
             {showOverlay && (
