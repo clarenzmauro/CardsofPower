@@ -174,7 +174,9 @@ const ListingPage = () => {
             const cardRef = doc(firestore, "cards", selectedCard.id);
             await updateDoc(cardRef, {
                 marketCount: (selectedCard.marketCount || 0) + 1,
+                isListed: true
             });
+
 
             const sellerRef = doc(firestore, "users", userDocId);
             const userDocSnapForSeller = await getDoc(sellerRef); // Re-fetch seller data to get current cardsListed
@@ -197,10 +199,17 @@ const ListingPage = () => {
         }
     };
 
-    const handleRemoveCard = async (cardId) => {
+    const handleRemoveCard = async (cardId, cardDetails) => {
         try {
             const cardDocRef = doc(firestore, "shop", cardId);
             await deleteDoc(cardDocRef);
+
+            const cardRef = doc(firestore, 'cards', cardDetails.id);
+            await updateDoc(cardRef, {
+                marketCount: Math.max((cardDetails.marketCount || 1) - 1, 0),
+                isListed: false,
+            });
+            
             alert("Card removed successfully!");
 
             // Update the shop history state after deletion
@@ -453,7 +462,10 @@ const ListingPage = () => {
                                 }}
                                 sellerName={item.sellerName}
                                 buttonText="Remove"
-                                onButtonClick={() => handleRemoveCard(item.id)}
+                                onButtonClick={() => handleRemoveCard(item.id, {
+                                    id: item.sellingCardId,
+                                    marketCount: item.marketCount || 0,
+                                })}
                             />
                         </div>
                     ))
