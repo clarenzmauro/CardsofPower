@@ -4,7 +4,7 @@ import { useParams } from "react-router-dom";
 import { firestore, storage } from "./firebaseConfig";
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { ref as storageRef, getDownloadURL } from "firebase/storage";
-import './DictionaryPage.css'
+import './InventoryPage.css'
 
 function DictionaryPage() {
   const { userDocId } = useParams();
