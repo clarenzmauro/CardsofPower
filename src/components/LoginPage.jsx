@@ -65,7 +65,7 @@ function LoginForm({ onSwitch }) {
 
   return (
     <>
-      <form onSubmit={handleLogin}>
+      <form id='login' onSubmit={handleLogin}>
         <input
           type='text'
           placeholder='Username'
