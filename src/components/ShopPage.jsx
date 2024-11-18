@@ -144,7 +144,7 @@ const ShopPage = () => {
             <header className="header">
                 <nav className="nav-tabs">
                     <Link to={`/${userDocId}/shop`}><div className="tab">Shop</div></Link>
-                    <Link to={`/${userDocId}/trades`}><div className="tab">Trades</div></Link>
+                    <Link to={`/${userDocId}/shop/trades`}><div className="tab">Trades</div></Link>
                     <Link to={`/${userDocId}/shop/listing`}><div className="tab">Listing</div></Link>
                 </nav>
             </header>
