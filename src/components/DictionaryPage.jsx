@@ -182,7 +182,13 @@ function DictionaryPage() {
             {/* Dropdown for Card Type */}
             <select
               value={cardType}
-              onChange={(e) => setCardType(e.target.value)}
+              onChange={(e) => {
+                setCardType(e.target.value);
+                setCardAttribute("");
+                setCardClass("");
+                setCardCharacter("");
+                setCardLevel("");
+              }}
               className="p-2 xl:px-4 bg-transparent border-2 rounded-xl outline-none"
             >
               <option value="">Card Type</option>
