@@ -139,7 +139,7 @@ function InventoryPage() {
               placeholder="Search cards..."
               value={searchQuery}
               onChange={handleSearch}
-              class="px-4 sm:me-5 lg:me-12 bg-transparent border-2 rounded outline-none focus:border-3"
+              class="px-4 sm:me-5 lg:me-12 bg-transparent border-2 rounded-xl outline-none"
             ></input>
           </div>
 
