@@ -14,6 +14,7 @@ import {
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import { firestore } from "./firebaseConfig";
 import ShopPageContext from "./ShopPageContext";
+import TradePageContext from "./TradePageContext";
 import "./ListingPage.css";
 
 const ListingPage = () => {
@@ -220,6 +221,37 @@ const ListingPage = () => {
         }
     };
     
+    const handleRemoveTrade = async (tradeId, cardDetails) => {
+        try {
+            // Delete the trade history document from the "trades" collection
+            const tradeDocRef = doc(firestore, "trades", tradeId);
+            await deleteDoc(tradeDocRef);
+    
+            // Update the card to give (decrease market count and mark as not listed)
+            const cardGiveRef = doc(firestore, "cards", cardDetails.cardGiveId);
+            await updateDoc(cardGiveRef, {
+                marketCount: Math.max((cardDetails.cardGiveMarketCount || 1) - 1, 0),
+                isListed: false,
+            });
+    
+            // Update the card to receive (decrease market count and mark as not listed)
+            const cardReceiveRef = doc(firestore, "cards", cardDetails.cardReceiveId);
+            await updateDoc(cardReceiveRef, {
+                marketCount: Math.max((cardDetails.cardReceiveMarketCount || 1) - 1, 0),
+                isListed: false,
+            });
+    
+            alert("Trade history removed successfully!");
+    
+            // Update the trade history state after deletion
+            setTradeHistory((prevHistory) => prevHistory.filter((item) => item.id !== tradeId));
+        } catch (err) {
+            console.error("Error removing trade history:", err);
+            alert("Failed to remove trade history. Please try again.");
+        }
+    };
+    
+
     const handleRightSectionClick = async () => {
         setIsLoading(true);
         setError(null);
@@ -523,30 +555,40 @@ const ListingPage = () => {
                                 "Card To Get"
                             )}
                     </button>   
-                    <div className="trade-history">
-                <h3>Trade History</h3>
+                    <div className="shop-history">
+                    <h3>Trade History</h3>
                 {isLoading ? (
                     <p>Loading...</p>
                 ) : error ? (
                     <p className="error">{error}</p>
                 ) : tradeHistory.length > 0 ? (
                     tradeHistory.map((item) => (
-                        <div key={item.id} className="trade-history-card">
-                            <ShopPageContext
-                                asset={{
-                                    imageUrl: item.sellingCardUrl,
-                                    cardName: item.sellingCardName,
+                        <div key={item.id} className="shop-history-card">
+                            <TradePageContext
+                                cardToGive={{
+                                    cardGiveId: item.cardGiveId,
+                                    cardGiveName: item.cardGiveName,
+                                    cardGiveUrl: item.cardGiveUrl,
                                 }}
-                                sellerName={item.sellerName}
-                                buttonText="Remove"
-                                onButtonClick={() => handleRemoveCard(item.id)}
+                                cardToGet={{
+                                    cardReceiveId: item.cardReceiveId,
+                                    cardReceiveName: item.cardReceiveName,
+                                    cardReceiveUrl: item.cardReceiveUrl,
+                                }}
+                                tradeGiverName={item.tradeGiverName}
+                                onTrade={() => handleRemoveTrade(item.id, {
+                                    cardGiveId: item.cardGiveId,
+                                    cardReceiveId: item.cardReceiveId,
+                                    cardGiveMarketCount: item.cardGiveMarketCount || 1,
+                                    cardReceiveMarketCount: item.cardReceiveMarketCount || 1,
+                                })}
                             />
                         </div>
                     ))
                 ) : (
                     <p>No shop history found.</p>
                 )}
-            </div>
+                </div>
         </div>
             )}
 
