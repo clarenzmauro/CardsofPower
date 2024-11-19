@@ -33,14 +33,9 @@
                 gap: 0.5rem;
             }
 
-            img {
+            img.card, .gold {
                 width: 18%;
                 object-fit: contain;
-            }
-
-            .stats {
-                display: flex;
-                justify-content: space-between;
             }
         }
     
