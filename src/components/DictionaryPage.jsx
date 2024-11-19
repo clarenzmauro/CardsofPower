@@ -255,6 +255,7 @@ function DictionaryPage() {
               .filter((card) => inventory.includes(card.id))
               .map((card) => (
                 <img
+                  className="card"
                   src={card.imageUrl}
                   alt={card.cardName || "Card Image"}
                   onClick={() => handleCardClick(card)}
