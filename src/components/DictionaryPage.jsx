@@ -265,7 +265,7 @@ function DictionaryPage() {
               .filter((card) => !inventory.includes(card.id))
               .map((card) => (
                 <img
-                  className={`${
+                  className={`card ${
                     inventory.includes(card.id) ? "" : "black-and-white"
                   }`}
                   src={card.imageUrl}
