@@ -144,9 +144,9 @@ function InventoryPage() {
           </div>
 
           <div className="collection pb-4 flex">
-            <div className="gold">
+            <div className="gold my-auto">
               <img className="w-full" src={gold} alt="gold coins" />
-              <p className="text-3xl text-center">{goldCount !== 0 ? goldCount : 0}</p>
+              <p className="sm:text-2xl lg:text-3xl text-center">{goldCount !== 0 ? goldCount : 0}</p>
             </div>
 
             {filteredCards.map((card) => (
