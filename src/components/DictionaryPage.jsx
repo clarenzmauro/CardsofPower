@@ -5,7 +5,6 @@ import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { ref as storageRef, getDownloadURL } from "firebase/storage";
 
 import inventoryBg from "../assets/backgrounds/inventory.jpg";
-import gold from "../assets/images/gold.png";
 import "./InventoryPage.css";
 
 function DictionaryPage() {
@@ -13,14 +12,12 @@ function DictionaryPage() {
   const [allCards, setAllCards] = useState([]);
   const [inventory, setInventory] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [ownedOnly, setOwnedOnly] = useState(false); // For the "Owned" checkbox filter
   const [cardType, setCardType] = useState(""); // For "Card Type" dropdown
   const [cardAttribute, setCardAttribute] = useState(""); // For "Card Attribute" dropdown
   const [cardClass, setCardClass] = useState(""); // For "Card Class" dropdown
   const [cardCharacter, setCardCharacter] = useState(""); // For "Card Character" dropdown
   const [cardLevel, setCardLevel] = useState(""); // For "Card Level" number input
   const [selectedCard, setSelectedCard] = useState(null); // Track the selected card
-  const [goldCount, setGoldCount] = useState(0);
 
   const winRate = selectedCard
     ? // Ensure both cardWin and cardMatch have valid values for calculation
@@ -126,7 +123,6 @@ function DictionaryPage() {
     const matchesCardLevel = cardLevel
       ? card.cardLevel === Number(cardLevel)
       : true;
-    const matchesOwnership = ownedOnly ? inventory.includes(card.id) : true;
 
     return (
       matchesSearchQuery &&
@@ -134,8 +130,7 @@ function DictionaryPage() {
       matchesCardAttribute &&
       matchesCardClass &&
       matchesCardCharacter &&
-      matchesCardLevel &&
-      matchesOwnership
+      matchesCardLevel
     );
   });
 
@@ -306,11 +301,6 @@ function DictionaryPage() {
                   <p>Value: {selectedCard?.marketValue || 0}</p>
                   <p className="text-start">ROI: {formattedROI}</p>
                 </div>
-              </div>
-
-              <div className="flex justify-end sm:h-8 lg:h-10 sm:text-2xl lg:text-4xl mt-6 sm:w-4/5 lg:w-full mx-auto">
-                <img className="me-2" src={gold} alt="gold coins" />
-                <p>{goldCount !== 0 ? goldCount : 0}</p>
               </div>
             </>
           ) : (
