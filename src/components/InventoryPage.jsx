@@ -143,12 +143,18 @@ function InventoryPage() {
             ></input>
           </div>
 
-          <div className="collection pb-4">
+          <div className="collection pb-4 flex">
+            <div className="gold">
+              <img className="w-full" src={gold} alt="gold coins" />
+              <p className="text-3xl text-center">{goldCount !== 0 ? goldCount : 0}</p>
+            </div>
+
             {filteredCards.map((card) => (
               <img
                 src={card.imageUrl}
                 alt={card.cardName || "Card Image"}
                 onClick={() => handleCardClick(card)}
+                className="card"
               />
             ))}
           </div>
@@ -177,11 +183,6 @@ function InventoryPage() {
                   <p>Value: {selectedCard?.marketValue || 0}</p>
                   <p className="text-start">ROI: {formattedROI}</p>
                 </div>
-              </div>
-
-              <div className="flex justify-end sm:h-8 lg:h-10 sm:text-2xl lg:text-4xl mt-6 sm:w-4/5 lg:w-full mx-auto">
-                <img className="me-2" src={gold} alt="gold coins" />
-                <p>{goldCount !== 0 ? goldCount : 0}</p>
               </div>
             </>
           ) : (
