@@ -5,6 +5,7 @@ import InventoryPage from "./components/InventoryPage.jsx";
 import DictionaryPage from "./components/DictionaryPage.jsx";
 import ListingPage from "./components/ListingPage.jsx";
 import ShopPage from "./components/ShopPage.jsx";
+import Workshop from "./components/Workshop.jsx";
 import TradePageContext from "./components/TradePageContext.jsx";
 import TradePage from "./components/TradePage.jsx";
 import { CardsContext, CardsProvider } from "./components/Battlefield/CardsContext.jsx";
@@ -26,6 +27,7 @@ function App() {
         <Route path="/:userDocId/shop/listing" element={<ListingPage />}/>
         <Route path="/:userDocId/shop" element={<ShopPage />}/>
         <Route path="/:userDocId/shop/trades" element={<TradePage />}/> 
+        <Route path="/:userDocId/workshop" element={<Workshop />}/>
         {/* Only use for testing implementation */}
         {/* <Route path="/" element={<Battlefield />}/> */}
       </Routes>
