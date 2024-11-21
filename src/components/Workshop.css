@@ -1,0 +1,47 @@
+#workshop {
+  height: 100vh;
+  width: 100vw;
+  background-size: cover;
+  background-position: center;
+
+  input,
+  textarea,
+  select {
+    background-color: transparent;
+    outline: none;
+    border-bottom: 2px solid black;
+    width: 100%;
+  }
+
+  textarea {
+    resize: none;
+  }
+
+  .imgFile {
+    border: none;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: black;
+  }
+
+  form div {
+    margin-bottom: 0.5rem;
+  }
+
+  button {
+    padding: 0.75rem;
+    border-radius: 10px;
+    color: white;
+    width: 100%;
+    margin: 0 auto;
+    background-color: rgb(69, 26, 3);
+  }
+
+  @media (min-width: 1024px) {
+    form div {
+      margin-bottom: 1rem;
+    }
+  }
+}
