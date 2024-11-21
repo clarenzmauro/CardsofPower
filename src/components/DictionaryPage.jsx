@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { firestore, storage } from "./firebaseConfig";
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { ref as storageRef, getDownloadURL } from "firebase/storage";
@@ -157,6 +157,10 @@ function DictionaryPage() {
       style={{ backgroundImage: `url(${inventoryBg})` }}
       className="sm:px-12 lg:px-24"
     >
+      <Link to={`/${userDocId}/home`} className="back-button">
+        <i className="fas fa-reply back-icon"></i>
+      </Link>
+      
       <div className="overlay"></div>
 
       <div className="wrapper sm:pt-4 lg:pt-12 text-white">
