@@ -122,6 +122,7 @@ const ShopPage = () => {
                 await deleteDoc(shopItemRef);
 
                 alert(`You successfully bought ${item.sellingCardName}!`);
+                window.location.reload();
             } else {
                 alert("You do not have enough gold to make this purchase.");
             }

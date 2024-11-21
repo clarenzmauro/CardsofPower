@@ -117,6 +117,7 @@ const TradePage = () => {
       setTrades((prevTrades) => prevTrades.filter((t) => t.id !== trade.id));
 
       alert('Trade completed successfully!');
+      window.location.reload();
     } catch (error) {
       console.error('Error completing trade:', error);
     }

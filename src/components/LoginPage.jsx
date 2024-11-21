@@ -4,7 +4,7 @@
 // eslint-disable-next-line react/prop-types, no-unused-vars
 import React, { useState } from 'react';
 import { firestore } from './firebaseConfig';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import loginBackground from '../assets/backgrounds/login.jpg';
 import './LoginPage.css';
@@ -53,7 +53,6 @@ function LoginForm({ onSwitch }) {
 
         // Navigate to home with the document ID in the URL
         navigate(`/${userDocId}/home`);
-        // navigate(`/home`);
       } else {
         setError('Invalid username or password. Please try again.');
       }
@@ -198,8 +197,9 @@ function SignupForm({ onSwitch }) {
         inventory: cardIds,
         currentCardCount: 10,
       });
-
-      navigate('/');
+      
+      const userDocId = userDocRef.id;
+      navigate(`/${userDocId}/showcase`);
     } catch (err) {
       console.error("Signup error:", err);
       setError('An error occurred during Signup. Please try again later.');

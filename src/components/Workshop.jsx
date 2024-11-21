@@ -125,6 +125,14 @@ function Workshop() {
 
       // Save to Firestore
       await addDoc(collection(db, 'workshop'), cardData);
+
+      if (userDoc.exists){
+        const currentCardCreated = userDoc.data().cardsCreated||0;
+        await updateDoc(userDocRef, {
+          cardsCreated: currentCardCreated + 1,
+        })
+      }
+
       alert('Card successfully created!');
       setFormData({
         cardName: '',
