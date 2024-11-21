@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { firestore, storage } from "./firebaseConfig";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
@@ -170,6 +170,10 @@ function Workshop() {
 
   return (
     <div id="workshop" style={{ backgroundImage: `url(${workshopBg})` }} className="flex justify-center items-center">
+      <Link to={`/${userDocId}/home`} className="back-button">
+        <i className="fas fa-reply back-icon"></i>
+      </Link>
+      
       <div className="w-1/2">
         <h1 className="sm:text-lg lg:text-5xl sm:mb-2 lg:mb-4">Pirate Card Submission</h1>
 
