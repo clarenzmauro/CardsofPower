@@ -243,13 +243,19 @@ function DictionaryPage() {
                 </select>
 
 
-                <input
+                <select
                   type="number"
                   value={cardLevel}
                   onChange={(e) => setCardLevel(e.target.value)}
-                  placeholder="Card level"
                   className="p-2 xl:px-4 bg-transparent border-2 rounded-xl outline-none"
-                />
+                >
+                  <option value="">Select Level</option>
+                  {Array.from({ length: 10 }, (_, i) => i + 1).map((level) => (
+                    <option key={level} value={level}>
+                      {level}
+                    </option>
+                  ))}
+                </select>
               </>
             )}
           </div>
