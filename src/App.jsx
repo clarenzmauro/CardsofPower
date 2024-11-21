@@ -1,3 +1,4 @@
+import LoadingPage from "./components/LoadingPage.jsx";
 import Battlefield from "./components/Battlefield/Battlefield.jsx";
 import LoginPage from "./components/LoginPage.jsx";
 import HomePage from "./components/HomePage.jsx";
@@ -25,7 +26,8 @@ function App() {
         {/* Only use for actual implementation */ }
 
         <Route path="/:userDocId/battlefield" element={<Battlefield />}/>
-        <Route path="/" element={<LoginPage />}/> 
+        <Route path="/" element={<LoadingPage />}/> 
+        <Route path="/login" element={<LoginPage />}/> 
         <Route path="/:userDocId/home" element={<HomePage />}/> 
         <Route path="/:userDocId/inventory" element={<InventoryPage />}/>
         <Route path="/:userDocId/dictionary" element={<DictionaryPage />}/>
