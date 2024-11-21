@@ -12,6 +12,25 @@
   font-family: "Pirata One", system-ui;
 }
 
+.back-button {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  padding: 1rem;
+  background-color: rgb(69, 26, 3);
+  color: white;
+  border: none;
+  border-radius: 0.25rem;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.back-button:hover {
+  background-color: rgb(49, 20, 1);
+}
+
 @media (max-width: 666px) {
   * {
       display: none;
