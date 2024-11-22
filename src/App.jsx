@@ -1,4 +1,3 @@
-import LoadingPage from "./components/LoadingPage.jsx";
 import Battlefield from "./components/Battlefield/Battlefield.jsx";
 import LoginPage from "./components/LoginPage.jsx";
 import HomePage from "./components/HomePage.jsx";
@@ -7,7 +6,7 @@ import DictionaryPage from "./components/DictionaryPage.jsx";
 import ListingPage from "./components/ListingPage.jsx";
 import ShopPage from "./components/ShopPage.jsx";
 import Workshop from "./components/Workshop.jsx";
-import TradePageContext from "./components/TradePageContext.jsx";
+import AccountPage from "./components/AccountPage.jsx";
 import TradePage from "./components/TradePage.jsx";
 import Showcase from "./components/Showcase.jsx";
 import { CardsContext, CardsProvider } from "./components/Battlefield/CardsContext.jsx";
@@ -26,8 +25,7 @@ function App() {
         {/* Only use for actual implementation */ }
 
         <Route path="/:userDocId/battlefield" element={<Battlefield />}/>
-        <Route path="/" element={<LoadingPage />}/> 
-        <Route path="/login" element={<LoginPage />}/> 
+        <Route path="/" element={<LoginPage />}/> 
         <Route path="/:userDocId/home" element={<HomePage />}/> 
         <Route path="/:userDocId/inventory" element={<InventoryPage />}/>
         <Route path="/:userDocId/dictionary" element={<DictionaryPage />}/>
@@ -36,6 +34,7 @@ function App() {
         <Route path="/:userDocId/shop/trades" element={<TradePage />}/> 
         <Route path="/:userDocId/workshop" element={<Workshop />}/>
         <Route path="/:userDocId/showcase" element={<Showcase />} />
+        <Route path="/:userDocId/account" element={<AccountPage />} />
         {/* Only use for testing implementation */}
         {/* <Route path="/" element={<Battlefield />}/> */}
       </Routes>
