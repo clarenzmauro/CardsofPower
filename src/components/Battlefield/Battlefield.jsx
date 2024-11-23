@@ -1,31 +1,11 @@
 // Battlefield.jsx
 import React, { useState, useEffect, useRef, useCallback, useMemo, useContext } from 'react';
 import { storage, firestore } from '../firebaseConfig';
-import {
-    collection,
-    getDocs,
-    query,
-    where,
-    doc,
-    getDoc,
-    addDoc,
-    updateDoc,
-    runTransaction,
-    onSnapshot,
-    setDoc,
-    deleteDoc,
-    deleteField
-} from 'firebase/firestore';
-import {
-    ref as storageRef,
-    getDownloadURL
-} from 'firebase/storage';
-
+import { collection, getDocs, query, where, doc, getDoc, addDoc, updateDoc, runTransaction, onSnapshot, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { ref as storageRef, getDownloadURL } from 'firebase/storage';
 import styles from './Battlefield.module.css';
-
 import blankCardImage from '../../assets/cards/blank.png';
 import backCard from '../../assets/cards/back-card.png';
-
 import Timer from './Timer';
 import WaitingForPlayer from './WaitingForPlayer';
 import PreparationStage from './PreparationStage';
@@ -35,129 +15,51 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './ToastStyles.css';
 import { useParams } from 'react-router-dom';
-
 import { CardsContext } from './CardsContext';
+import GameOverlay from './GameOverlay';
 
 function Battlefield() {
 
     /**
-     * State Variables
+     * 
+     * UX - Lobby
+     * UX - Create a new room
+     * UX - Join an existing room
+     * UX - Preparation Stage
+     * UX - Battle Stage
+     * UX - End Stage
+     * 
      */
 
-    // Existing state variables
+
+
+
+
+    /**
+     * Room Management and Game Initialization
+     * 
+     * This section handles the creation and joining of game rooms, and
+     * initializes game states and assets.
+     * 
+     * Key components:
+     * 1. User Data Fetching: Retrieves username and inventory from Firestore.
+     * 2. Asset Loading: Loads game visuals (background, buttons) from Firebase Storage.
+     * 3. Room Creation: Establishes a new game room with a unique ID.
+     * 4. Room Joining: Allows players to enter an existing room using its ID.
+     * 5. Game State Setup: Initializes the game's starting conditions and rules.
+     * 
+     * These processes are essential for preparing the game environment and ensuring
+     * a smooth start to the player's experience.
+     */
+
+    // States for asset loading
+    const { userDocId } = useParams();
     const [background, setBackground] = useState('');
     const [leftButton, setLeftButton] = useState('');
     const [rightButton, setRightButton] = useState('');
     const [assetsLoaded, setAssetsLoaded] = useState(false);
 
-    // Multiplayer state variables
-    const [roomId, setRoomId] = useState('');
-    const [playerId, setPlayerId] = useState('');
-    const [username, setUsername] = useState('');
-    const [userInventory, setUserInventory] = useState([]);
-    const [isRoomJoined, setIsRoomJoined] = useState(false);
-    const [gameStage, setGameStage] = useState('lobby');
-    const [timer, setTimer] = useState(120);
-    const [currentRound, setCurrentRound] = useState(0);
-    // Remove opponentId from state as it will be derived
-    // const [opponentId, setOpponentId] = useState('');
-    const [player1Graveyard, setPlayer1Graveyard] = useState([]);
-    const [player2Graveyard, setPlayer2Graveyard] = useState([]);
-    const opponentGraveyard = playerId === 'player1' ? player2Graveyard : player1Graveyard;
-    const playerGraveyard = playerId === 'player1' ? player1Graveyard : player2Graveyard;
-    const [player1Username, setPlayer1Username] = useState('');
-    const [player2Username, setPlayer2Username] = useState('');
-    const opponentUsername = useMemo(() => (playerId === 'player1' ? player2Username : player1Username), [playerId, player1Username, player2Username]);
-    const ownUsernameDisplay = useMemo(() => (playerId === 'player1' ? player1Username : player2Username), [playerId, player1Username, player2Username]);
-    const totalRounds = 5;
-    const { userDocId } = useParams(); // Assuming route is defined to include userDocId
-
-    // New state variables for available rooms
-    const [availableRooms, setAvailableRooms] = useState([]);
-    const [loadingRooms, setLoadingRooms] = useState(false);
-    const [errorLoadingRooms, setErrorLoadingRooms] = useState(null);
-    const [showAvailableRooms, setShowAvailableRooms] = useState(false);
-
-    // State to track whose turn it is
-    const [currentTurn, setCurrentTurn] = useState('player1');
-
-    // State variables to manage graveyard visibility
-    const [isOpponentGraveyardVisible, setIsOpponentGraveyardVisible] = useState(false);
-    const [isPlayerGraveyardVisible, setIsPlayerGraveyardVisible] = useState(false);
-
-    // useRef to store the interval ID
-    const timerRef = useRef(null);
-
-    // Selected Card State
-    const [selectedCard, setSelectedCard] = useState(null);
-
-    // State to track if the player has placed a card this turn
-    const [hasPlacedCard, setHasPlacedCard] = useState(false);
-
-    // State to track opponent's attacks
-    const [opponentAttacks, setOpponentAttacks] = useState(Array(5).fill(null));
-
-    // Player's hand
-    const [myCards, setMyCards] = useState([]);
-
-    // Opponent's hand
-    const [opponentCards, setOpponentCards] = useState([]);
-
-    // Player's and Opponent's Decks
-    const [myDeck, setMyDeck] = useState([]);
-    const [opponentDeck, setOpponentDeck] = useState([]);
-
-    // Last Card Played
-    const [lastCard, setLastCard] = useState(null);
-    const [lastCardOwner, setLastCardOwner] = useState('');
-
-    // State to track readiness
-    const [playerReady, setPlayerReady] = useState(false);
-    const [opponentReady, setOpponentReady] = useState(false);
-
-    // Timer and Phase Management
-    const [preparationTimer, setPreparationTimer] = useState(120);
-    const [battleTimer, setBattleTimer] = useState(60);
-
-    // Accessing cards data from CardsContext
-    const { cards, loading: cardsLoading, error: cardsError } = useContext(CardsContext);
-
-    // New State for Winner and Player HP
-    const [winner, setWinner] = useState(null);
-    const [playerHP, setPlayerHP] = useState(5000);
-    const [opponentHP, setOpponentHP] = useState(5000);
-
-    // New State for Attack Flow
-    const [attackSourceCard, setAttackSourceCard] = useState(null);
-
-    /**
-     * Admin Mode State
-     * Controls the visibility of the Delete button in the room list.
-     */
-    const [isAdmin, setIsAdmin] = useState(false); // **New state variable**
-
-    /**
-     * Helper Functions
-     */
-
-    // Function to get the active player's username
-    const getActivePlayerUsername = useCallback(() => {
-        return currentTurn === 'player1' ? player1Username : player2Username;
-    }, [currentTurn, player1Username, player2Username]);
-
-    // **Derived opponentId using useMemo**
-    const opponentId = useMemo(() => (playerId === 'player1' ? 'player2' : 'player1'), [playerId]);
-
-    /**
-     * Function Declarations
-     */
-
-    // Define isActiveTurnFlag based on currentTurn and playerId
-    const isActiveTurnFlag = useMemo(() => currentTurn === playerId, [currentTurn, playerId]);
-
-    /**
-     * Fetch user data based on userDocId
-     */
+    // Fetch user data
     useEffect(() => {
         const fetchUserData = async () => {
             if (!userDocId) {
@@ -176,8 +78,8 @@ function Battlefield() {
                 }
 
                 const userData = userDocSnap.data();
-                setUsername(userData.username); // Set username from Firestore
-                setUserInventory(userData.inventory || []); // Store inventory for later use
+                setUsername(userData.username); 
+                setUserInventory(userData.inventory || []);
             } catch (error) {
                 console.error('Error fetching user data:', error);
                 toast.error('Failed to fetch user data.');
@@ -187,660 +89,88 @@ function Battlefield() {
         fetchUserData();
     }, [userDocId, firestore]);
 
-    /**
-     * Admin Mode: Enable Delete Buttons via Console
-     * Adds a hidden function to the window object that, when called with the correct code,
-     * enables admin mode, showing Delete buttons in the room list.
-     */
+    // Fetch Firebase assets on component mount
     useEffect(() => {
-        // **Hidden Feature: Enable Admin Mode**
-        window.enableAdminMode = (code) => {
-            if (code === "CM27") {
-                setIsAdmin(true);
-                toast.success('Admin mode activated. You can now delete rooms.');
-                console.log('Admin mode activated.');
-            } else {
-                toast.warn('Invalid admin code.');
-                console.warn('Attempted to activate admin mode with invalid code:', code);
+        const fetchAssets = async () => {
+            try {
+                const [bgUrl, leftBtnUrl, rightBtnUrl] = await Promise.all([
+                    getDownloadURL(storageRef(storage, 'assets/backgrounds/battlefield.jpg')),
+                    getDownloadURL(storageRef(storage, 'assets/others/leftBtn.png')),
+                    getDownloadURL(storageRef(storage, 'assets/others/rightBtn.png')),
+                ]);
+
+                setBackground(bgUrl);
+                setLeftButton(leftBtnUrl);
+                setRightButton(rightBtnUrl);
+
+                // Set assetsLoaded to true
+                setAssetsLoaded(true);
+
+            } catch (error) {
+                console.error('Error fetching Firebase assets:', error);
+                toast.error('Error fetching game assets.');
             }
         };
+        fetchAssets();
+    }, [storage]);    
 
-        // Cleanup: Remove the function when the component unmounts
-        return () => {
-            delete window.enableAdminMode;
-        };
-    }, []);
 
-    useEffect(() => {
-        // **Hidden Feature: Disable Admin Mode**
-        window.disableAdminMode = (code) => {
-            if (code === "CM27") {
-                setIsAdmin(false);
-                toast.success('Admin mode deactivated.');
-                console.log('Admin mode deactivated.');
-            } else {
-                toast.warn('Invalid admin code.');
-                console.warn('Attempted to deactivate admin mode with invalid code:', code);
-            }
-        };
 
-        // Cleanup: Remove the function when the component unmounts
-        return () => {
-            delete window.disableAdminMode;
-        };
-    }, []);
+
 
     /**
-     * Helper Function: Update cardsStats in Firestore
-     * Now allows updates during both 'preparation' and 'battle' phases.
+     * Room Management and Game Initialization
+     * 
+     * This section manages game room creation, joining, and initialization of game states and assets.
+     * 
+     * States:
+     * - username: Current user's username (string)
+     * - totalRounds: Total number of game rounds (constant number)
+     * - cards, cardsLoading, cardsError: Card data from CardsContext
+     * - assetsLoaded: Indicates if game assets are loaded (boolean)
+     * - userInventory: User's card inventory (array)
+     * - roomId: Current game room ID (string)
+     * - gameStage: Current stage of the game (string)
+     * - playerId: Current player's ID (string)
+     * - opponentId: Opponent's ID (string)
+     * - player1Username, player2Username: Usernames of both players (string)
+     * - isRoomCreator: Indicates if the current user created the room (boolean)
+     * 
+     * Key Functions:
+     * - handleCreateRoom: Asynchronously creates a new game room
+     * - handleJoinRoom: Asynchronously joins an existing game room
+     * - fetchUserData: Retrieves user data from Firestore
+     * - fetchAssets: Loads game assets from Firebase storage
+     * - initializeGameState: Sets up initial game state after room creation/joining
+     * 
+     * This module ensures all necessary data and assets are loaded before
+     * allowing room creation or joining, enhancing game stability and user experience.
+     * It also handles error cases and provides appropriate feedback to the user.
      */
-    const updateCardsStats = useCallback(async (card, targetPlayerKey) => {
-        // **Validation Checks**
-        if (!roomId || !card || !card.id || !targetPlayerKey) {
-            console.warn('Missing roomId, targetPlayerKey, or card details:', { roomId, targetPlayerKey, card });
-            return;
-        }
-    
-        // **Allow updates during 'preparation' and 'battle' phases**
-        if (!['preparation', 'battle'].includes(gameStage)) {
-            console.warn(`Attempted to update card stats during ${gameStage} phase. Operation aborted.`);
-            return;
-        }
-    
-        // **Construct the Update Object for Firestore**
-        const updateObject = {
-            [`cardsStats.${targetPlayerKey}.${card.id}`]: {
-                inGameAtkPts: card.inGameAtkPts || 0,
-                inGameDefPts: card.inGameDefPts || 0
-            }
-        };
-    
-        console.log(`Updating cardsStats for card ${card.id} under ${targetPlayerKey}:`, updateObject[`cardsStats.${targetPlayerKey}.${card.id}`]);
-    
-        try {
-            // **Update Firestore with the Detailed Structure**
-            await updateDoc(doc(firestore, 'rooms', roomId), updateObject);
-            console.log(`Successfully updated cardsStats for card ${card.id} under ${targetPlayerKey} with values:`, updateObject[`cardsStats.${targetPlayerKey}.${card.id}`]);
-        } catch (error) {
-            console.error('Error updating cardsStats:', error);
-            toast.error('Failed to update card statistics.');
-        }
-    }, [firestore, roomId, gameStage]);
-    
 
-    // Function to determine the winner
-    const determineWinner = useCallback(async () => {
-        let determinedWinner = 'Draw';
-        if (playerHP <= 0 && opponentHP > 0) {
-            determinedWinner = opponentUsername;
-        } else if (opponentHP <= 0 && playerHP > 0) {
-            determinedWinner = ownUsernameDisplay;
-        } else if (playerHP > opponentHP) {
-            determinedWinner = ownUsernameDisplay;
-        } else if (opponentHP > playerHP) {
-            determinedWinner = opponentUsername;
-        }
-
-        setWinner(determinedWinner);
-
-        try {
-            // Update gameStage to 'finished' in Firestore
-            const roomDocRef = doc(firestore, 'rooms', roomId);
-            await updateDoc(roomDocRef, {
-                'gameState.gameStage': 'finished',
-                'gameState.timer': 0,
-            });
-            toast.info(`Game Finished! Winner: ${determinedWinner}`);
-            console.log(`Game Finished! Winner: ${determinedWinner}`);
-        } catch (error) {
-            console.error('Error updating game stage to finished:', error);
-            toast.error('Failed to finalize the game.');
-        }
-
-    }, [playerHP, opponentHP, opponentUsername, ownUsernameDisplay, roomId, firestore]);
-
-    // Function to switch turns using Firestore transaction
-    const switchTurn = useCallback(async () => {
-        const roomDocRef = doc(firestore, 'rooms', roomId);
-        const gameStateField = 'gameState';
-
-        try {
-            await runTransaction(firestore, async (transaction) => {
-                const roomDoc = await transaction.get(roomDocRef);
-                if (!roomDoc.exists()) {
-                    throw new Error('Room does not exist!');
-                }
-
-                const roomData = roomDoc.data();
-                const { gameState } = roomData;
-
-                if (!gameState) {
-                    throw new Error('Game state does not exist!');
-                }
-
-                const { currentTurn, currentRound, totalRounds } = gameState;
-                const nextTurn = currentTurn === 'player1' ? 'player2' : 'player1';
-                let newRound = currentRound;
-
-                // If switching back to player1, increment the round
-                if (nextTurn === 'player1') {
-                    newRound += 1;
-                    if (newRound > totalRounds) {
-                        transaction.update(roomDocRef, {
-                            [`${gameStateField}.gameStage`]: 'finished',
-                            [`${gameStateField}.timer`]: 0,
-                        });
-                        return;
-                    } else {
-                        transaction.update(roomDocRef, {
-                            [`${gameStateField}.currentRound`]: newRound
-                        });
-                    }
-                }
-
-                transaction.update(roomDocRef, {
-                    [`${gameStateField}.currentTurn`]: nextTurn,
-                    [`${gameStateField}.timer`]: 60, // Reset timer for the next player
-                });
-            });
-
-            // Update local state after transaction
-            const updatedRoomDoc = await getDoc(doc(firestore, 'rooms', roomId));
-            if (updatedRoomDoc.exists()) {
-                const updatedGameState = updatedRoomDoc.data().gameState;
-                setGameStage(updatedGameState.gameStage);
-                setTimer(updatedGameState.timer);
-                setCurrentRound(updatedGameState.currentRound);
-                setCurrentTurn(updatedGameState.currentTurn);
-                console.log(`Turn switched to ${updatedGameState.currentTurn}. Current Round: ${updatedGameState.currentRound}`);
-
-                if (updatedGameState.gameStage === 'finished') {
-                    console.log('Game has finished.');
-                    toast.info('Game has finished.');
-                    determineWinner(); // Call function to determine the winner
-                }
-
-                // Reset hasPlacedCard for the new active player
-                const activePlayerRef = doc(firestore, 'rooms', roomId, 'players', updatedGameState.currentTurn);
-                await updateDoc(activePlayerRef, {
-                    hasPlacedCard: false
-                });
-            }
-        } catch (error) {
-            console.error('Error switching turn:', error);
-            toast.error('Failed to switch turn.');
-        }
-    }, [roomId, firestore, determineWinner]);
-
-    // Function to check if all required Monster/Trap cards have been placed
-    const hasPlacedAllRequiredCards = useCallback(() => {
-        const remainingRequiredCards = myCards.filter(card => card.cardType === 'monster' || card.cardType === 'trap').length;
-        console.log(`Remaining Monster/Trap cards in hand: ${remainingRequiredCards}`);
-        return remainingRequiredCards === 0;
-    }, [myCards]);
-
-    // Function to handle spell card usage
-    const handleSpellUsage = useCallback(async (spellCard) => {
-        if (gameStage !== 'battle') {
-            toast.warn('You can only use Spell cards during the Battle phase.');
-            return;
-        }
-
-        if (!isActiveTurnFlag) {
-            toast.warn("It's not your turn!");
-            return;
-        }
-
-        try {
-            switch (spellCard.cardName.toLowerCase()) {
-                case 'heal':
-                    // Example: Restore 20 HP to the player
-                    await runTransaction(firestore, async (transaction) => {
-                        const roomDocRef = doc(firestore, 'rooms', roomId);
-                        const roomDoc = await transaction.get(roomDocRef);
-                        if (!roomDoc.exists()) {
-                            throw new Error('Room does not exist!');
-                        }
-
-                        const currentHP = roomDoc.data().hp[playerId] || 5000;
-                        const newHP = Math.min(currentHP + 20, 5000);
-                        transaction.update(roomDocRef, {
-                            [`hp.${playerId}`]: newHP
-                        });
-                    });
-                    toast.success('Heal spell used! Restored 20 HP.');
-                    console.log('Heal spell used.');
-                    break;
-                // Add more spell cases here
-                default:
-                    toast.warn('Unknown spell effect.');
-                    console.warn(`Spell effect for ${spellCard.cardName} not defined.`);
-            }
-
-            // Remove spell card from hand and add to graveyard
-            const handDocRef = doc(firestore, 'rooms', roomId, 'players', playerId, 'hand', spellCard.id);
-            await deleteDoc(handDocRef);
-
-            const graveyardRef = collection(firestore, 'rooms', roomId, 'players', playerId, 'graveyard');
-            await addDoc(graveyardRef, spellCard);
-
-            // Update local state
-            setMyCards(prevCards => prevCards.filter(card => card.id !== spellCard.id));
-
-            // Update cardsStats in Firestore
-            await updateCardsStats(spellCard, playerId);
-
-            toast.success(`Used spell card: ${spellCard.cardName}`);
-            console.log(`Used spell card: ${spellCard.cardName}`);
-
-        } catch (error) {
-            console.error('Error using spell card:', error);
-            toast.error('Failed to use spell card.');
-        }
-    }, [gameStage, isActiveTurnFlag, roomId, playerId, firestore, updateCardsStats]);
-
-    const handleCardUseEffect = useCallback(() => {
-        // Debugging: Log the current selectedCard
-        console.log('Checking card effect for selectedCard:', selectedCard);
-
-        // Check if selectedCard and its nested properties are defined
-        if (!selectedCard || !selectedCard.card || !selectedCard.card.cardType) {
-            toast.error('No valid card selected.');
-            console.error('Selected card is invalid:', selectedCard);
-            return;
-        }
-
-        // Determine effect based on card type
-        const { cardType, cardName } = selectedCard.card;
-
-        switch (cardType) {
-            case 'monster':
-                // Handle monster card effect (e.g., prepare for attack)
-                toast.info(`${cardName} is ready to attack or defend.`);
-                console.log(`Monster card ${cardName} effect triggered.`);
-                break;
-
-            case 'spell':
-                // Handle spell card effect (e.g., boost attack, heal, etc.)
-                toast.info(`Activating Spell Card: ${cardName}!`);
-                console.log(`Spell card ${cardName} effect activated.`);
-                // Add specific spell effect logic here
-                break;
-
-            case 'trap':
-                // Handle trap card effect (e.g., defensive counter)
-                toast.info(`Trap Card ${cardName} Ready!.`);
-                console.log(`Trap card ${cardName} effect set.`);
-                // Add specific trap effect logic here
-                break;
-
-            default:
-                // Handle unknown or unsupported card types
-                toast.warn(`Unknown card type: ${cardType}.`);
-                console.error(`Unsupported card type: ${cardType}`);
-                break;
-        }
-    }, [selectedCard]);
-
-    // Handle Attack Initiation
-    const handleAttackInitiation = useCallback(async () => {
-        // Debugging: Log the current selectedCard
-        console.log('Attempting to initiate attack with selectedCard:', selectedCard);
-
-        // Check if selectedCard and its nested properties are defined
-        if (!selectedCard || !selectedCard.card || !selectedCard.card.id) {
-            toast.error('No valid card selected for attack.');
-            console.error('Selected card is invalid:', selectedCard);
-            return;
-        }
-
-        if (selectedCard.card.cardType !== 'monster') { // assuming only monster cards can attack
-            toast.warn('Please select a Monster card to attack with.');
-            return;
-        }
-
-        // **Position Check: Only 'attack' position cards can attack**
-        if (selectedCard.card.position !== 'attack') {
-            toast.warn('Only cards in Attack position can be used to attack.');
-            return;
-        }
-
-        try {
-            const slotIndex = selectedCard.index;
-            const slot = myDeck[slotIndex];
-            if (!slot || !slot.id) {
-                toast.error('Selected slot does not contain a valid card.');
-                console.error('Invalid slot data:', slot);
-                return;
-            }
-
-            // Retrieve inGameAtkPts directly from the deck slot
-            const inGameAtkPts = slot.inGameAtkPts;
-            if (inGameAtkPts === undefined || inGameAtkPts === null) {
-                toast.error('Selected card does not have inGameAtkPts defined.');
-                console.error('inGameAtkPts is undefined or null for slot:', slot);
-                return;
-            }
-
-            setAttackSourceCard({
-                ...selectedCard,
-                inGameAtkPts // Store inGameAtkPts with the attackSourceCard
-            });
-
-            toast.info(`Selected ${selectedCard.card.cardName} to attack with (Attack Points: ${inGameAtkPts}). Choose an opponent's card to attack.`);
-            console.log(`Selected ${selectedCard.card.cardName} to attack with (Attack Points: ${inGameAtkPts}).`);
-        } catch (error) {
-            console.error('Error fetching attackPts:', error);
-            toast.error('Failed to fetch attack points for the selected card.');
-        }
-    }, [selectedCard, myDeck]);
-
-    // Handle Target Selection for Attack
-    const handleTargetSelection = useCallback(async (targetIndex) => {
-        if (!attackSourceCard) {
-            toast.warn('No attack source selected.');
-            return;
-        }
-    
-        // Ensure it's still the player's turn
-        if (!isActiveTurnFlag) {
-            toast.warn("It's not your turn!");
-            return;
-        }
-    
-        const targetCard = opponentDeck[targetIndex];
-        if (!targetCard || !targetCard.id) {
-            // Handle direct attack if no target card is selected
-            const damage = attackSourceCard.inGameAtkPts; // Use inGameAtkPts
-            try {
-                await runTransaction(firestore, async (transaction) => {
-                    const roomDocRef = doc(firestore, 'rooms', roomId);
-                    const roomDoc = await transaction.get(roomDocRef);
-                    if (!roomDoc.exists()) {
-                        throw new Error('Room does not exist!');
-                    }
-    
-                    const currentOpponentHP = roomDoc.data().hp[opponentId] || 5000;
-                    const newOpponentHP = currentOpponentHP - damage;
-                    transaction.update(roomDocRef, {
-                        [`hp.${opponentId}`]: Math.max(newOpponentHP, 0)
-                    });
-                });
-    
-                toast.success(`Direct attack! Dealt ${damage} damage to ${opponentUsername}.`);
-                console.log(`Direct attack! Dealt ${damage} damage to ${opponentUsername}.`);
-            } catch (error) {
-                console.error('Error performing direct attack:', error);
-                toast.error('Failed to perform attack.');
-            }
-        } else {
-            // Ensure the target card is in 'attack' position
-            if (targetCard.position !== 'attack') {
-                toast.warn('You cannot attack a card in Defense position.');
-                console.warn(`Attempted to attack a card in Defense position at index ${targetIndex}.`);
-                return;
-            }
-    
-            try {
-                // Retrieve inGameDefPts directly from the opponent's deck slot
-                const targetInGameDefPts = targetCard.inGameDefPts;
-                if (targetInGameDefPts === undefined || targetInGameDefPts === null) {
-                    toast.error('Target card does not have inGameDefPts defined.');
-                    console.error('inGameDefPts is undefined or null for target slot:', targetCard);
-                    return;
-                }
-    
-                const inGameAtkPts = attackSourceCard.inGameAtkPts;
-    
-                // Calculate new inGameDefPts
-                const newInGameDefPts = targetInGameDefPts - inGameAtkPts;
-    
-                // Initialize an object to hold the updated card data
-                let updatedCardData = { ...targetCard };
-    
-                // Begin Firestore transaction
-                await runTransaction(firestore, async (transaction) => {
-                    const roomDocRef = doc(firestore, 'rooms', roomId);
-                    const roomDoc = await transaction.get(roomDocRef);
-                    if (!roomDoc.exists()) {
-                        throw new Error('Room does not exist!');
-                    }
-    
-                    // Reference to the target card in opponent's deck
-                    const targetDocRef = doc(firestore, 'rooms', roomId, 'players', opponentId, 'deck', targetIndex.toString());
-                    const targetDocSnap = await transaction.get(targetDocRef);
-                    if (!targetDocSnap.exists()) {
-                        throw new Error('Target card does not exist.');
-                    }
-    
-                    const targetCardData = targetDocSnap.data();
-    
-                    if (newInGameDefPts > 0) {
-                        // Update the target card's inGameDefPts with newInGameDefPts
-                        transaction.update(targetDocRef, {
-                            inGameDefPts: newInGameDefPts,
-                            hp: newInGameDefPts // Synchronize hp with inGameDefPts
-                        });
-                        console.log(`Target card ${targetCardData.cardName} HP reduced to ${newInGameDefPts}.`);
-    
-                        // Update the local updatedCardData
-                        updatedCardData.inGameDefPts = newInGameDefPts;
-                        updatedCardData.hp = newInGameDefPts;
-                    } else {
-                        // Move the target card to the graveyard
-                        const graveyardRef = collection(firestore, 'rooms', roomId, 'players', opponentId, 'graveyard');
-                        await addDoc(graveyardRef, targetCardData);
-    
-                        // Clear the target card slot and set inGameDefPts to 0
-                        transaction.update(targetDocRef, {
-                            id: null,
-                            imageUrl: blankCardImage,
-                            cardType: null,
-                            cardName: '',
-                            position: 'attack',
-                            hp: 0,
-                            inGameAtkPts: 0,
-                            inGameDefPts: 0 // Set to 0 instead of null
-                        });
-    
-                        // Optionally, deduct opponent's HP based on cardLevel
-                        const cardLevel = targetCardData.cardLevel || 0;
-                        if (cardLevel > 0) {
-                            const damageToOpponent = 200 * cardLevel;
-                            const currentOpponentHP = roomDoc.data().hp[opponentId] || 5000;
-                            const newOpponentHP = currentOpponentHP - damageToOpponent;
-                            transaction.update(roomDocRef, {
-                                [`hp.${opponentId}`]: Math.max(newOpponentHP, 0)
-                            });
-                            console.log(`Card destroyed. Opponent loses ${damageToOpponent} HP.`);
-                        } else {
-                            // No damage applied for Spell/Trap cards
-                            console.log(`Card destroyed (Spell/Trap). No damage applied to opponent.`);
-                        }
-    
-                        // Update the local updatedCardData
-                        updatedCardData.inGameDefPts = 0;
-                        updatedCardData.hp = 0;
-                    }
-                });
-    
-                // After transaction, update cardsStats with the updated card data under opponentId
-                await updateCardsStats(updatedCardData, opponentId);
-    
-                // Update local opponentDeck state
-                setOpponentDeck(prevDeck => {
-                    const updatedDeck = [...prevDeck];
-                    if (updatedCardData.inGameDefPts > 0) {
-                        // Update the target card's hp locally
-                        updatedDeck[targetIndex].inGameDefPts = updatedCardData.inGameDefPts;
-                        updatedDeck[targetIndex].hp = updatedCardData.hp; // Synchronize hp
-                    } else {
-                        // Clear the slot as the card is destroyed
-                        updatedDeck[targetIndex] = {
-                            id: null,
-                            imageUrl: blankCardImage,
-                            cardType: null,
-                            cardName: '',
-                            position: 'attack',
-                            hp: 0,
-                            inGameAtkPts: 0,
-                            inGameDefPts: 0 // Ensure it's set to 0
-                        };
-                    }
-                    return updatedDeck;
-                });
-    
-                // **Fetch cardLevel for toast message**
-                const destroyedCardLevel = targetCard.cardLevel || 0;
-                if (destroyedCardLevel > 0 && updatedCardData.inGameDefPts <= 0) {
-                    const damageToOpponent = 200 * destroyedCardLevel;
-                    toast.success(`${opponentUsername}'s ${targetCard.cardName} was destroyed! Opponent loses ${damageToOpponent} HP.`);
-                } else if (updatedCardData.inGameDefPts <= 0) {
-                    toast.info(`${opponentUsername}'s ${targetCard.cardName} was destroyed! No damage dealt.`);
-                } else {
-                    toast.success(`Attacked ${opponentUsername}'s ${targetCard.cardName}. New HP: ${updatedCardData.inGameDefPts}`);
-                }
-    
-            } catch (error) {
-                console.error('Error attacking target card:', error);
-                toast.error('Failed to attack target card.');
-            }
-    
-            // After attack, switch turn
-            await switchTurn();
-    
-            // Reset attackSourceCard
-            setAttackSourceCard(null);
-    } [attackSourceCard, opponentDeck, firestore, roomId, opponentId, opponentUsername, switchTurn, isActiveTurnFlag, updateCardsStats]});
-    
-
-
-    // Handle Defend Action
-    const handleDefend = useCallback(async () => {
-        if (gameStage !== 'battle') {
-            toast.warn('You can only defend during the Battle phase.');
-            return;
-        }
-
-        if (!isActiveTurnFlag) {
-            toast.warn("It's not your turn!");
-            return;
-        }
-
-        if (!selectedCard || selectedCard.source !== 'deck') {
-            toast.warn('Please select a card from your deck to defend with.');
-            return;
-        }
-
-        const index = selectedCard.index;
-
-        try {
-            // Reference to the selected card's slot in Firestore
-            const slotDocRef = doc(firestore, 'rooms', roomId, 'players', playerId, 'deck', index.toString());
-
-            // Update the card's position to 'defense' in Firestore
-            await updateDoc(slotDocRef, {
-                position: 'defense'
-            });
-
-            // Update cardsStats in Firestore (if position affects stats)
-            await updateCardsStats(myDeck[index]);
-
-            // Update local state
-            const updatedDeck = [...myDeck];
-            if (updatedDeck[index]) {
-                updatedDeck[index].position = 'defense';
-            }
-            setMyDeck(updatedDeck);
-            console.log(`Defended with ${updatedDeck[index].cardName} in slot ${index + 1}.`);
-            toast.success(`Defended with ${updatedDeck[index].cardName} in slot ${index + 1}.`);
-            
-            // Reset selected card
-            setSelectedCard(null);
-        } catch (error) {
-            console.error('Error during defend:', error);
-            toast.error('Failed to perform defend action.');
-        }
-    }, [gameStage, isActiveTurnFlag, selectedCard, myDeck, roomId, playerId, firestore, updateCardsStats]);
-
-    /**
-     * Updated Function: Handle Remove Card from Slot
-     * Ensures that removal is only possible during the Preparation phase.
-     */
-    const handleRemoveCard = useCallback(async (index) => {
-        if (gameStage !== 'preparation') {
-            toast.warn('You can only remove cards during the Preparation phase.');
-            return;
-        }
-    
-        const card = myDeck[index];
-        if (!card || !card.id) {
-            toast.warn('No card to remove from this slot.');
-            return;
-        }
-    
-        try {
-            // Remove the card from the slot in Firestore
-            const slotDocRef = doc(firestore, 'rooms', roomId, 'players', playerId, 'deck', index.toString());
-            await updateDoc(slotDocRef, {
-                id: null,
-                imageUrl: blankCardImage,
-                cardType: null,
-                cardName: '',
-                position: 'attack',
-                hp: null,
-                inGameAtkPts: null,
-                inGameDefPts: null
-            });
-    
-            // Add the card back to the player's hand in Firestore
-            const handDocRef = doc(firestore, 'rooms', roomId, 'players', playerId, 'hand', card.id);
-            await setDoc(handDocRef, {
-                imageUrl: card.imageUrl,
-                cardType: card.cardType,
-                cardName: card.cardName,
-                hp: card.inGameDefPts || 20, // Use inGameDefPts as hp
-                inGameAtkPts: card.inGameAtkPts || 0 // Include inGameAtkPts if available
-            });
-    
-            // **Removed updateCardsStats call here**
-    
-            // Update local state
-            const updatedDeck = [...myDeck];
-            updatedDeck[index] = {
-                id: null,
-                imageUrl: blankCardImage,
-                cardType: null,
-                cardName: '',
-                position: 'attack',
-                hp: null,
-                inGameAtkPts: null,
-                inGameDefPts: null
-            };
-            setMyDeck(updatedDeck);
-
-            setMyCards(prevCards => [...prevCards, card]);
-
-            toast.success(`Removed ${card.cardName} from slot ${index + 1} and returned to your hand.`);
-            console.log(`Removed ${card.cardName} from slot ${index + 1} and returned to your hand.`);
-        } catch (error) {
-            console.error('Error removing card from slot:', error);
-            toast.error('Failed to remove card from slot.');
-        }
-    }, [gameStage, myDeck, setMyDeck, setMyCards, firestore, roomId, playerId]);
-
-    // **New Function: Handle Room Deletion**
-    const handleDeleteRoom = useCallback(async (roomToDeleteId) => {
-        try {
-            const roomDocRef = doc(firestore, 'rooms', roomToDeleteId);
-            await deleteDoc(roomDocRef);
-            toast.success(`Room ${roomToDeleteId} has been deleted.`);
-            console.log(`Room ${roomToDeleteId} has been deleted.`);
-        } catch (error) {
-            console.error('Error deleting room:', error);
-            toast.error('Failed to delete room.');
-        }
-    }, [firestore]);
+    // States for room creation and joining
+    const [username, setUsername] = useState('');
+    const [gameStage, setGameStage] = useState('lobby');
+    const totalRounds = 10;
+    const { cards, loading: cardsLoading, error: cardsError } = useContext(CardsContext);
+    const [userInventory, setUserInventory] = useState([]);
+    const [availableRooms, setAvailableRooms] = useState([]);
+    const [loadingRooms, setLoadingRooms] = useState(false);
+    const [errorLoadingRooms, setErrorLoadingRooms] = useState(null);
+    const [showAvailableRooms, setShowAvailableRooms] = useState(false);
+    const [roomId, setRoomId] = useState('');
+    const [isRoomJoined, setIsRoomJoined] = useState(false);
+    const [currentRound, setCurrentRound] = useState(0);
+    const [playerId, setPlayerId] = useState('');
+    const [opponentId, setOpponentId] = useState('');
+    const [player1Username, setPlayer1Username] = useState('');
+    const [player2Username, setPlayer2Username] = useState('');
+    const ownUsernameDisplay = playerId === 'player1' ? player1Username : player2Username;
+    const opponentUsername = playerId === 'player1' ? player2Username : player1Username;
+    const [lastCard, setLastCard] = useState(null);
+    const [lastCardOwner, setLastCardOwner] = useState('');
+    const [currentTurn, setCurrentTurn] = useState('player1');
+    const [winner, setWinner] = useState('');
 
     // Function to handle creating a new room
     const handleCreateRoom = useCallback(async () => {
@@ -917,16 +247,13 @@ function Battlefield() {
                     player2: 5000
                 },
                 // **Add host field to store the creator's username**
-                host: username.trim(),
-                // Initialize cardsStats as an empty object
-                cardsStats: {}
+                host: username.trim()
             });
 
             const newRoomId = newRoomRef.id;
             setRoomId(newRoomId);
             setPlayerId('player1');
-            // Remove setOpponentId
-            // setOpponentId('player2');
+            setOpponentId('player2');
             setIsRoomJoined(true);
             setGameStage('waiting');
 
@@ -951,29 +278,21 @@ function Battlefield() {
                     cardType: null,
                     cardName: '',
                     position: 'attack',
-                    slotIndex: i,
-                    hp: null, // Set HP to null for empty slots
-                    inGameAtkPts: null, // Initialize inGameAtkPts
-                    inGameDefPts: null // Initialize inGameDefPts
+                    inGameDefPts: null,
+                    inGameAtkPts: null
                 }, { merge: true }));
             }
             await Promise.all(deckPromises);
 
             // Initialize player1's hand in the hand subcollection with card.id as document ID
             const player1HandRef = collection(firestore, 'rooms', newRoomId, 'players', 'player1', 'hand');
-            const handPromises = userCards.map(async (card) => {
-                await setDoc(doc(player1HandRef, card.id), {
-                    imageUrl: card.imageUrl,
-                    cardType: card.cardType,
-                    cardName: card.cardName,
-                    hp: card.inGameDefPts || 20, // Ensure HP is set from inGameDefPts
-                    inGameAtkPts: card.inGameAtkPts || 0, // Include inGameAtkPts
-                    inGameDefPts: card.inGameDefPts || 0 // **Include inGameDefPts**
-                });
-
-                // Update cardsStats in Firestore
-                await updateCardsStats(card, 'player1');
-            });
+            const handPromises = userCards.map(card => setDoc(doc(player1HandRef, card.id), {
+                imageUrl: card.imageUrl,
+                cardType: card.cardType,
+                cardName: card.cardName,
+                inGameDefPts: card.inGameDefPts || 0,
+                inGameAtkPts: card.inGameAtkPts || 0
+            }));
             await Promise.all(handPromises);
 
             console.log(`Room created with ID: ${newRoomId}`);
@@ -982,10 +301,36 @@ function Battlefield() {
             console.error('Error creating room:', error);
             toast.error('Failed to create room. Please try again.');
         }
-    }, [username, firestore, totalRounds, cards, cardsLoading, assetsLoaded, userInventory, updateCardsStats]);
+    }, [username, firestore, totalRounds, cards, cardsLoading, assetsLoaded, userInventory]);
 
-    // Function to handle joining an existing room
-    const handleJoinRoom = useCallback(async (selectedRoomId) => {
+    // Function to fetch available rooms
+    useEffect(() => {
+        if (showAvailableRooms && !isRoomJoined) {
+            setLoadingRooms(true);
+            setErrorLoadingRooms(null);
+            const roomsRef = collection(firestore, 'rooms');
+            const q = query(roomsRef, where('gameState.gameStage', '==', 'waiting')); // Only rooms waiting for players
+
+            const unsubscribe = onSnapshot(q, (querySnapshot) => {
+                const rooms = [];
+                querySnapshot.forEach(doc => {
+                    rooms.push({ id: doc.id, ...doc.data() });
+                });
+                setAvailableRooms(rooms);
+                setLoadingRooms(false);
+                console.log('Available rooms fetched:', rooms);
+            }, (error) => {
+                console.error('Error fetching available rooms:', error);
+                setErrorLoadingRooms('Failed to load rooms. Please try again.');
+                setLoadingRooms(false);
+            });
+
+            return () => unsubscribe();
+        }
+    }, [showAvailableRooms, isRoomJoined, firestore]);
+
+     // Function to handle joining an existing room
+     const handleJoinRoom = useCallback(async (selectedRoomId) => {
         // Since username is fetched from Firestore, ensure it's available
         if (!userInventory || userInventory.length === 0) {
             toast.warn('No cards found in your inventory.');
@@ -1087,8 +432,7 @@ function Battlefield() {
 
             setRoomId(selectedRoomId.trim());
             setPlayerId('player2');
-            // Remove setOpponentId
-            // setOpponentId('player1');
+            setOpponentId('player1');
             setIsRoomJoined(true);
             setGameStage('preparation');
             setShowAvailableRooms(false); // Hide available rooms list after joining
@@ -1104,29 +448,21 @@ function Battlefield() {
                     cardType: null,
                     cardName: '',
                     position: 'attack',
-                    slotIndex: i,
-                    hp: null, // Set HP to null for empty slots
-                    inGameAtkPts: null, // Initialize inGameAtkPts
-                    inGameDefPts: null // Initialize inGameDefPts
+                    inGameDefPts: null,
+                    inGameAtkPts: null
                 }, { merge: true }));
             }
             await Promise.all(deckPromises);
 
             // Initialize player2's hand in the hand subcollection with card.id as document ID
             const player2HandRef = collection(firestore, 'rooms', selectedRoomId, 'players', 'player2', 'hand');
-            const handPromises = userCards.map(async (card) => {
-                await setDoc(doc(player2HandRef, card.id), {
-                    imageUrl: card.imageUrl,
-                    cardType: card.cardType,
-                    cardName: card.cardName,
-                    hp: card.inGameDefPts || 20, // Ensure HP is set from inGameDefPts
-                    inGameAtkPts: card.inGameAtkPts || 0, // Include inGameAtkPts
-                    inGameDefPts: card.inGameDefPts || 0 // **Include inGameDefPts**
-                });
-
-                // **Fixed: Update cardsStats with individual card**
-                await updateCardsStats(card, 'player2');
-            });
+            const handPromises = userCards.map(card => setDoc(doc(player2HandRef, card.id), {
+                imageUrl: card.imageUrl,
+                cardType: card.cardType,
+                cardName: card.cardName,
+                inGameDefPts: card.inGameDefPts || 0,
+                inGameAtkPts: card.inGameAtkPts || 0
+            }));
             await Promise.all(handPromises);
 
             // Update gameState to 'preparation' since both players have joined
@@ -1143,12 +479,224 @@ function Battlefield() {
             console.error('Error joining room:', error);
             toast.error('Failed to join room. Please check the selected room and try again.');
         }
-    }, [username, roomId, firestore, cards, cardsLoading, assetsLoaded, userInventory, updateCardsStats]);
+    }, [username, roomId, firestore, cards, cardsLoading, assetsLoaded, userInventory]);
+
+
+
+
 
     /**
-     * Handler for slot clicks during the Preparation phase.
-     * Manages card removal and placement.
+     * Admin Mode: Toggle Delete Buttons via Console
+     * Adds hidden functions to the window object that, when called with the correct code,
+     * toggle admin mode, showing or hiding Delete buttons in the room list.
      */
+
+    // State to track admin mode
+    const [isAdmin, setIsAdmin] = useState(false);
+
+    // Function to enable admin mode
+    useEffect(() => {
+        // **Hidden Feature: Enable Admin Mode**
+        window.enableAdminMode = (code) => {
+            if (code === "CM27") {
+                setIsAdmin(true);
+                toast.success('Admin mode activated. You can now delete rooms.');
+                console.log('Admin mode activated.');
+            } else {
+                toast.warn('Invalid admin code.');
+                console.warn('Attempted to activate admin mode with invalid code:', code);
+            }
+        };
+
+        // Cleanup: Remove the function when the component unmounts
+        return () => {
+            delete window.enableAdminMode;
+        };
+    }, []);
+    
+    // Function to disable admin mode
+    useEffect(() => {
+        // **Hidden Feature: Enable Admin Mode**
+        window.disableAdminMode = (code) => {
+            if (code === "CM27") {
+                setIsAdmin(false);
+                toast.success('Admin mode deactivated.');
+                console.log('Admin mode deactivated.');
+            } else {
+                toast.warn('Invalid admin code.');
+                console.warn('Attempted to deactivate admin mode with invalid code:', code);
+            }
+        };
+
+        // Cleanup: Remove the function when the component unmounts
+        return () => {
+            delete window.disableAdminMode;
+        };
+    }, []);
+
+    // Function to delete a room
+    const handleDeleteRoom = useCallback(async (roomIdToDelete) => {
+        if (!isAdmin) {
+            toast.warn('You do not have permission to delete rooms.');
+            return;
+        }
+
+        // Confirmation before deletion
+        if (!window.confirm(`Are you sure you want to delete Room ID: ${roomIdToDelete}? This action cannot be undone.`)) {
+            toast.info('Room deletion cancelled.');
+            return;
+        }
+
+        try {
+            const roomDocRef = doc(firestore, 'rooms', roomIdToDelete);
+            const roomSnap = await getDoc(roomDocRef);
+
+            if (!roomSnap.exists()) {
+                toast.error('Room does not exist.');
+                console.error('Attempted to delete a non-existent room:', roomIdToDelete);
+                return;
+            }
+
+            await deleteDoc(roomDocRef);
+            toast.success(`Room ID: ${roomIdToDelete} has been deleted.`);
+            console.log(`Room ID: ${roomIdToDelete} has been deleted.`);
+        } catch (error) {
+            console.error('Error deleting room:', error);
+            toast.error('Failed to delete room.');
+        }
+    }, [isAdmin]);
+
+
+
+
+
+    /**
+     * Preparation Phase
+     * 
+     * This section handles the preparation phase of the game, where players set up their decks,
+     * place cards, and get ready for battle. It includes state management for players' decks,
+     * graveyards, and readiness status, as well as functions to handle card placement, position
+     * toggling, and turn management.
+     * 
+     * Key components:
+     * - State management for decks, graveyards, and player readiness
+     * - Functions for card placement and removal
+     * - Position toggling for monster cards
+     * - Player readiness handling
+     * - Timer management for preparation and battle phases
+     * - Turn switching and game stage transitions
+     * 
+     * The preparation phase transitions to the battle phase when both players are ready
+     * or when the preparation timer expires.
+     */
+    const [selectedCard, setSelectedCard] = useState(null);
+    const [myDeck, setMyDeck] = useState([]);
+    const [player1Graveyard, setPlayer1Graveyard] = useState([]);
+    const [player2Graveyard, setPlayer2Graveyard] = useState([]);
+    const opponentGraveyard = playerId === 'player1' ? player2Graveyard : player1Graveyard;
+    const playerGraveyard = playerId === 'player1' ? player1Graveyard : player2Graveyard;
+    const [playerReady, setPlayerReady] = useState(false);
+    const [myCards, setMyCards] = useState([]);
+    const [opponentCards, setOpponentCards] = useState([]);
+    const [opponentReady, setOpponentReady] = useState(false);
+    const [hasPlacedCard, setHasPlacedCard] = useState(false);
+
+    // Function to toggle a card's position
+    const handlePositionToggle = useCallback(async (slotIndex, currentPosition) => {
+        if (gameStage !== 'preparation') return;
+
+        // **Fetch the card details to verify its type**
+        const slot = myDeck[slotIndex];
+        if (!slot || slot.cardType !== 'monster') {
+            toast.error('Only Monster cards can change positions.');
+            console.error('Attempted to toggle position of a non-Monster card:', slot);
+            return;
+        }
+
+        const newPosition = currentPosition === 'attack' ? 'defense' : 'attack';
+
+        try {
+            // Update Firestore with the new position
+            const slotDocRef = doc(firestore, 'rooms', roomId, 'players', playerId, 'deck', slotIndex.toString());
+            await updateDoc(slotDocRef, {
+                position: newPosition
+            });
+
+            // Update local state
+            const updatedDeck = [...myDeck];
+            if (updatedDeck[slotIndex]) {
+                updatedDeck[slotIndex].position = newPosition;
+            }
+            setMyDeck(updatedDeck);
+            console.log(`Toggled position for slot ${slotIndex + 1} to ${newPosition}. Updated myDeck:`, updatedDeck);
+
+            toast.success(`Card in slot ${slotIndex + 1} switched to ${newPosition.charAt(0).toUpperCase() + newPosition.slice(1)} position.`);
+        } catch (error) {
+            console.error('Error toggling card position:', error);
+            toast.error('Failed to toggle card position.');
+        }
+    }, [gameStage, myDeck, roomId, playerId, firestore]);
+
+    // Function to remove a card from a slot
+    const handleRemoveCard = useCallback(async (index) => {
+        if (gameStage !== 'preparation') {
+            toast.warn('You can only remove cards during the Preparation phase.');
+            return;
+        }
+
+        const card = myDeck[index];
+        if (!card || !card.id) {
+            toast.warn('No card to remove from this slot.');
+            return;
+        }
+
+        try {
+            // Remove the card from the slot in Firestore
+            const slotDocRef = doc(firestore, 'rooms', roomId, 'players', playerId, 'deck', index.toString());
+            await updateDoc(slotDocRef, {
+                id: null,
+                imageUrl: blankCardImage,
+                cardType: null,
+                cardName: '',
+                position: 'attack',
+                inGameDefPts: null,
+                inGameAtkPts: null
+            });
+
+            // Add the card back to the player's hand in Firestore
+            const handDocRef = doc(firestore, 'rooms', roomId, 'players', playerId, 'hand', card.id);
+            await setDoc(handDocRef, {
+                imageUrl: card.imageUrl,
+                cardType: card.cardType,
+                cardName: card.cardName,
+                inGameDefPts: card.inGameDefPts || 0,
+                inGameAtkPts: card.inGameAtkPts || 0
+            });
+
+            // Update local state
+            const updatedDeck = [...myDeck];
+            updatedDeck[index] = {
+                id: null,
+                imageUrl: blankCardImage,
+                cardType: null,
+                cardName: '',
+                position: 'attack',
+                inGameDefPts: null,
+                inGameAtkPts: null
+            };
+            setMyDeck(updatedDeck);
+
+            setMyCards(prevCards => [...prevCards, card]);
+
+            toast.success(`Removed ${card.cardName} from slot ${index + 1} and returned to your hand.`);
+            console.log(`Removed ${card.cardName} from slot ${index + 1} and returned to your hand.`);
+        } catch (error) {
+            console.error('Error removing card from slot:', error);
+            toast.error('Failed to remove card from slot.');
+        }
+    }, [gameStage, myDeck, setMyDeck, setMyCards, firestore, roomId, playerId]);
+
+    // Function to handle a click on a preparation slot
     const handlePreparationSlotClick = useCallback(async (index) => {
         const slot = myDeck[index];
         if (slot && slot.id) {
@@ -1174,29 +722,7 @@ function Battlefield() {
             }
 
             try {
-                // **Use inGameDefPts and inGameAtkPts from CardsContext instead of fetching from Firestore**
-                const card = cards.find(c => c.id === selectedCard.card.id);
-                if (!card) {
-                    toast.error('Selected card data not found in CardsContext.');
-                    console.error('Card not found in CardsContext for cardId:', selectedCard.card.id);
-                    return;
-                }
-
-                const { inGameDefPts, inGameAtkPts } = card;
-
-                if (inGameDefPts === undefined || inGameDefPts === null) {
-                    toast.error('Selected card does not have inGameDefPts defined.');
-                    console.error('inGameDefPts is undefined or null for card:', card);
-                    return;
-                }
-
-                if (inGameAtkPts === undefined || inGameAtkPts === null) {
-                    toast.error('Selected card does not have inGameAtkPts defined.');
-                    console.error('inGameAtkPts is undefined or null for card:', card);
-                    return;
-                }
-
-                // Update Firestore: set the card in the slot, including 'id', 'inGameDefPts', and 'inGameAtkPts'
+                // Update Firestore: set the card in the slot, including 'id'
                 const slotDocRef = doc(firestore, 'rooms', roomId, 'players', playerId, 'deck', index.toString());
                 await setDoc(slotDocRef, {
                     id: selectedCard.card.id,
@@ -1205,20 +731,16 @@ function Battlefield() {
                     cardName: selectedCard.card.cardName,
                     position: 'attack',
                     slotIndex: index,
-                    hp: inGameDefPts, // Set hp from inGameDefPts
-                    inGameAtkPts: inGameAtkPts, // Set inGameAtkPts
-                    inGameDefPts: inGameDefPts // Set inGameDefPts
+                    inGameDefPts: selectedCard.card.inGameDefPts || 0,
+                    inGameAtkPts: selectedCard.card.inGameAtkPts || 0
                 }, { merge: true });
-
-                // **Update cardsStats during 'preparation' phase**
-                await updateCardsStats(selectedCard.card, playerId);
 
                 // Update lastCard in Firestore
                 const lastCardRef = doc(firestore, 'rooms', roomId);
                 await updateDoc(lastCardRef, {
                     lastCard: {
-                        card: { ...selectedCard.card, slotIndex: index, hp: inGameDefPts, inGameAtkPts: inGameAtkPts, inGameDefPts: inGameDefPts },
-                        owner: playerId
+                        card: { ...selectedCard.card, slotIndex: index, inGameDefPts: selectedCard.card.inGameDefPts, owner: username, inGameAtkPts: selectedCard.card.inGameAtkPts || 0 },
+                        timestamp: serverTimestamp()
                     }
                 });
 
@@ -1229,9 +751,8 @@ function Battlefield() {
                         ...selectedCard.card,
                         position: 'attack',
                         slotIndex: index,
-                        hp: inGameDefPts, // Set hp from inGameDefPts
-                        inGameAtkPts: inGameAtkPts, // Set inGameAtkPts
-                        inGameDefPts: inGameDefPts, // Set inGameDefPts
+                        inGameDefPts: selectedCard.card.inGameDefPts || 0,
+                        inGameAtkPts: selectedCard.card.inGameAtkPts || 0,
                         id: selectedCard.card.id
                     };
                     return updatedDeck;
@@ -1250,67 +771,682 @@ function Battlefield() {
                 // Reset selected card
                 setSelectedCard(null);
 
-                // Switch turn if in battle phase
-                if (gameStage === 'preparation') {
-                    // In preparation phase, do not switch turn
-                } else {
-                    await switchTurn();
-                }
-
             } catch (error) {
                 console.error('Error placing card:', error);
                 toast.error('Failed to place card.');
             }
         }
-    }, [selectedCard, myDeck, handleRemoveCard, firestore, roomId, playerId, cards, setMyDeck, setMyCards, gameStage, switchTurn, updateCardsStats]);
+    }, [selectedCard, myDeck, handleRemoveCard, firestore, roomId, playerId, setMyDeck, setMyCards, gameStage]);
 
-    /**
-     * Handler for slot clicks during the Battle phase.
-     * Manages attack source selection without invoking card removal.
-     */
-    const handleBattleSlotClick = useCallback(async (index) => {
-        const slot = myDeck[index];
-        if (slot && slot.id && (slot.cardType === 'spell' || slot.cardType === 'trap')) { 
-            toast.warn(`You cannot attack with a ${slot.cardType} card. You can use it.`);
-            console.warn(`Attempted to select a ${slot.cardType} card at index ${index}.`);
-            
-            // Set action as "Use" for spell/trap cards
-            setSelectedCard({
-                card: slot,
-                index,
-                source: 'deck', // Indicate the source is deck
-                action: 'Use'  // Action is "Use" for spell or trap cards
+    // Function to mark a player as ready
+    const handleReady = useCallback(async () => {
+        if (!isRoomJoined || !roomId || !playerId) {
+            toast.warn('You must join a room first.');
+            return;
+        }
+    
+        try {
+            const playerDocRef = doc(firestore, 'rooms', roomId, 'players', playerId);
+            await setDoc(playerDocRef, {
+                hasPlacedCard: true
+            }, { merge: true });
+    
+            setHasPlacedCard(true);
+    
+            toast.success('You are ready.');
+
+            updateDoc(doc(firestore, 'rooms', roomId), {
+                'lastCard.card.cardName': null,
+                'lastCard.card.cardType': null,
+                'lastCard.card.id': null,
+                'lastCard.card.imageUrl': null,
+                'lastCard.card.inGameAtkPts': null,
+                'lastCard.card.inGameDefPts': null,
+                'lastCard.card.owner': null,
+                'lastCard.card.slotIndex': null,
+            });
+        } catch (error) {
+            console.error('Error setting ready:', error);
+            toast.error('Failed to mark as ready.');
+        }
+    }, [isRoomJoined, roomId, playerId, firestore]);
+
+    // Function to check if both players are ready
+    useEffect(() => {
+        if (isRoomJoined && roomId && playerId) {
+            const playersRef = collection(firestore, 'rooms', roomId, 'players');
+
+            const unsubscribePlayers = onSnapshot(playersRef, async (querySnapshot) => {
+                const players = {};
+                querySnapshot.forEach(doc => {
+                    players[doc.id] = doc.data();
+                });
+
+                const currentPlayer = players[playerId];
+                const opponentIdLocal = playerId === 'player1' ? 'player2' : 'player1';
+                const opponent = players[opponentIdLocal];
+
+                setHasPlacedCard(currentPlayer?.hasPlacedCard || false); // Assuming hasPlacedCard indicates readiness
+                setOpponentReady(opponent?.hasPlacedCard || false);
+                console.log(`Player Ready: ${currentPlayer?.hasPlacedCard}, Opponent Ready: ${opponent?.hasPlacedCard}`);
+
+                if (gameStage === 'preparation' && currentPlayer?.hasPlacedCard && opponent?.hasPlacedCard) {
+                    // Both players are ready, transition to battle
+                    await updateDoc(doc(firestore, 'rooms', roomId), {
+                        'gameState.gameStage': 'battle',
+                        'gameState.timer': 60, // 1 minute battle timer
+                        'gameState.currentTurn': 'player1' // Starting player
+                    });
+                    setGameStage('battle');
+                    setTimer(60);
+                    toast.success('Both players are ready! Proceeding to Battle.');
+                    console.log('Both players are ready! Proceeding to Battle.');
+                }
+            }, (error) => {
+                console.error('Error listening to players:', error);
+                toast.error('Failed to listen to player data.');
             });
 
-            toast.info(`Selected ${slot.cardName} to use.`);
-            console.log(`Selected ${slot.cardName} to use.`);
-        } else if (slot && slot.cardType === 'monster') { 
-            // **Use inGameAtkPts directly from the slot**
-            const inGameAtkPts = slot.inGameAtkPts;
-            if (inGameAtkPts === undefined || inGameAtkPts === null) {
-                toast.error('Selected monster card does not have inGameAtkPts defined.');
-                console.error('inGameAtkPts is undefined or null for slot:', slot);
+            return () => unsubscribePlayers();
+        }
+    }, [isRoomJoined, roomId, playerId, firestore, gameStage]);
+    
+
+    const [timer, setTimer] = useState(120);
+    const [playerHP, setPlayerHP] = useState(5000);
+    const [opponentHP, setOpponentHP] = useState(5000);
+    const timerRef = useRef(null);
+    const isActiveTurnFlag = useMemo(() => currentTurn === playerId, [currentTurn, playerId]);
+    const [attackSourceCard, setAttackSourceCard] = useState(null);
+    const [isWinner, setIsWinner] = useState(false);
+
+    // Function to determine the winner
+    const determineWinner = useCallback(async () => {
+        let determinedWinner;
+        const player1HP = playerId === 'player1' ? playerHP : opponentHP;
+        const player2HP = playerId === 'player1' ? opponentHP : playerHP;
+        
+        // First check if either player's HP is 0 or below
+        if (player1HP <= 0) {
+            determinedWinner = 'player2';
+        } else if (player2HP <= 0) {
+            determinedWinner = 'player1';
+        } else if (gameStage === 'finished') {
+            // If round is done, compare HP values
+            determinedWinner = player1HP > player2HP ? 'player1' : 'player2';
+        } else {
+            // If no winner can be determined yet, return
+            return;
+        }
+
+        setWinner(determinedWinner);
+        setIsWinner(determinedWinner === playerId);
+        setShowGameOverlay(true);
+
+        // Update Firestore immediately with the winner
+        try {
+            const roomDocRef = doc(firestore, 'rooms', roomId);
+            const docSnap = await getDoc(roomDocRef);
+            
+            if (docSnap.exists()) {
+                await updateDoc(roomDocRef, {
+                    'gameState.winner': determinedWinner,
+                    'gameState.finalHP': {
+                        player1: playerId === 'player1' ? playerHP : opponentHP,
+                        player2: playerId === 'player1' ? opponentHP : playerHP
+                    }
+                });
+
+                // Set a timeout to hide the overlay and update game stage
+                setTimeout(async () => {
+                    setShowGameOverlay(false);
+                    
+                    try {
+                        // Check again if document still exists before updating
+                        const currentDocSnap = await getDoc(roomDocRef);
+                        if (currentDocSnap.exists()) {
+                            await updateDoc(roomDocRef, {
+                                'gameState.gameStage': 'finished',
+                                'gameState.timer': 0
+                            });
+                        }
+                    } catch (error) {
+                        console.log('Game already concluded:', error.message);
+                    }
+                }, 10000);
+            } else {
+                console.log('Room document no longer exists');
+            }
+        } catch (error) {
+            console.error('Error updating game state:', error);
+            toast.error('Error updating game state. The game may have ended.');
+        }
+
+    }, [playerHP, opponentHP, playerId, gameStage, firestore, roomId]);
+    // Function to switch turns
+    const switchTurn = useCallback(async () => {
+        const roomDocRef = doc(firestore, 'rooms', roomId);
+        const gameStateField = 'gameState';
+
+        try {
+            await runTransaction(firestore, async (transaction) => {
+                // Read roomDocRef and targetDocRef first
+                const roomDoc = await transaction.get(roomDocRef);
+                if (!roomDoc.exists()) {
+                    throw new Error('Room does not exist!');
+                }
+
+                const roomData = roomDoc.data();
+                const { gameState } = roomData;
+
+                if (!gameState) {
+                    throw new Error('Game state does not exist!');
+                }
+
+                const { currentTurn, currentRound, totalRounds } = gameState;
+                const nextTurn = currentTurn === 'player1' ? 'player2' : 'player1';
+                let newRound = currentRound;
+
+                // If switching back to player1, increment the round
+                if (nextTurn === 'player1') {
+                    newRound += 1;
+                    if (newRound > totalRounds) {
+                        transaction.update(roomDocRef, {
+                            [`${gameStateField}.gameStage`]: 'finished',
+                            [`${gameStateField}.timer`]: 0,
+                        });
+                        return;
+                    } else {
+                        transaction.update(roomDocRef, {
+                            [`${gameStateField}.currentRound`]: newRound
+                        });
+                    }
+                }
+
+                transaction.update(roomDocRef, {
+                    [`${gameStateField}.currentTurn`]: nextTurn,
+                    [`${gameStateField}.timer`]: 60, // Reset timer for the next player
+                });
+            });
+
+            // Update local state after transaction
+            const updatedRoomDoc = await getDoc(doc(firestore, 'rooms', roomId));
+            if (updatedRoomDoc.exists()) {
+                const updatedGameState = updatedRoomDoc.data().gameState;
+                setGameStage(updatedGameState.gameStage);
+                setTimer(updatedGameState.timer);
+                setCurrentRound(updatedGameState.currentRound);
+                setCurrentTurn(updatedGameState.currentTurn);
+                console.log(`Turn switched to ${updatedGameState.currentTurn}. Current Round: ${updatedGameState.currentRound}`);
+
+                if (updatedGameState.gameStage === 'finished') {
+                    console.log('Game has finished.');
+                    toast.info('Game has finished.');
+                    determineWinner(); // Call function to determine the winner
+                }
+
+                // Reset hasPlacedCard for the new active player
+                const activePlayerRef = doc(firestore, 'rooms', roomId, 'players', updatedGameState.currentTurn);
+                await updateDoc(activePlayerRef, {
+                    hasPlacedCard: false
+                });
+            }
+        } catch (error) {
+            console.error('Error switching turn:', error);
+            toast.error('Failed to switch turn.');
+        }
+    }, [roomId, firestore, determineWinner]);
+
+    // Function to start the timer
+    useEffect(() => {
+        // Clear any existing interval
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+        }
+
+        // Function to handle timer countdown
+        const startTimer = () => {
+            timerRef.current = setInterval(async () => {
+                setTimer((prevTimer) => {
+                    if (prevTimer > 0) {
+                        const newTimer = prevTimer - 1;
+                        if (isActiveTurnFlag || gameStage === 'preparation') {
+                            updateDoc(doc(firestore, 'rooms', roomId), {
+                                'gameState.timer': newTimer
+                            });
+                        }
+                        return newTimer;
+                    } else {
+                        // Timer expired, switch turn
+                        clearInterval(timerRef.current);
+                        timerRef.current = null;
+                        if (gameStage === 'battle' && isActiveTurnFlag) {
+                            switchTurn();
+                        }
+                        return 0;
+                    }
+                });
+            }, 1000);
+        };
+
+        if (gameStage === 'preparation') {
+            // During preparation phase, start preparation timer
+            if (timer > 0) {
+                startTimer();
+            } else {
+                // Preparation timer ended, transition to battle stage
+                updateDoc(doc(firestore, 'rooms', roomId), {
+                    'lastCard.card.cardName': null,
+                    'lastCard.card.cardType': null,
+                    'lastCard.card.id': null,
+                    'lastCard.card.imageUrl': null,
+                    'lastCard.card.inGameAtkPts': null,
+                    'lastCard.card.inGameDefPts': null,
+                    'lastCard.card.owner': null,
+                    'lastCard.card.slotIndex': null,
+                    'gameState.gameStage': 'battle',
+                    'gameState.timer': 60, // 1 minute battle timer
+                    'gameState.currentTurn': 'player1' // Starting player
+                });
+                setGameStage('battle');
+                setTimer(60);
+                toast.success('Preparation Phase ended. Proceeding to Battle.');
+                console.log('Preparation Phase ended. Proceeding to Battle.');
+            }
+        } else if (gameStage === 'battle') {
+            if (isActiveTurnFlag && !attackSourceCard) { // Only the active player manages the battle timer
+                if (timer > 0) {
+                    startTimer();
+                } else {
+                    // Timer expired, switch turn
+                    switchTurn();
+                }
+            }
+        }
+
+        // Cleanup function to clear interval on unmount or when dependencies change
+        return () => {
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
+        };
+    }, [gameStage, timer, isActiveTurnFlag, roomId, switchTurn, attackSourceCard]); 
+    
+    
+
+
+
+    /**
+     * Battle Stage
+     * 
+     * This section manages the core gameplay mechanics during the battle phase,
+     * handling card interactions, attacks, and game state updates in real-time.
+     * 
+     * Key Components:
+     * 1. Attack System
+     *    - Card selection and target validation
+     *    - Attack resolution and damage calculation
+     *    - Position-based combat mechanics (Attack/Defense)
+     * 
+     * 2. Turn Management
+     *    - Turn switching between players
+     *    - Timer-based turn progression
+     *    - Action validation based on turn state
+     * 
+     * 3. Card State Tracking
+     *    - Opponent's deck monitoring
+     *    - Card position and status updates
+     *    - Graveyard management
+     * 
+     * 4. Game Flow Control
+     *    - Victory/defeat conditions
+     *    - Game overlay management
+     *    - Stage transitions
+     * 
+     * States:
+     * - opponentDeck: Tracks opponent's cards in play
+     * - showGameOverlay: Controls victory/defeat overlay visibility
+     * - attackSourceCard: Selected card for attack
+     * - isWinner: Tracks game outcome
+     * 
+     * Key Functions:
+     * - handleAttackInitiation: Manages attack execution
+     * - handleCardSelection: Processes card selection events
+     * - updateGameState: Syncs game state with Firestore
+     * - checkGameEnd: Evaluates victory conditions
+     * 
+     * This stage represents the main gameplay phase where players engage in
+     * strategic card battles, managing their resources and executing moves
+     * to achieve victory.
+     */
+    const [opponentDeck, setOpponentDeck] = useState([]);
+    const opponentIdLocal = playerId === 'player1' ? 'player2' : 'player1';
+    const [showGameOverlay, setShowGameOverlay] = useState(false);
+
+    // Function to check if the game has ended
+    useEffect(() => {
+        if (showGameOverlay) {
+            // Hide overlay after 10 seconds
+            const timer = setTimeout(() => {
+                setShowGameOverlay(false);
+            }, 10000);
+
+            return () => clearTimeout(timer);
+        }
+    }, [showGameOverlay]);
+
+    // Function to check if the game has ended due to HP
+    useEffect(() => {
+        if (gameStage === 'battle') {
+            const player1HP = playerId === 'player1' ? playerHP : opponentHP;
+            const player2HP = playerId === 'player1' ? opponentHP : playerHP;
+
+            if (player1HP <= 0 || player2HP <= 0) {
+                // Set winner based on HP and update game state
+                determineWinner();
+                setShowGameOverlay(true);
+            }
+        }
+    }, [gameStage, playerHP, opponentHP, playerId, determineWinner]);
+
+    // Function to initiate an attack
+    const handleAttackInitiation = useCallback(async () => {
+        // Debugging: Log the current selectedCard
+        console.log('Attempting to initiate attack with selectedCard:', selectedCard);
+
+        // Check if selectedCard and its nested properties are defined
+        if (!selectedCard || !selectedCard.card || !selectedCard.card.id) {
+            toast.error('No valid card selected for attack.');
+            console.error('Selected card is invalid:', selectedCard);
+            return;
+        }
+
+        if (selectedCard.card.cardType !== 'monster') { // assuming only monster cards can attack
+            toast.warn('Please select a Monster card to attack with.');
+            return;
+        }
+
+        // **Position Check: Only 'attack' position cards can attack**
+        if (selectedCard.card.position !== 'attack') {
+            toast.warn('Only cards in Attack position can be used to attack.');
+            console.warn(`Attempted to attack a card in Defense position at index ${selectedCard.index}.`);
+            return;
+        }
+
+        try {
+            const cardId = selectedCard.card.id;
+            const cardDocRef = doc(firestore, 'cards', cardId);
+            const cardDocSnap = await getDoc(cardDocRef);
+
+            if (!cardDocSnap.exists()) {
+                toast.error('Selected card does not exist in the cards collection.');
+                console.error('Selected card document does not exist for cardId:', cardId);
                 return;
             }
 
-            // Set action as "Attack" for monster cards
-            setSelectedCard({
-                card: slot,
-                index,
-                inGameAtkPts,  // Attack points
-                source: 'deck', // Indicate the source is deck
-                action: 'Attack'  // Action is "Attack" for monster cards
+            const cardData = cardDocSnap.data();
+            const attackPts = cardData.atkPts;
+
+            if (attackPts === undefined || attackPts === null) {
+                toast.error('Selected card does not have attack points defined.');
+                console.error('attackPts is undefined or null for the selected card:', cardData);
+                return;
+            }
+
+            setAttackSourceCard({
+                ...selectedCard,
+                attackPts
             });
 
-            // Update cardsStats in Firestore
-            await updateCardsStats(slot, playerId);
-            
-            toast.info(`Selected ${slot.cardName} to attack with (Attack Points: ${inGameAtkPts}).`);
-            console.log(`Selected ${slot.cardName} to attack with (Attack Points: ${inGameAtkPts}).`);
+            toast.info(`Selected ${selectedCard.card.cardName} to attack with (Attack Points: ${attackPts}). Choose an opponent's card to attack.`);
+            console.log(`Selected ${selectedCard.card.cardName} to attack with (Attack Points: ${attackPts}).`);
+        } catch (error) {
+            console.error('Error fetching attackPts:', error);
+            toast.error('Failed to fetch attack points for the selected card.');
         }
-    }, [myDeck, updateCardsStats]);
+    }, [selectedCard, firestore]);
 
-    // **New Function: Handle Battle Phase Card Placement**
+    // Function to handle target selection
+    const handleTargetSelection = useCallback(async (targetIndex) => {
+        if (!attackSourceCard) {
+            toast.warn('No attack source selected.');
+            return;
+        }
+
+        // Ensure it's still the player's turn
+        if (!isActiveTurnFlag) {
+            toast.warn("It's not your turn!");
+            return;
+        }
+
+        const targetCard = opponentDeck[targetIndex];
+        if (!targetCard || !targetCard.id) {
+            toast.warn('No valid target card selected.');
+            return;
+        }
+
+        // **Position Check: Only 'attack' position cards can be targeted**
+        if (targetCard.position !== 'attack') {
+            toast.warn('You cannot attack a card in Defense position.');
+            console.warn(`Attempted to attack a card in Defense position at index ${targetIndex}.`);
+            return;
+        }
+
+        try {
+            await runTransaction(firestore, async (transaction) => {
+                // Read roomDocRef and targetDocRef first
+                const roomDocRef = doc(firestore, 'rooms', roomId);
+                const roomDoc = await transaction.get(roomDocRef);
+                if (!roomDoc.exists()) {
+                    throw new Error('Room does not exist!');
+                }
+
+                const targetDocRef = doc(firestore, 'rooms', roomId, 'players', opponentId, 'deck', targetIndex.toString());
+                const targetDoc = await transaction.get(targetDocRef);
+                if (!targetDoc.exists()) {
+                    throw new Error('Target card does not exist.');
+                }
+
+                const targetCardData = targetDoc.data();
+                const currentDefPts = targetCardData.inGameDefPts || 0;
+                const attackingPts = attackSourceCard.attackPts || 0;
+                const newDefPts = Math.max(currentDefPts - attackingPts, 0);
+
+                console.log('Attack calculation:', {
+                    currentDefPts,
+                    attackingPts,
+                    newDefPts,
+                    targetCardData
+                });
+
+                // Update the card's defense points in the cards collection
+                const cardDocRef = doc(firestore, 'cards', targetCardData.id);
+                transaction.update(cardDocRef, {
+                    inGameDefPts: newDefPts
+                });
+
+                if (newDefPts <= 0) {
+                    // Move to graveyard if defense points are depleted
+                    const graveyardRef = collection(firestore, 'rooms', roomId, 'players', opponentId, 'graveyard');
+                    await addDoc(graveyardRef, { ...targetCardData });
+                    // Remove the card from deck and clear its data including 'id'
+                    transaction.update(targetDocRef, {
+                        id: null,
+                        imageUrl: blankCardImage,
+                        cardType: null,
+                        cardName: '',
+                        position: 'attack',
+                        inGameDefPts: null,
+                        inGameAtkPts: null
+                    });
+
+                    // Reset the card's defense points in the cards collection when destroyed
+                    transaction.update(cardDocRef, {
+                        inGameDefPts: targetCardData.defPts || 0 // Reset to original defense points
+                    });
+
+                    // **Damage to Opponent's HP based on cardLevel**
+                    const cardLevel = cards.find(c => c.id === targetCardData.id)?.cardLevel || 0;
+                    if (cardLevel > 0) {
+                        const damageToOpponent = 200 * cardLevel;
+                        const currentOpponentHP = roomDoc.data().hp[opponentId] || 5000;
+                        const newOpponentHP = currentOpponentHP - damageToOpponent;
+                        transaction.update(roomDocRef, {
+                            [`hp.${opponentId}`]: Math.max(newOpponentHP, 0)
+                        });
+                        setOpponentHP(Math.max(newOpponentHP, 0));
+                    }
+                } else {
+                    // Update the defense points of the target card in the deck
+                    transaction.update(targetDocRef, {
+                        inGameDefPts: newDefPts
+                    });
+                }
+
+                // Update lastCard in Firestore
+                transaction.update(roomDocRef, {
+                    lastCard: {
+                        card: {
+                            ...attackSourceCard.card,
+                            attackPts: attackSourceCard.attackPts,
+                            action: 'attack',
+                            targetCard: {
+                                cardName: targetCard.cardName,
+                                previousDefPts: currentDefPts,
+                                newDefPts: newDefPts,
+                                wasDestroyed: newDefPts <= 0
+                            }
+                        },
+                        owner: username, // Use username instead of playerId
+                        timestamp: serverTimestamp()
+                    }
+                });
+
+                // Update local opponentDeck
+                setOpponentDeck(prevDeck => {
+                    const updatedDeck = [...prevDeck];
+                    if (updatedDeck[targetIndex]) {
+                        if (newDefPts <= 0) {
+                            updatedDeck[targetIndex] = {
+                                id: null,
+                                imageUrl: blankCardImage,
+                                cardType: null,
+                                cardName: '',
+                                position: 'attack',
+                                inGameDefPts: null,
+                                inGameAtkPts: null
+                            };
+                        } else {
+                            updatedDeck[targetIndex] = {
+                                ...updatedDeck[targetIndex],
+                                inGameDefPts: newDefPts
+                            };
+                        }
+                    }
+                    return updatedDeck;
+                });
+            });
+
+            // Show appropriate toast messages after transaction
+            const targetName = targetCard.cardName;
+            const attackPts = attackSourceCard.attackPts || 0;
+            const currentDefPts = targetCard.inGameDefPts || 0;
+            const newDefPts = Math.max(currentDefPts - attackPts, 0);
+
+            if (newDefPts <= 0) {
+                const cardLevel = cards.find(c => c.id === targetCard.id)?.cardLevel || 0;
+                if (cardLevel > 0) {
+                    const damageToOpponent = 200 * cardLevel;
+                    toast.success(`${targetName}'s defenses were broken! ${opponentUsername} loses ${damageToOpponent} HP.`);
+                } else {
+                    toast.info(`${targetName}'s defenses were broken!`);
+                }
+            } else {
+                const defenseReduction = currentDefPts - newDefPts;
+                toast.info(`${targetName}'s defense reduced by ${defenseReduction} (${currentDefPts} → ${newDefPts}).`);
+            }
+
+            // After attack, switch turn
+            await switchTurn();
+            setAttackSourceCard(null);
+
+        } catch (error) {
+            console.error('Error attacking target card:', error);
+            toast.error('Failed to attack target card.');
+        }
+    }, [attackSourceCard, opponentDeck, firestore, roomId, opponentId, switchTurn, cards, isActiveTurnFlag, opponentUsername]);
+
+    // Function to handle spell card usage
+    const handleSpellUsage = useCallback(async (spellCard) => {
+        if (gameStage !== 'battle') {
+            toast.warn('You can only use Spell cards during the Battle phase.');
+            return;
+        }
+
+        if (!isActiveTurnFlag) {
+            toast.warn("It's not your turn!");
+            return;
+        }
+
+        try {
+            switch (spellCard.cardName.toLowerCase()) {
+                case 'heal':
+                    // Example: Restore 20 HP to the player
+                    await runTransaction(firestore, async (transaction) => {
+                        const roomDocRef = doc(firestore, 'rooms', roomId);
+                        const roomDoc = await transaction.get(roomDocRef);
+                        if (!roomDoc.exists()) {
+                            throw new Error('Room does not exist!');
+                        }
+
+                        const currentHP = roomDoc.data().hp[playerId] || 5000;
+                        const newHP = Math.min(currentHP + 20, 5000);
+                        transaction.update(roomDocRef, {
+                            [`hp.${playerId}`]: newHP
+                        });
+                    });
+                    toast.success('Heal spell used! Restored 20 HP.');
+                    console.log('Heal spell used.');
+                    break;
+                // Add more spell cases here
+                default:
+                    toast.warn('Unknown spell effect.');
+                    console.warn(`Spell effect for ${spellCard.cardName} not defined.`);
+            }
+
+            // Remove spell card from hand and add to graveyard
+            const handDocRef = doc(firestore, 'rooms', roomId, 'players', playerId, 'hand', spellCard.id);
+            await deleteDoc(handDocRef);
+
+            const graveyardRef = collection(firestore, 'rooms', roomId, 'players', playerId, 'graveyard');
+            await addDoc(graveyardRef, spellCard);
+
+            // Update local state
+            setMyCards(prevCards => prevCards.filter(card => card.id !== spellCard.id));
+            toast.success(`Used spell card: ${spellCard.cardName}`);
+            console.log(`Used spell card: ${spellCard.cardName}`);
+
+        } catch (error) {
+            console.error('Error using spell card:', error);
+            toast.error('Failed to use spell card.');
+        }
+    }, [gameStage, isActiveTurnFlag, roomId, playerId, firestore]);
+
+    // Function to handle card selection from hand or deck
+    const handleCardSelection = useCallback((card, index, source) => {
+        if (card && card.id) { // Ensure card and card.id are defined
+            setSelectedCard({ card, index, source });
+            toast.info(`Selected ${card.cardName} for action.`);
+            console.log(`Selected card: ${card.cardName} at index ${index} from ${source}`);
+        } else {
+            toast.error('Selected card is invalid or missing an ID.');
+            console.error('Invalid card selected:', card);
+        }
+    }, []);
+
+    // Function to handle battle card placement
     const handleBattleCardPlacement = useCallback(async (index) => {
         // Ensure it's the player's turn
         if (!isActiveTurnFlag) {
@@ -1345,29 +1481,7 @@ function Battlefield() {
         }
 
         try {
-            // **Use inGameDefPts and inGameAtkPts from CardsContext instead of fetching from Firestore**
-            const card = cards.find(c => c.id === selectedCard.card.id);
-            if (!card) {
-                toast.error('Selected card data not found in CardsContext.');
-                console.error('Card not found in CardsContext for cardId:', selectedCard.card.id);
-                return;
-            }
-
-            const { inGameDefPts, inGameAtkPts } = card;
-
-            if (inGameDefPts === undefined || inGameDefPts === null) {
-                toast.error('Selected card does not have inGameDefPts defined.');
-                console.error('inGameDefPts is undefined or null for card:', card);
-                return;
-            }
-
-            if (inGameAtkPts === undefined || inGameAtkPts === null) {
-                toast.error('Selected card does not have inGameAtkPts defined.');
-                console.error('inGameAtkPts is undefined or null for card:', card);
-                return;
-            }
-
-            // Update Firestore: set the card in the slot, including 'id', 'inGameDefPts', and 'inGameAtkPts'
+            // Update Firestore: set the card in the slot, including 'id'
             const slotDocRef = doc(firestore, 'rooms', roomId, 'players', playerId, 'deck', index.toString());
             await setDoc(slotDocRef, {
                 id: selectedCard.card.id,
@@ -1376,20 +1490,16 @@ function Battlefield() {
                 cardName: selectedCard.card.cardName,
                 position: 'attack',
                 slotIndex: index,
-                hp: inGameDefPts, // Set hp from inGameDefPts
-                inGameAtkPts: inGameAtkPts, // Set inGameAtkPts
-                inGameDefPts: inGameDefPts // Set inGameDefPts
+                inGameDefPts: selectedCard.card.inGameDefPts || 0,
+                inGameAtkPts: selectedCard.card.inGameAtkPts || 0
             }, { merge: true });
-
-            // Update cardsStats in Firestore
-            await updateCardsStats(selectedCard.card, playerId);
 
             // Update lastCard in Firestore
             const lastCardRef = doc(firestore, 'rooms', roomId);
             await updateDoc(lastCardRef, {
                 lastCard: {
-                    card: { ...selectedCard.card, slotIndex: index, hp: inGameDefPts, inGameAtkPts: inGameAtkPts, inGameDefPts: inGameDefPts },
-                    owner: playerId
+                    card: { ...selectedCard.card, slotIndex: index, inGameDefPts: selectedCard.card.inGameDefPts, owner: username, inGameAtkPts: selectedCard.card.inGameAtkPts || 0 },
+                    timestamp: serverTimestamp()
                 }
             });
 
@@ -1400,9 +1510,8 @@ function Battlefield() {
                     ...selectedCard.card,
                     position: 'attack',
                     slotIndex: index,
-                    hp: inGameDefPts, // Set hp from inGameDefPts
-                    inGameAtkPts: inGameAtkPts, // Set inGameAtkPts
-                    inGameDefPts: inGameDefPts, // Set inGameDefPts
+                    inGameDefPts: selectedCard.card.inGameDefPts || 0,
+                    inGameAtkPts: selectedCard.card.inGameAtkPts || 0,
                     id: selectedCard.card.id
                 };
                 return updatedDeck;
@@ -1428,129 +1537,53 @@ function Battlefield() {
             console.error('Error placing card during battle:', error);
             toast.error('Failed to place card.');
         }
-    }, [isActiveTurnFlag, myCards, selectedCard, firestore, roomId, playerId, cards, setMyDeck, setMyCards, switchTurn, updateCardsStats]);
+    }, [isActiveTurnFlag, myCards, selectedCard, firestore, roomId, playerId, setMyDeck, setMyCards, switchTurn]); 
 
-    /**
-     * Unified handler for slot clicks.
-     * Delegates to phase-specific handlers based on the current game stage.
-     */
     const handleSlotClick = useCallback(async (index) => {
         if (gameStage === 'preparation') {
             await handlePreparationSlotClick(index);
         } else if (gameStage === 'battle') {
-            if (isActiveTurnFlag && myDeck[index].id === null) {
-                // Attempt to place a card into the empty slot
-                await handleBattleCardPlacement(index);
-            } else if (isActiveTurnFlag && myDeck[index].id !== null) {
-                // Attempt to attack with the card in the slot
-                handleBattleSlotClick(index);
-            } else {
+            if (!isActiveTurnFlag) {
                 toast.warn("It's not your turn!");
+                return;
+            }
+
+            // Check if it's an opponent's slot
+            if (index >= 5) {
+                // Only process opponent card click if we have an attack source card
+                if (attackSourceCard) {
+                    handleTargetSelection(index - 5);
+                } else {
+                    toast.warn('Select your card and click Attack button first.');
+                }
+                return;
+            }
+
+            // Player's own slot
+            const card = myDeck[index];
+            if (!card.id) {
+                // Empty slot - try to place a card if one is selected
+                if (selectedCard) {
+                    await handleBattleCardPlacement(index);
+                }
+            } else {
+                // Select the card for potential attack
+                setSelectedCard({ card, index });
+                toast.info(`Selected ${card.cardName}. Use the Attack button to initiate an attack.`);
             }
         } else {
             toast.warn('Cannot place or remove cards at this stage.');
         }
-    }, [gameStage, handlePreparationSlotClick, handleBattleSlotClick, isActiveTurnFlag, myDeck, handleBattleCardPlacement]);
+    }, [gameStage, handlePreparationSlotClick, handleBattleCardPlacement, isActiveTurnFlag, myDeck, attackSourceCard, selectedCard]);
 
-    // Helper to determine if a slot belongs to the opponent
-    const isOpponentSlot = (index) => {
-        // Assuming opponent's slots are rendered separately
-        // Modify this function based on your actual slot indexing
-        return true; // Since handleTargetSelection is only passed to opponent's slots
-    };
 
-    // Function to handle card selection from hand or deck
-    const handleCardSelection = useCallback((card, index, source) => {
-        if (card && card.id) { // Ensure card and card.id are defined
-            setSelectedCard({ card, index, source });
-            toast.info(`Selected ${card.cardName} for action.`);
-            console.log(`Selected card: ${card.cardName} at index ${index} from ${source}`);
-        } else {
-            toast.error('Selected card is invalid or missing an ID.');
-            console.error('Invalid card selected:', card);
-        }
-    }, []);
 
-    // Function to handle toggling card position
-    const handlePositionToggle = useCallback(async (slotIndex, currentPosition) => {
-        if (gameStage !== 'preparation') return;
 
-        // **Fetch the card details to verify its type**
-        const slot = myDeck[slotIndex];
-        if (!slot || slot.cardType !== 'monster') {
-            toast.error('Only Monster cards can change positions.');
-            console.error('Attempted to toggle position of a non-Monster card:', slot);
-            return;
-        }
 
-        const newPosition = currentPosition === 'attack' ? 'defense' : 'attack';
-
-        try {
-            // Update Firestore with the new position
-            const slotDocRef = doc(firestore, 'rooms', roomId, 'players', playerId, 'deck', slotIndex.toString());
-            await updateDoc(slotDocRef, {
-                position: newPosition
-            });
-
-            // Update cardsStats in Firestore (if position affects stats)
-            await updateCardsStats(slot);
-
-            // Update local state
-            const updatedDeck = [...myDeck];
-            if (updatedDeck[slotIndex]) {
-                updatedDeck[slotIndex].position = newPosition;
-            }
-            setMyDeck(updatedDeck);
-            console.log(`Toggled position for slot ${slotIndex + 1} to ${newPosition}. Updated myDeck:`, updatedDeck);
-
-            toast.success(`Card in slot ${slotIndex + 1} switched to ${newPosition.charAt(0).toUpperCase() + newPosition.slice(1)} position.`);
-        } catch (error) {
-            console.error('Error toggling card position:', error);
-            toast.error('Failed to toggle card position.');
-        }
-    }, [gameStage, myDeck, roomId, playerId, firestore, updateCardsStats]);
-
-    // Function to handle the player marking themselves as ready
-    const handleReady = useCallback(async () => {
-        if (!isRoomJoined || !roomId || !playerId) {
-            toast.warn('You must join a room first.');
-            return;
-        }
-
-        if (!hasPlacedAllRequiredCards()) {
-            toast.warn('Please place all your Monster and Trap cards before readying up.');
-            return;
-        }
-
-        try {
-            const playerDocRef = doc(firestore, 'rooms', roomId, 'players', playerId);
-            await setDoc(playerDocRef, {
-                hasPlacedCard: true
-            }, { merge: true });
-
-            setPlayerReady(true);
-
-            toast.success('You are ready.');
-        } catch (error) {
-            console.error('Error setting ready:', error);
-            toast.error('Failed to mark as ready.');
-        }
-    }, [isRoomJoined, roomId, playerId, firestore, hasPlacedAllRequiredCards]);
-
-    // Handle multiplayer game state synchronization
+    // Function to handle multiplayer game state updates
     useEffect(() => {
         if (isRoomJoined && roomId && playerId) {
             const roomRef = doc(firestore, 'rooms', roomId);
-
-            // References
-            const gameStateRef = roomRef;
-            const lastCardRef = roomRef;
-            const playersRef = collection(firestore, 'rooms', roomId, 'players');
-            const playerDeckRef = collection(firestore, 'rooms', roomId, 'players', playerId, 'deck');
-            const playerHandRef = collection(firestore, 'rooms', roomId, 'players', playerId, 'hand');
-            const opponentDeckRef = collection(firestore, 'rooms', roomId, 'players', opponentId, 'deck');
-            const opponentHandRef = collection(firestore, 'rooms', roomId, 'players', opponentId, 'hand');
-            const playerHasPlacedCardRef = doc(firestore, 'rooms', roomId, 'players', playerId);
 
             // Listen to gameState and hp changes
             const unsubscribeGameState = onSnapshot(roomRef, (docSnap) => {
@@ -1566,14 +1599,20 @@ function Battlefield() {
 
                     // Listen to hp changes
                     if (data.hp) {
-                        const currentPlayerHP = data.hp[playerId] || 5000;
-                        const currentOpponentHP = data.hp[opponentId] || 5000;
-                        setPlayerHP(currentPlayerHP);
-                        setOpponentHP(currentOpponentHP);
-                        console.log(`Updated HP - Player: ${currentPlayerHP}, Opponent: ${currentOpponentHP}`);
+                        const player1HP = data.hp.player1 || 0;
+                        const player2HP = data.hp.player2 || 0;
 
-                        // Check for game over conditions
-                        if (currentPlayerHP <= 0 || currentOpponentHP <= 0 || data.gameState.currentRound > data.gameState.totalRounds) {
+                        // Update local HP states
+                        if (playerId === 'player1') {
+                            setPlayerHP(player1HP);
+                            setOpponentHP(player2HP);
+                        } else {
+                            setPlayerHP(player2HP);
+                            setOpponentHP(player1HP);
+                        }
+
+                        // Only determine winner if game is finished
+                        if (data.gameState.gameStage === 'finished') {
                             determineWinner();
                         }
                     }
@@ -1603,7 +1642,7 @@ function Battlefield() {
             });
 
             // Listen to opponent's deck changes
-            const unsubscribeOpponentDeck = onSnapshot(opponentDeckRef, async (querySnapshot) => {
+            const unsubscribeOpponentDeck = onSnapshot(collection(firestore, 'rooms', roomId, 'players', opponentIdLocal, 'deck'), async (querySnapshot) => {
                 const deckPromises = querySnapshot.docs.map(async (doc) => {
                     const cardData = doc.data();
                     let imageUrl = cardData.imageUrl;
@@ -1631,9 +1670,8 @@ function Battlefield() {
                         cardType: null,
                         cardName: '',
                         position: 'attack',
-                        hp: null,
-                        inGameAtkPts: null,
-                        inGameDefPts: null
+                        inGameDefPts: null,
+                        inGameAtkPts: null
                     };
                 });
                 setOpponentDeck(filledDeck);
@@ -1644,7 +1682,7 @@ function Battlefield() {
             });
 
             // Listen to opponent's hand changes
-            const unsubscribeOpponentHand = onSnapshot(opponentHandRef, async (querySnapshot) => {
+            const unsubscribeOpponentHand = onSnapshot(collection(firestore, 'rooms', roomId, 'players', opponentIdLocal, 'hand'), async (querySnapshot) => {
                 const handPromises = querySnapshot.docs.map(async (doc) => {
                     const cardData = doc.data();
                     let imageUrl = cardData.imageUrl;
@@ -1672,7 +1710,7 @@ function Battlefield() {
             });
 
             // Listen to player's deck changes
-            const unsubscribePlayerDeck = onSnapshot(playerDeckRef, async (querySnapshot) => {
+            const unsubscribePlayerDeck = onSnapshot(collection(firestore, 'rooms', roomId, 'players', playerId, 'deck'), async (querySnapshot) => {
                 const deckPromises = querySnapshot.docs.map(async (doc) => {
                     const cardData = doc.data();
                     let imageUrl = cardData.imageUrl;
@@ -1700,9 +1738,8 @@ function Battlefield() {
                         cardType: null,
                         cardName: '',
                         position: 'attack',
-                        hp: null,
-                        inGameAtkPts: null,
-                        inGameDefPts: null
+                        inGameDefPts: null,
+                        inGameAtkPts: null
                     };
                 });
                 setMyDeck(filledDeck);
@@ -1713,7 +1750,7 @@ function Battlefield() {
             });
 
             // Listen to player's hand changes
-            const unsubscribePlayerHand = onSnapshot(playerHandRef, async (querySnapshot) => {
+            const unsubscribePlayerHand = onSnapshot(collection(firestore, 'rooms', roomId, 'players', playerId, 'hand'), async (querySnapshot) => {
                 const handPromises = querySnapshot.docs.map(async (doc) => {
                     const cardData = doc.data();
                     let imageUrl = cardData.imageUrl;
@@ -1741,7 +1778,7 @@ function Battlefield() {
             });
 
             // Listen to player's hasPlacedCard
-            const unsubscribeHasPlacedCard = onSnapshot(playerHasPlacedCardRef, (docSnap) => {
+            const unsubscribeHasPlacedCard = onSnapshot(doc(firestore, 'rooms', roomId, 'players', playerId), (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     setHasPlacedCard(data.hasPlacedCard || false);
@@ -1753,7 +1790,7 @@ function Battlefield() {
             });
 
             // Listen to players data and set usernames
-            const unsubscribePlayers = onSnapshot(playersRef, async (querySnapshot) => {
+            const unsubscribePlayers = onSnapshot(collection(firestore, 'rooms', roomId, 'players'), async (querySnapshot) => {
                 const players = {};
                 querySnapshot.forEach(doc => {
                     players[doc.id] = doc.data();
@@ -1801,9 +1838,9 @@ function Battlefield() {
                 unsubscribePlayers();
             };
         }
-    }, [isRoomJoined, roomId, playerId, gameStage, firestore, cards, determineWinner, isActiveTurnFlag, updateCardsStats, opponentId]);
+    }, [isRoomJoined, roomId, playerId, gameStage, firestore, cards, determineWinner, isActiveTurnFlag]);
 
-    // Listen to each player's graveyard
+    // Function to listen to graveyard changes
     useEffect(() => {
         if (isRoomJoined && roomId) {
             const player1GraveyardRef = collection(firestore, 'rooms', roomId, 'players', 'player1', 'graveyard');
@@ -1840,178 +1877,77 @@ function Battlefield() {
         }
     }, [isRoomJoined, roomId, firestore]);
 
-    // Handle game timer synchronization
+    // Function to listen to HP changes
     useEffect(() => {
-        // Clear any existing interval
-        if (timerRef.current) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
-        }
+        if (!roomId) return;
 
-        // Function to handle timer countdown
-        const startTimer = () => {
-            timerRef.current = setInterval(async () => {
-                setTimer((prevTimer) => {
-                    if (prevTimer > 0) {
-                        const newTimer = prevTimer - 1;
-                        if (isActiveTurnFlag || gameStage === 'preparation') {
-                            updateDoc(doc(firestore, 'rooms', roomId), {
-                                'gameState.timer': newTimer
-                            });
-                        }
-                        return newTimer;
-                    } else {
-                        // Timer expired, switch turn
-                        clearInterval(timerRef.current);
-                        timerRef.current = null;
-                        if (gameStage === 'battle' && isActiveTurnFlag) {
-                            switchTurn();
-                        }
-                        return 0;
-                    }
-                });
-            }, 1000);
-        };
+        const unsubscribe = onSnapshot(doc(firestore, 'rooms', roomId), (doc) => {
+            if (doc.exists()) {
+                const data = doc.data();
+                const player1HP = data.hp?.player1 || 0;
+                const player2HP = data.hp?.player2 || 0;
 
-        if (gameStage === 'preparation') {
-            // During preparation phase, start preparation timer
-            if (timer > 0) {
-                startTimer();
-            } else {
-                // Preparation timer ended, transition to battle stage
-                updateDoc(doc(firestore, 'rooms', roomId), {
-                    'gameState.gameStage': 'battle',
-                    'gameState.timer': 60, // 1 minute battle timer
-                    'gameState.currentTurn': 'player1' // Starting player
-                });
-                setGameStage('battle');
-                setTimer(60);
-                toast.success('Preparation Phase ended. Proceeding to Battle.');
-                console.log('Preparation Phase ended. Proceeding to Battle.');
-            }
-        } else if (gameStage === 'battle') {
-            if (isActiveTurnFlag && !attackSourceCard) { // Only the active player manages the battle timer
-                if (timer > 0) {
-                    startTimer();
+                // Update local HP states
+                if (playerId === 'player1') {
+                    setPlayerHP(player1HP);
+                    setOpponentHP(player2HP);
                 } else {
-                    // Timer expired, switch turn
-                    switchTurn();
+                    setPlayerHP(player2HP);
+                    setOpponentHP(player1HP);
+                }
+
+                // Only determine winner if game is finished
+                if (data.gameState.gameStage === 'finished') {
+                    determineWinner();
                 }
             }
+        });
+
+        return () => unsubscribe();
+    }, [roomId, playerId, firestore]);
+
+    // Function to get the active player's username
+    const getActivePlayerUsername = useCallback(() => {
+        return currentTurn === 'player1' ? player1Username : player2Username;
+    }, [currentTurn, player1Username, player2Username]);
+
+    // Function to handle using card effects
+    const handleUseEffect = useCallback(async () => {
+        if (!selectedCard || !selectedCard.card) {
+            toast.warn('Please select a card to use its effect.');
+            return;
         }
 
-        // Cleanup function to clear interval on unmount or when dependencies change
-        return () => {
-            if (timerRef.current) {
-                clearInterval(timerRef.current);
-                timerRef.current = null;
-            }
-        };
-    }, [gameStage, timer, isActiveTurnFlag, roomId, switchTurn, firestore, attackSourceCard]);
-
-    /**
-     * Enable Ready Button Upon Both Players Placing Cards
-     */
-    useEffect(() => {
-        if (isRoomJoined && roomId && playerId) {
-            const playersRef = collection(firestore, 'rooms', roomId, 'players');
-
-            const unsubscribePlayers = onSnapshot(playersRef, async (querySnapshot) => {
-                const players = {};
-                querySnapshot.forEach(doc => {
-                    players[doc.id] = doc.data();
-                });
-
-                console.log(`Players data: ${JSON.stringify(players)}`);
-
-                const currentPlayer = players[playerId];
-                const opponentIdLocal = opponentId; // Derived opponentId
-                const opponent = players[opponentIdLocal];
-
-                setPlayerReady(currentPlayer?.hasPlacedCard || false); // Assuming hasPlacedCard indicates readiness
-                setOpponentReady(opponent?.hasPlacedCard || false);
-                console.log(`Player Ready: ${currentPlayer?.hasPlacedCard}, Opponent Ready: ${opponent?.hasPlacedCard}`);
-
-                if (gameStage === 'preparation' && currentPlayer?.hasPlacedCard && opponent?.hasPlacedCard) {
-                    // Both players are ready, transition to battle
-                    await updateDoc(doc(firestore, 'rooms', roomId), {
-                        'gameState.gameStage': 'battle',
-                        'gameState.timer': 60, // 1 minute battle timer
-                        'gameState.currentTurn': 'player1' // Starting player
-                    });
-                    setGameStage('battle');
-                    setTimer(60);
-                    toast.success('Both players are ready! Proceeding to Battle.');
-                    console.log('Both players are ready! Proceeding to Battle.');
-                }
-            }, (error) => {
-                console.error('Error listening to players:', error);
-                toast.error('Failed to listen to player data.');
-            });
-
-            return () => unsubscribePlayers();
+        if (!isActiveTurnFlag) {
+            toast.warn('You can only use effects during your turn.');
+            return;
         }
-    }, [isRoomJoined, roomId, playerId, firestore, gameStage, opponentId]);
 
-    // Fetch Firebase assets on component mount
-    useEffect(() => {
-        const fetchAssets = async () => {
-            try {
-                const [bgUrl, leftBtnUrl, rightBtnUrl] = await Promise.all([
-                    getDownloadURL(storageRef(storage, 'assets/backgrounds/battlefield.jpg')),
-                    getDownloadURL(storageRef(storage, 'assets/others/leftBtn.png')),
-                    getDownloadURL(storageRef(storage, 'assets/others/rightBtn.png')),
-                ]);
-
-                setBackground(bgUrl);
-                setLeftButton(leftBtnUrl);
-                setRightButton(rightBtnUrl);
-
-                // Set assetsLoaded to true
-                setAssetsLoaded(true);
-
-            } catch (error) {
-                console.error('Error fetching Firebase assets:', error);
-                toast.error('Error fetching game assets.');
-            }
-        };
-        fetchAssets();
-    }, [storage]);
-
-    /**
-     * Fetch Available Rooms
-     * Modified to fetch only when showAvailableRooms is true
-     */
-    useEffect(() => {
-        if (showAvailableRooms && !isRoomJoined) {
-            setLoadingRooms(true);
-            setErrorLoadingRooms(null);
-            const roomsRef = collection(firestore, 'rooms');
-            const q = query(roomsRef, where('gameState.gameStage', '==', 'waiting')); // Only rooms waiting for players
-
-            const unsubscribe = onSnapshot(q, (querySnapshot) => {
-                const rooms = [];
-                querySnapshot.forEach(doc => {
-                    rooms.push({ id: doc.id, ...doc.data() });
-                });
-                setAvailableRooms(rooms);
-                setLoadingRooms(false);
-                console.log('Available rooms fetched:', rooms);
-            }, (error) => {
-                console.error('Error fetching available rooms:', error);
-                setErrorLoadingRooms('Failed to load rooms. Please try again.');
-                setLoadingRooms(false);
-            });
-
-            return () => unsubscribe();
+        try {
+            // TODO: Implement card effect logic here
+            toast.info('Card effect system coming soon!');
+        } catch (error) {
+            console.error('Error using card effect:', error);
+            toast.error('Failed to use card effect.');
         }
-    }, [showAvailableRooms, isRoomJoined, firestore]);
+    }, [selectedCard, isActiveTurnFlag]);
 
     /**
-     * UI Rendering
+     * Renders the Battlefield component UI.
+     * This includes the game overlay, lobby, room actions, and the main game area.
+     * @returns {JSX.Element} The rendered Battlefield component
      */
     return (
         <div className={styles.background} style={{ backgroundImage: `url(${background})` }}>
+            {showGameOverlay && gameStage === 'battle' && (
+                <GameOverlay 
+                    isWinner={isWinner}
+                    playerHP={Math.max(playerHP, 0)}
+                    opponentHP={Math.max(opponentHP, 0)}
+                    playerName={playerId === 'player1' ? 'Player 1' : 'Player 2'}
+                    opponentName={playerId === 'player1' ? 'Player 2' : 'Player 1'}
+                />
+            )}
             {!isRoomJoined && (
                 <div className={styles.lobby}>
                     <h2>Welcome to the Battle</h2>
@@ -2079,7 +2015,6 @@ function Battlefield() {
                     {gameStage === 'preparation' && (
                         <PreparationStage
                             handleReady={handleReady}
-                            areAllSlotsFilled={hasPlacedAllRequiredCards()} // **Updated prop**
                             playerReady={playerReady}
                             opponentReady={opponentReady}
                             opponentUsername={opponentUsername}
@@ -2089,8 +2024,8 @@ function Battlefield() {
                             handleCardSelection={handleCardSelection}
                             myCards={myCards}
                             selectedCard={selectedCard}
-                            handlePositionToggle={handlePositionToggle} // **Pass the updated function**
-                            handleRemoveCard={handleRemoveCard} // **Pass the remove function**
+                            handlePositionToggle={handlePositionToggle}
+                            handleRemoveCard={handleRemoveCard}
                         />                    
                     )}
 
@@ -2270,19 +2205,19 @@ function Battlefield() {
                                 </button>
                                 <button
                                     className={isActiveTurnFlag ? styles.actionButton : styles.actionButtonDisabled}
-                                    onClick={isActiveTurnFlag ? handleCardUseEffect : undefined}
+                                    onClick={isActiveTurnFlag ? switchTurn : undefined}
                                     disabled={!isActiveTurnFlag}
-                                    aria-label={selectedCard?.card?.cardType === 'monster' ? "Use Effect" : "Use Card"}
+                                    aria-label="End Turn"
                                 >
-                                    {selectedCard?.card?.cardType === 'monster' ? "Use Effect" : "Use Card"}
+                                    End Turn
                                 </button>
                                 <button
                                     className={isActiveTurnFlag ? styles.actionButton : styles.actionButtonDisabled}
-                                    onClick={isActiveTurnFlag ? handleDefend : undefined}
+                                    onClick={isActiveTurnFlag ? handleUseEffect : undefined}
                                     disabled={!isActiveTurnFlag}
-                                    aria-label="Defend"
+                                    aria-label="Use Effect"
                                 >
-                                    Defend
+                                    Use Effect
                                 </button>
                                 {attackSourceCard && (
                                     <button
@@ -2302,8 +2237,11 @@ function Battlefield() {
 
                     {gameStage === 'finished' && (
                         <EndStage
-                            winner={winner}
                             roomId={roomId}
+                            winner={winner}
+                            player1Username={player1Username}
+                            player2Username={player2Username}
+                            userDocId={userDocId}
                         />
                     )}
                 </div>
@@ -2328,3 +2266,13 @@ function Battlefield() {
 }
 
 export default Battlefield;
+
+/**
+ * 11/23 Changelog
+ * Major Structure Changes
+ * Initial Last Card set to null
+ * Fixed winning conditions
+ * Fixed End Stage
+*/
+
+// in the long run, you'll win
