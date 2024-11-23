@@ -4,12 +4,12 @@ import PropTypes from 'prop-types';  // Import PropTypes
 // The ShopPageContext component is receiving props and displaying them
 const ShopPageContext = ({ asset, sellerName, buttonText, onButtonClick }) => {
     return (
-        <div className="shop-item-card">
-            <img src={asset.imageUrl} alt={asset.cardName} className="item-image" />
+        <>
+            <img src={asset.imageUrl} alt={asset.cardName} />
             <h2>{asset.cardName}</h2>
-            <p><strong>Seller:</strong> {sellerName}</p>
+            <p>Seller: {sellerName}</p>
             <button onClick={onButtonClick}>{buttonText}</button>
-        </div>
+        </>
     );
 };
 
