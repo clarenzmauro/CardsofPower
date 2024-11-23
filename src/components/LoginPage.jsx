@@ -2,48 +2,57 @@
 /* eslint-disable react/no-unescaped-entities */
 // eslint-disable-next-line no-unused-vars
 // eslint-disable-next-line react/prop-types, no-unused-vars
-import React, { useState } from 'react';
-import { firestore } from './firebaseConfig';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { useNavigate } from 'react-router-dom';
-import loginBackground from '../assets/backgrounds/login.jpg';
-import './LoginPage.css';
+import React, { useState } from "react";
+import { firestore } from "./firebaseConfig";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { useNavigate } from "react-router-dom";
+import loginBackground from "../assets/backgrounds/login.jpg";
+import "./LoginPage.css";
 
 function LoginPage() {
-  const [currentSection, setCurrentSection] = useState('log in');
+  const [currentSection, setCurrentSection] = useState("log in");
 
   const handleSectionChange = (section) => {
     setCurrentSection(section);
   };
 
   return (
-    <main style={{ backgroundImage: `url(${loginBackground})` }}>
-      <section className='pirata-font sm:p-2 lg:p-6'>
-        <h1 className='sm:text-4xl lg:text-5xl text-amber-950 uppercase'>{ currentSection }</h1>
+    <main id="login" style={{ backgroundImage: `url(${loginBackground})` }}>
+      <section className="sm:p-2 lg:p-6">
+        <h1 className="sm:text-4xl lg:text-5xl text-amber-950 uppercase">
+          {currentSection}
+        </h1>
 
-        {currentSection === 'log in' && <LoginForm onSwitch={handleSectionChange} />}
-        {currentSection === 'sign up' && <SignupForm onSwitch={handleSectionChange} />}
-        {currentSection === 'reset password' && <ForgotPasswordForm onSwitch={handleSectionChange} />}
+        {currentSection === "log in" && (
+          <LoginForm onSwitch={handleSectionChange} />
+        )}
+        {currentSection === "sign up" && (
+          <SignupForm onSwitch={handleSectionChange} />
+        )}
+        {currentSection === "reset password" && (
+          <ForgotPasswordForm onSwitch={handleSectionChange} />
+        )}
       </section>
     </main>
   );
 }
 
 function LoginForm({ onSwitch }) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     try {
       const q = query(
-        collection(firestore, 'users'),
-        where('username', '==', username),
-        where('password', '==', password)
+        collection(firestore, "users"),
+        where("username", "==", username),
+        where("password", "==", password)
       );
       const querySnapshot = await getDocs(q);
 
@@ -55,11 +64,11 @@ function LoginForm({ onSwitch }) {
         navigate(`/${userDocId}/home`);
         // navigate(`/home`);
       } else {
-        setError('Invalid username or password. Please try again.');
+        setError("Invalid username or password. Please try again.");
       }
     } catch (err) {
       console.error("Login error:", err);
-      setError('An error occurred. Please try again later.');
+      setError("An error occurred. Please try again later.");
     }
   };
 
@@ -67,25 +76,55 @@ function LoginForm({ onSwitch }) {
     <>
       <form onSubmit={handleLogin}>
         <input
-          type='text'
-          placeholder='Username'
+          type="text"
+          placeholder="Username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           required
         />
-        <input
-          type='password'
-          placeholder='Password'
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        <a className='mb-2 text-end no-underline' onClick={() => onSwitch('reset password')}>Forgot Password?</a>
 
-        {error && <p className="error" style={{ color: 'red' }}>{error}</p>}
-        <button type='submit'>Log in</button>
+        <div class="relative">
+          <input
+            type={showPassword ? "text" : "password"}
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            class="w-full"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute inset-y-0 right-0 px-3 flex items-center mb-2"
+          >
+            {showPassword ? (
+              <i className="fas fa-eye-slash"></i>
+            ) : (
+              <i className="fas fa-eye"></i>
+            )}
+          </button>
+        </div>
+
+        <a
+          className="mb-2 text-end no-underline"
+          onClick={() => onSwitch("reset password")}
+        >
+          Forgot Password?
+        </a>
+
+        {error && (
+          <p className="error" style={{ color: "red" }}>
+            {error}
+          </p>
+        )}
+        <button className="loginBtn" type="submit">
+          Log in
+        </button>
       </form>
-      <p>Don't have an account yet? <a onClick={() => onSwitch('sign up')}> Sign up</a></p>
+      <p>
+        Don't have an account yet?{" "}
+        <a onClick={() => onSwitch("sign up")}> Sign up</a>
+      </p>
     </>
   );
 }
@@ -94,27 +133,30 @@ function ForgotPasswordForm({ onSwitch }) {
   return (
     <>
       <form>
-        <input type='email' placeholder='Email' required />
+        <input type="email" placeholder="Email" required />
 
-        <button type='submit'>Send</button>
+        <button type="submit">Send</button>
       </form>
 
-      <p>Don't have an account yet? <a onClick={() => onSwitch('sign up')}>Sign up</a></p>
+      <p>
+        Don't have an account yet?{" "}
+        <a onClick={() => onSwitch("sign up")}>Sign up</a>
+      </p>
     </>
   );
 }
 
 function SignupForm({ onSwitch }) {
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   const handleSignup = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     if (password !== confirmPassword) {
       setError("Passwords do not match");
@@ -123,20 +165,26 @@ function SignupForm({ onSwitch }) {
 
     try {
       // Check for existing username
-      const usernameQuery = query(collection(firestore, 'users'), where('username', '==', username));
+      const usernameQuery = query(
+        collection(firestore, "users"),
+        where("username", "==", username)
+      );
       const usernameSnapshot = await getDocs(usernameQuery);
 
       if (!usernameSnapshot.empty) {
-        setError('Username already exists');
+        setError("Username already exists");
         return;
       }
 
       // Check for existing email
-      const emailQuery = query(collection(firestore, 'users'), where('email', '==', email));
+      const emailQuery = query(
+        collection(firestore, "users"),
+        where("email", "==", email)
+      );
       const emailSnapshot = await getDocs(emailQuery);
 
       if (!emailSnapshot.empty) {
-        setError('Email already exists');
+        setError("Email already exists");
         return;
       }
 
@@ -160,16 +208,16 @@ function SignupForm({ onSwitch }) {
         cardsCreated: 0,
       };
 
-      const userDocRef = await addDoc(collection(firestore, 'users'), newUser);
+      const userDocRef = await addDoc(collection(firestore, "users"), newUser);
 
       // Fetch and assign 10 random cards (6 monster, 2 spell, 2 trap) from "cards" collection
       const cardIds = []; // Array to store chosen card IDs for user's inventory
 
       const assignCards = async (cardType, count) => {
         const cardQuery = query(
-          collection(firestore, 'cards'),
-          where('cardType', '==', cardType),
-          where('isOwned', '==', false)
+          collection(firestore, "cards"),
+          where("cardType", "==", cardType),
+          where("isOwned", "==", false)
         );
 
         const cardSnapshot = await getDocs(cardQuery);
@@ -178,7 +226,7 @@ function SignupForm({ onSwitch }) {
         const updateCardPromises = availableCards.map((cardDoc) => {
           cardIds.push(cardDoc.id); // Add card ID to array for user's inventory
 
-          return updateDoc(doc(firestore, 'cards', cardDoc.id), {
+          return updateDoc(doc(firestore, "cards", cardDoc.id), {
             isOwned: true,
             currentOwnerId: userDocRef.id,
             currentOwnerUsername: username,
@@ -189,9 +237,9 @@ function SignupForm({ onSwitch }) {
       };
 
       // Assign cards by type
-      await assignCards('monster', 6);
-      await assignCards('spell', 2);
-      await assignCards('trap', 2);
+      await assignCards("monster", 6);
+      await assignCards("spell", 2);
+      await assignCards("trap", 2);
 
       // Update user with inventory and card count
       await updateDoc(userDocRef, {
@@ -199,10 +247,10 @@ function SignupForm({ onSwitch }) {
         currentCardCount: 10,
       });
 
-      navigate('/');
+      navigate("/");
     } catch (err) {
       console.error("Signup error:", err);
-      setError('An error occurred during Signup. Please try again later.');
+      setError("An error occurred during Signup. Please try again later.");
     }
   };
 
@@ -244,14 +292,21 @@ function SignupForm({ onSwitch }) {
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             required
-          /> 
+          />
         </div>
 
-        {error && <p className="error" style={{ color: 'red' }}>{error}</p>}
+        {error && (
+          <p className="error" style={{ color: "red" }}>
+            {error}
+          </p>
+        )}
         <button type="submit">Sign up</button>
       </form>
 
-      <p>Already have an account? <a onClick={() => onSwitch('log in')}>Log in</a></p>
+      <p>
+        Already have an account?{" "}
+        <a onClick={() => onSwitch("log in")}>Log in</a>
+      </p>
     </>
   );
 }

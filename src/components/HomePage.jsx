@@ -13,7 +13,7 @@ import './HomePage.css'
 function HomePage() {
   const { userDocId } = useParams();
   return (
-    <main id='home' className='pirata-font text-center' style={{ backgroundImage: `url(${loginBackground})` }}>
+    <main id='home' className='text-center' style={{ backgroundImage: `url(${loginBackground})` }}>
       <div className="overlay"></div>
 
       <div className='banners'>
