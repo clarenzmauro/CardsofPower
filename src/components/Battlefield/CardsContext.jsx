@@ -31,10 +31,7 @@ export const CardsProvider = ({ children }) => {
                     return {
                         id: doc.id, // Include Firestore document ID
                         ...cardData,
-                        imageUrl,
-                        cardLevel: cardData.cardLevel || 0, // Ensure cardLevel is present
-                        inGameAtkPts: cardData.inGameAtkPts || 0, // Ensure inGameAtkPts is present
-                        inGameDefPts: cardData.inGameDefPts || 0, // Ensure inGameDefPts is present
+                        imageUrl
                     };
                 });
 
@@ -57,3 +54,5 @@ export const CardsProvider = ({ children }) => {
         </CardsContext.Provider>
     );
 };
+
+// in the long run, you'll win
