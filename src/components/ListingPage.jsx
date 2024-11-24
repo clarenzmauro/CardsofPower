@@ -372,6 +372,17 @@ const ListingPage = () => {
           cardsListed: currentCardsListed + 1, // Increment the cardsListed field
         });
       }
+
+      const cardGiveRef = doc(firestore, "cards", selectedCard.id);
+      await updateDoc(cardGiveRef, {
+        isListed: true,
+      });
+
+      const cardReceiveRef = doc(firestore, "cards", selectedCardToGet.id);
+      await updateDoc(cardReceiveRef, {
+        isListed: true,
+      })
+      
       // Notify success
       alert("Trade posted successfully!");
       setSelectedCard(null);
@@ -467,8 +478,8 @@ const ListingPage = () => {
               value={viewMode}
               onChange={(e) => setViewMode(e.target.value)}
             >
-              <option value="sell">Sell</option>
-              <option value="trade">Trade</option>
+              <option className="text-center" value="sell">Sell</option>
+              <option className="text-center" value="trade">Trade</option>
             </select>
 
             {/* Popup */}
