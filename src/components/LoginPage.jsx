@@ -4,7 +4,7 @@
 // eslint-disable-next-line react/prop-types, no-unused-vars
 import React, { useState } from "react";
 import { firestore } from "./firebaseConfig";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, Timestamp, addDoc, updateDoc, doc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import loginBackground from "../assets/backgrounds/login.jpg";
 import "./LoginPage.css";
@@ -83,14 +83,14 @@ function LoginForm({ onSwitch }) {
           required
         />
 
-        <div class="relative">
+        <div className="relative">
           <input
             type={showPassword ? "text" : "password"}
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            class="w-full"
+            className="w-full"
           />
           <button
             type="button"
@@ -206,6 +206,14 @@ function SignupForm({ onSwitch }) {
         cardsSold: 0,
         cardsTraded: 0,
         cardsCreated: 0,
+        stats: {
+          monster: 0, // Tracks the number of Monster cards or actions
+          spell: 0,   // Tracks the number of Spell cards or uses
+          damage: 0,  // Tracks the total damage dealt
+          effect: 0,  // Tracks the number of Effect cards or activations
+          sustain: 0, // Tracks the number of Sustain-related cards or effects
+          trap: 0     // Tracks the number of Trap cards or activations
+        }
       };
 
       const userDocRef = await addDoc(collection(firestore, "users"), newUser);
