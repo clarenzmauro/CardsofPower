@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { firestore, storage } from "./firebaseConfig";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
   getFirestore,
@@ -61,11 +60,11 @@ function Workshop() {
       ) {
         return "All monster-specific fields are required.";
       }
-      if ((atkPts > 5000 || atkPts < 0) || (defPts > 5000 || defPts < 0)) {
-        return 'ATK and DEF points must not exceed 5000 or be less than 0.';
+      if (atkPts > 5000 || atkPts < 0 || defPts > 5000 || defPts < 0) {
+        return "ATK and DEF points must not exceed 5000 or be less than 0.";
       }
       if (cardLevel > 10 || cardLevel < 0) {
-        return 'Card Level must not exceed 10 or be less than 0.';
+        return "Card Level must not exceed 10 or be less than 0.";
       }
     }
 
@@ -141,7 +140,7 @@ function Workshop() {
       await addDoc(collection(db, "workshop"), cardData);
 
       if (userDoc.exists) {
-        const userDocRef = doc(db, 'users', userDocId);
+        const userDocRef = doc(db, "users", userDocId);
         const currentCardCreated = userDoc.data().cardsCreated || 0;
         await updateDoc(userDocRef, {
           cardsCreated: currentCardCreated + 1,
@@ -170,24 +169,33 @@ function Workshop() {
   };
 
   return (
-    <div id="workshop" style={{ backgroundImage: `url(${workshopBg})` }} className="flex justify-center items-center">
+    <div
+      id="workshop"
+      style={{ backgroundImage: `url(${workshopBg})` }}
+      className="flex justify-center items-center"
+    >
       <Link to={`/${userDocId}/home`} className="back-button">
         <i className="fas fa-reply back-icon"></i>
       </Link>
-      
+
       <div className="w-1/2">
-        <h1 className="sm:text-lg lg:text-5xl sm:mb-2 lg:mb-4">Pirate Card Submission</h1>
+        <h1 className="sm:text-lg lg:text-5xl sm:mb-2 lg:mb-4">
+          Pirate Card Submission
+        </h1>
 
         <p className="sm:text-xs lg:text-xl sm:mb-4 lg:mb-6">
-          &nbsp;&nbsp;&nbsp;&nbsp;Ahoy Devs, I be sendin' ye a card o' great importance, a true treasure
-          crafted with care and ready to sail the seas! Arrr, this ain't no
-          ordinary card—it's one that holds the power to make waves, and I trust
-          ye&apos;ll handle it with the utmost skill. Below, ye&apos;ll find all
-          the details ye need to bring this mighty card to life and ensure its
-          place among the greatest treasures.
+          &nbsp;&nbsp;&nbsp;&nbsp;Ahoy Devs, I be sendin' ye a card o' great
+          importance, a true treasure crafted with care and ready to sail the
+          seas! Arrr, this ain't no ordinary card—it's one that holds the power
+          to make waves, and I trust ye&apos;ll handle it with the utmost skill.
+          Below, ye&apos;ll find all the details ye need to bring this mighty
+          card to life and ensure its place among the greatest treasures.
         </p>
 
-        <form onSubmit={handleSubmit} className="flex gap-6 sm:text-xs lg:text-base">
+        <form
+          onSubmit={handleSubmit}
+          className="flex gap-6 sm:text-xs lg:text-base"
+        >
           <div className="w-1/2">
             <div>
               <label>Card Name:</label>
