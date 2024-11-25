@@ -157,10 +157,10 @@ function DictionaryPage() {
       style={{ backgroundImage: `url(${inventoryBg})` }}
       className="sm:px-12 lg:px-24"
     >
-
       <Link to={`/${userDocId}/home`} className="back-button">
         <i className="fas fa-reply back-icon"></i>
       </Link>
+      
       <div className="overlay"></div>
 
       <div className="wrapper sm:pt-4 lg:pt-12 text-white">
@@ -242,14 +242,19 @@ function DictionaryPage() {
                   <option value="ritual">Ritual</option>
                 </select>
 
-
-                <input
+                <select
                   type="number"
                   value={cardLevel}
                   onChange={(e) => setCardLevel(e.target.value)}
-                  placeholder="Card level"
                   className="p-2 xl:px-4 bg-transparent border-2 rounded-xl outline-none"
-                />
+                >
+                  <option value="">Select Level</option>
+                  {Array.from({ length: 10 }, (_, i) => i + 1).map((level) => (
+                    <option key={level} value={level}>
+                      {level}
+                    </option>
+                  ))}
+                </select>
               </>
             )}
           </div>
