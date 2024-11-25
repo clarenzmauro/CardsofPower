@@ -3,7 +3,6 @@ import { useParams, Link } from "react-router-dom";
 import { firestore, storage } from "./firebaseConfig";
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { ref as storageRef, getDownloadURL } from "firebase/storage";
-
 import inventoryBg from "../assets/backgrounds/inventory.jpg";
 import "./InventoryPage.css";
 
@@ -160,7 +159,7 @@ function DictionaryPage() {
       <Link to={`/${userDocId}/home`} className="back-button">
         <i className="fas fa-reply back-icon"></i>
       </Link>
-      
+
       <div className="overlay"></div>
 
       <div className="wrapper sm:pt-4 lg:pt-12 text-white">
