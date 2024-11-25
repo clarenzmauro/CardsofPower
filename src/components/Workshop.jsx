@@ -8,7 +8,6 @@ import {
   doc,
   getDoc,
 } from "firebase/firestore";
-
 import workshopBg from "../assets/backgrounds/workshop.png";
 import "./Workshop.css";
 
