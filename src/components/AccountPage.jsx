@@ -50,6 +50,38 @@ const AccountContent = ({ userData, userDocId }) => {
 
     const [topCards, setTopCards] = useState([]);
 
+    const [leaderboards, setLeaderboards] = useState({
+
+        strategist: [],
+
+        kingMidas: [],
+
+        shopRaider: [],
+
+        cardMaster: [],
+
+        artisan: [],
+
+        friendly: []
+
+    });
+
+    const [userRanks, setUserRanks] = useState({
+
+        strategist: 'N/A',
+
+        cardMaster: 'N/A',
+
+        kingMidas: 'N/A',
+
+        artisan: 'N/A',
+
+        shopRaider: 'N/A',
+
+        friendly: 'N/A'
+
+    });
+
 
 
     useEffect(() => {
@@ -161,6 +193,274 @@ const AccountContent = ({ userData, userDocId }) => {
 
 
     }, [userData?.inventory]);
+
+
+
+    useEffect(() => {
+
+        const fetchLeaderboards = async () => {
+
+            try {
+
+                const usersRef = collection(firestore, "users");
+
+                const usersSnap = await getDocs(usersRef);
+
+                
+
+                let strategistRankings = [];
+
+                let midasRankings = [];
+
+                let shopRaiderRankings = [];
+
+                let cardMasterRankings = [];
+
+                let artisanRankings = [];
+
+                let friendlyRankings = [];
+
+                
+
+                usersSnap.forEach(doc => {
+
+                    const userData = doc.data();
+
+                    
+
+                    // Strategist (Win Rate)
+
+                    if (userData.gamesPlayed >= 5) {
+
+                        const winRate = (userData.gamesWon / userData.gamesPlayed) * 100;
+
+                        strategistRankings.push({
+
+                            username: userData.username,
+
+                            winRate: winRate
+
+                        });
+
+                    }
+
+                    
+
+                    // King Midas (Gold Count)
+
+                    midasRankings.push({
+
+                        username: userData.username,
+
+                        goldCount: userData.highestGoldCount || 0
+
+                    });
+
+                    
+
+                    // Shop Raider
+
+                    const tradingScore = (userData.cardsBought || 0) + 
+
+                                       (userData.cardsTraded || 0) + 
+
+                                       (userData.cardsListed || 0);
+
+                    shopRaiderRankings.push({
+
+                        username: userData.username,
+
+                        score: tradingScore
+
+                    });
+
+                    
+
+                    // Card Master
+
+                    cardMasterRankings.push({
+
+                        username: userData.username,
+
+                        cardCount: userData.highestCardCount || 0
+
+                    });
+
+                    
+
+                    // Artisan Supreme
+
+                    artisanRankings.push({
+
+                        username: userData.username,
+
+                        created: userData.cardsCreated || 0
+
+                    });
+
+                    
+
+                    // Friendly Neighborhood
+
+                    friendlyRankings.push({
+
+                        username: userData.username,
+
+                        friendCount: (userData.friends || []).length
+
+                    });
+
+                });
+
+
+
+                // Sort all rankings first
+
+                strategistRankings.sort((a, b) => b.winRate - a.winRate);
+
+                cardMasterRankings.sort((a, b) => b.cardCount - a.cardCount);
+
+                midasRankings.sort((a, b) => b.goldCount - a.goldCount);
+
+                artisanRankings.sort((a, b) => b.created - a.created);
+
+                shopRaiderRankings.sort((a, b) => b.score - a.score);
+
+                friendlyRankings.sort((a, b) => b.friendCount - a.friendCount);
+
+
+
+                // Then find positions in sorted arrays
+
+                const ranks = {
+
+                    strategist: 'N/A',
+
+                    cardMaster: 'N/A',
+
+                    kingMidas: 'N/A',
+
+                    artisan: 'N/A',
+
+                    shopRaider: 'N/A',
+
+                    friendly: 'N/A'
+
+                };
+
+
+
+                // Find Strategist rank (only if qualified)
+
+                if (userData?.gamesPlayed >= 5) {
+
+                    const position = strategistRankings.findIndex(player => player.username === userData.username) + 1;
+
+                    ranks.strategist = position || 'N/A';
+
+                }
+
+
+
+                // Find Card Master rank
+
+                const cardMasterPosition = cardMasterRankings.findIndex(player => player.username === userData.username) + 1;
+
+                ranks.cardMaster = cardMasterPosition || 'N/A';
+
+
+
+                // Find King Midas rank
+
+                const midasPosition = midasRankings.findIndex(player => player.username === userData.username) + 1;
+
+                ranks.kingMidas = midasPosition || 'N/A';
+
+
+
+                // Find Artisan Supreme rank
+
+                const artisanPosition = artisanRankings.findIndex(player => player.username === userData.username) + 1;
+
+                ranks.artisan = artisanPosition || 'N/A';
+
+
+
+                // Find Shop Raider rank
+
+                const shopPosition = shopRaiderRankings.findIndex(player => player.username === userData.username) + 1;
+
+                ranks.shopRaider = shopPosition || 'N/A';
+
+
+
+                // Find Friendly Neighborhood rank
+
+                const friendlyPosition = friendlyRankings.findIndex(player => player.username === userData.username) + 1;
+
+                ranks.friendly = friendlyPosition || 'N/A';
+
+
+
+                setUserRanks(ranks);
+
+
+
+                // Sort all rankings and take top 10
+
+                setLeaderboards({
+
+                    strategist: strategistRankings
+
+                        .sort((a, b) => b.winRate - a.winRate)
+
+                        .slice(0, 10),
+
+                    kingMidas: midasRankings
+
+                        .sort((a, b) => b.goldCount - a.goldCount)
+
+                        .slice(0, 10),
+
+                    shopRaider: shopRaiderRankings
+
+                        .sort((a, b) => b.score - a.score)
+
+                        .slice(0, 10),
+
+                    cardMaster: cardMasterRankings
+
+                        .sort((a, b) => b.cardCount - a.cardCount)
+
+                        .slice(0, 10),
+
+                    artisan: artisanRankings
+
+                        .sort((a, b) => b.created - a.created)
+
+                        .slice(0, 10),
+
+                    friendly: friendlyRankings
+
+                        .sort((a, b) => b.friendCount - a.friendCount)
+
+                        .slice(0, 10)
+
+                });
+
+            } catch (error) {
+
+                console.error("Error fetching leaderboards:", error);
+
+            }
+
+        };
+
+
+
+        fetchLeaderboards();
+
+    }, [userData?.username, userData?.gamesPlayed]);
 
 
 
@@ -312,17 +612,41 @@ const AccountContent = ({ userData, userDocId }) => {
 
                 <div className="flex justify-between mt-4 mb-6">
 
-                    {[...Array(6)].map((_, index) => (
+                    <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center">
 
-                        <div 
+                        <span className="text-xl font-bold">{userRanks.strategist}</span>
 
-                            key={index} 
+                    </div>
 
-                            className="w-24 h-24 rounded-full bg-gray-200"
+                    <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center">
 
-                        ></div>
+                        <span className="text-xl font-bold">{userRanks.cardMaster}</span>
 
-                    ))}
+                    </div>
+
+                    <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center">
+
+                        <span className="text-xl font-bold">{userRanks.kingMidas}</span>
+
+                    </div>
+
+                    <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center">
+
+                        <span className="text-xl font-bold">{userRanks.artisan}</span>
+
+                    </div>
+
+                    <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center">
+
+                        <span className="text-xl font-bold">{userRanks.shopRaider}</span>
+
+                    </div>
+
+                    <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center">
+
+                        <span className="text-xl font-bold">{userRanks.friendly}</span>
+
+                    </div>
 
                 </div>
 
@@ -348,11 +672,27 @@ const AccountContent = ({ userData, userDocId }) => {
 
                             <div className="h-40 overflow-y-auto bg-gray-100 p-2">
 
-                                {[...Array(10)].map((_, i) => (
+                                {leaderboards.strategist.length > 0 ? (
 
-                                    <div key={i} className="py-1">Player {i + 1}</div>
+                                    leaderboards.strategist.map((player, i) => (
 
-                                ))}
+                                        <div key={i} className="py-1">
+
+                                            {player.username} ({player.winRate.toFixed(2)}%)
+
+                                        </div>
+
+                                    ))
+
+                                ) : (
+
+                                    <div className="text-red-500 py-1">
+
+                                        Play at least 5 games to qualify
+
+                                    </div>
+
+                                )}
 
                             </div>
 
@@ -366,9 +706,13 @@ const AccountContent = ({ userData, userDocId }) => {
 
                             <div className="h-40 overflow-y-auto bg-gray-100 p-2">
 
-                                {[...Array(10)].map((_, i) => (
+                                {leaderboards.kingMidas.map((player, i) => (
 
-                                    <div key={i} className="py-1">Player {i + 1}</div>
+                                    <div key={i} className="py-1">
+
+                                        {player.username} ({player.goldCount.toLocaleString()})
+
+                                    </div>
 
                                 ))}
 
@@ -384,9 +728,13 @@ const AccountContent = ({ userData, userDocId }) => {
 
                             <div className="h-40 overflow-y-auto bg-gray-100 p-2">
 
-                                {[...Array(10)].map((_, i) => (
+                                {leaderboards.shopRaider.map((player, i) => (
 
-                                    <div key={i} className="py-1">Player {i + 1}</div>
+                                    <div key={i} className="py-1">
+
+                                        {player.username} ({player.score})
+
+                                    </div>
 
                                 ))}
 
@@ -410,9 +758,13 @@ const AccountContent = ({ userData, userDocId }) => {
 
                             <div className="h-40 overflow-y-auto bg-gray-100 p-2">
 
-                                {[...Array(10)].map((_, i) => (
+                                {leaderboards.cardMaster.map((player, i) => (
 
-                                    <div key={i} className="py-1">Player {i + 1}</div>
+                                    <div key={i} className="py-1">
+
+                                        {player.username} ({player.cardCount})
+
+                                    </div>
 
                                 ))}
 
@@ -428,9 +780,13 @@ const AccountContent = ({ userData, userDocId }) => {
 
                             <div className="h-40 overflow-y-auto bg-gray-100 p-2">
 
-                                {[...Array(10)].map((_, i) => (
+                                {leaderboards.artisan.map((player, i) => (
 
-                                    <div key={i} className="py-1">Player {i + 1}</div>
+                                    <div key={i} className="py-1">
+
+                                        {player.username} ({player.created})
+
+                                    </div>
 
                                 ))}
 
@@ -442,13 +798,17 @@ const AccountContent = ({ userData, userDocId }) => {
 
                         <div className="h-48">
 
-                            <h5>Friendly Neighborhood (highest Friend count)</h5>
+                            <h5>Friendly Neighborhood</h5>
 
                             <div className="h-40 overflow-y-auto bg-gray-100 p-2">
 
-                                {[...Array(10)].map((_, i) => (
+                                {leaderboards.friendly.map((player, i) => (
 
-                                    <div key={i} className="py-1">Player {i + 1}</div>
+                                    <div key={i} className="py-1">
+
+                                        {player.username} ({player.friendCount})
+
+                                    </div>
 
                                 ))}
 
@@ -486,13 +846,25 @@ AccountContent.propTypes = {
 
         gamesPlayed: PropTypes.number,
 
+        gamesWon: PropTypes.number,
+
         currentCardCount: PropTypes.number,
 
         inventory: PropTypes.arrayOf(PropTypes.string),
 
         highestCardCount: PropTypes.number,
 
-        highestGoldCount: PropTypes.number
+        highestGoldCount: PropTypes.number,
+
+        cardsBought: PropTypes.number,
+
+        cardsTraded: PropTypes.number,
+
+        cardsListed: PropTypes.number,
+
+        cardsCreated: PropTypes.number,
+
+        friends: PropTypes.arrayOf(PropTypes.string)
 
     }),
 
@@ -1112,7 +1484,7 @@ const BattlefieldContent = ({ userData }) => {
 
                         type="text" 
 
-                        value={`Highest Gold Count: ${userData?.goldCount || 0}`}
+                        value={`Highest Gold Count: ${userData?.highestGoldCount || 0}`}
 
                         readOnly 
 
@@ -1314,7 +1686,7 @@ BattlefieldContent.propTypes = {
 
         highestCardCount: PropTypes.number,
 
-        goldCount: PropTypes.number,
+        highestGoldCount: PropTypes.number,
 
         inventory: PropTypes.arrayOf(PropTypes.string)
 
@@ -1485,7 +1857,7 @@ const EconomyContent = ({ userData }) => {
 
 
                     case 'Card Class':
-
+                        
                         const classCount = {
 
                             rock: 0, machine: 0, warrior: 0, beast: 0, 
