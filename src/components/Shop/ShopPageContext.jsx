@@ -1,5 +1,5 @@
 import React from "react";
-import PropTypes from "prop-types"; // Import PropTypes
+import PropTypes from "prop-types";
 
 // The ShopPageContext component is receiving props and displaying them
 const ShopPageContext = ({ asset, sellerName, buttonText, onButtonClick }) => {
