@@ -61,11 +61,11 @@ function Workshop() {
       ) {
         return "All monster-specific fields are required.";
       }
-      if (atkPts > 5000 || defPts > 5000) {
-        return "ATK and DEF points must not exceed 5000.";
+      if ((atkPts > 5000 || atkPts < 0) || (defPts > 5000 || defPts < 0)) {
+        return 'ATK and DEF points must not exceed 5000 or be less than 0.';
       }
-      if (cardLevel > 10) {
-        return "Card Level must not exceed 10.";
+      if (cardLevel > 10 || cardLevel < 0) {
+        return 'Card Level must not exceed 10 or be less than 0.';
       }
     }
 
@@ -141,6 +141,7 @@ function Workshop() {
       await addDoc(collection(db, "workshop"), cardData);
 
       if (userDoc.exists) {
+        const userDocRef = doc(db, 'users', userDocId);
         const currentCardCreated = userDoc.data().cardsCreated || 0;
         await updateDoc(userDocRef, {
           cardsCreated: currentCardCreated + 1,
