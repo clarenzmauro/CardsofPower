@@ -1,12 +1,18 @@
 import React, { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import {
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL,
+} from "firebase/storage";
 import {
   getFirestore,
   collection,
   addDoc,
   doc,
   getDoc,
+  updateDoc,
 } from "firebase/firestore";
 import workshopBg from "../assets/backgrounds/workshop.png";
 import "./Workshop.css";
