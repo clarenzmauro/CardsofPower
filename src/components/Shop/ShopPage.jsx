@@ -12,6 +12,10 @@ import {
 } from "firebase/firestore";
 import { firestore } from "../firebaseConfig";
 import ShopPageContext from "./ShopPageContext"; // Ensure you're importing the right component
+import shop from "../../assets/images/shop-sign.png";
+import trade from "../../assets/images/trade.png";
+import listing from "../../assets/images/listing.png";
+import inventoryBg from "../../assets/backgrounds/inventory.jpg";
 import "./ShopPage.css";
 
 const ShopPage = () => {
@@ -58,7 +62,7 @@ const ShopPage = () => {
       const filtered = shopItems.filter((item) => {
         const matchesSearch = item.sellingCardName
           ?.toLowerCase()
-          .includes(searchQuery.toLowerCase());
+          .startsWith(searchQuery.toLowerCase());
         const matchesPrice =
           (!minPrice || item.sellingPrice >= parseFloat(minPrice)) &&
           (!maxPrice || item.sellingPrice <= parseFloat(maxPrice));
@@ -152,55 +156,72 @@ const ShopPage = () => {
   }
 
   return (
-    <div className="shop-page">
-      <header className="header">
-        <nav className="nav-tabs">
-          <Link to={`/${userDocId}/shop`}>
-            <div className="tab">Shop</div>
-          </Link>
-          <Link to={`/${userDocId}/shop/trades`}>
-            <div className="tab">Trades</div>
-          </Link>
-          <Link to={`/${userDocId}/shop/listing`}>
-            <div className="tab">Listing</div>
-          </Link>
-        </nav>
-      </header>
-      <div className="filters">
-        <input
-          type="text"
-          placeholder="Search by name..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-        <input
-          type="number"
-          placeholder="Min price"
-          value={minPrice}
-          onChange={(e) => setMinPrice(e.target.value)}
-        />
-        <input
-          type="number"
-          placeholder="Max price"
-          value={maxPrice}
-          onChange={(e) => setMaxPrice(e.target.value)}
-        />
-      </div>
-      <div className="shop-grid">
-        {filteredItems.map((item) => (
-          <ShopPageContext
-            key={item.id}
-            asset={{
-              imageUrl: item.sellingCardUrl || "default_image_url.png", // Fallback URL
-              cardName: item.sellingCardName || "Unnamed Card", // Fallback name
-            }}
-            sellerName={item.sellerName || "Unknown Seller"}
-            buttonText={`$${item.sellingPrice || 0}`}
-            onButtonClick={() => handlePurchase(item)} // Pass the item for purchase
+    <main
+      id="shop"
+      style={{ backgroundImage: `url(${inventoryBg})` }}
+      className="text-white"
+    >
+      <Link to={`/${userDocId}/home`} className="back-button">
+        <i className="fas fa-reply back-icon"></i>
+      </Link>
+
+      <div className="overlay"></div>
+
+      <nav className="flex w-1/2 mx-auto h-1/5">
+        <Link to={`/${userDocId}/shop`}>
+          <img src={shop} alt="" />
+        </Link>
+        <Link to={`/${userDocId}/shop/trades`}>
+          <img className="filter grayscale" src={trade} alt="" />
+        </Link>
+        <Link to={`/${userDocId}/shop/listing`}>
+          <img className="filter grayscale" src={listing} alt="" />
+        </Link>
+      </nav>
+
+      <div className="shop p-5">
+        <div className="flex justify-center mb-2 text-black">
+          <input
+            type="text"
+            placeholder="Search by name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="p-2 rounded-s-lg"
           />
-        ))}
+          <input
+            type="number"
+            placeholder="Min price"
+            value={minPrice}
+            onChange={(e) => setMinPrice(e.target.value)}
+            className="p-2 border-x-2"
+          />
+          <input
+            type="number"
+            placeholder="Max price"
+            value={maxPrice}
+            onChange={(e) => setMaxPrice(e.target.value)}
+            className="p-2 rounded-e-lg"
+          />
+        </div>
+
+        <div className="cards">
+          {filteredItems.map((item) => (
+            <div key={item.id}>
+              <ShopPageContext
+                key={item.id}
+                asset={{
+                  imageUrl: item.sellingCardUrl || "default_image_url.png", // Fallback URL
+                  cardName: item.sellingCardName || "Unnamed Card", // Fallback name
+                }}
+                sellerName={item.sellerName || "Unknown Seller"}
+                buttonText={`$${item.sellingPrice || 0}`}
+                onButtonClick={() => handlePurchase(item)} // Pass the item for purchase
+              />
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </main>
   );
 };
 
