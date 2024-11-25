@@ -3,7 +3,6 @@ import { Link, useParams } from "react-router-dom";
 import { storage, firestore } from "./firebaseConfig";
 import { ref as storageRef, getDownloadURL } from "firebase/storage";
 import { doc, getDoc } from "firebase/firestore";
-
 import inventoryBg from "../assets/backgrounds/inventory.jpg";
 import gold from "../assets/images/gold.png";
 import "./InventoryPage.css";
@@ -128,15 +127,13 @@ function InventoryPage() {
       <Link to={`/${userDocId}/home`} className="back-button">
         <i className="fas fa-reply back-icon"></i>
       </Link>
-      
+
       <div className="overlay"></div>
 
       <div className="wrapper sm:pt-4 lg:pt-12 text-white">
         <div className="cards">
           <div className="mb-4 flex justify-between">
-            <h1 className="sm:text-4xl lg:text-6xl">
-              Inventory
-            </h1>
+            <h1 className="sm:text-4xl lg:text-6xl">Inventory</h1>
 
             <input
               type="text"
@@ -150,7 +147,9 @@ function InventoryPage() {
           <div className="collection pb-4 flex">
             <div className="gold my-auto">
               <img className="w-full" src={gold} alt="gold coins" />
-              <p className="sm:text-2xl lg:text-3xl text-center">{goldCount !== 0 ? goldCount : 0}</p>
+              <p className="sm:text-2xl lg:text-3xl text-center">
+                {goldCount !== 0 ? goldCount : 0}
+              </p>
             </div>
 
             {filteredCards.map((card) => (
