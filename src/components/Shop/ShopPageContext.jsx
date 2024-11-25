@@ -8,7 +8,7 @@ const ShopPageContext = ({ asset, sellerName, buttonText, onButtonClick }) => {
       <img src={asset.imageUrl} alt={asset.cardName} />
       <h2>{asset.cardName}</h2>
       <p>Seller: {sellerName}</p>
-      <button onClick={onButtonClick}>{buttonText}</button>
+      <button className="w-full text-center py-1 bg-white text-black rounded-lg mt-2" onClick={onButtonClick}>{buttonText}</button>
     </>
   );
 };
