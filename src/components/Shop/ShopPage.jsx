@@ -179,8 +179,8 @@ const ShopPage = () => {
         </Link>
       </nav>
 
-      <div className="shop p-5">
-        <div className="flex justify-center mb-2 text-black">
+      <div className="shop">
+        <div className="flex justify-center mb-2 text-black pt-5">
           <input
             type="text"
             placeholder="Search by name..."
