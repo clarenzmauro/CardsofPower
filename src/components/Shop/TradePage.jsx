@@ -13,10 +13,16 @@ import {
 } from "firebase/firestore";
 import { Link, useParams } from "react-router-dom"; // To extract userDocId from the URL
 import TradePageContext from "./TradePageContext";
+import shop from "../../assets/images/shop-sign.png";
+import trade from "../../assets/images/trade.png";
+import listing from "../../assets/images/listing.png";
+import inventoryBg from "../../assets/backgrounds/inventory.jpg";
+import "./ShopPage.css";
 
 // Main component for Trade Page
 const TradePage = () => {
   const [trades, setTrades] = useState([]);
+  const { userDocId } = useParams();
   const { userDocId: tradeReceiverId } = useParams(); // Extract userDocId from the URL as tradeReceiverId
   const currentUserDocId = "someCurrentUserDocId"; // This should be the logged-in user's ID
 
@@ -137,25 +143,49 @@ const TradePage = () => {
   };
 
   return (
-    <div>
-      {trades.map((trade) => (
-        <TradePageContext
-          key={trade.id}
-          cardToGive={{
-            cardGiveId: trade.cardGiveId,
-            cardGiveName: trade.cardGiveName,
-            cardGiveUrl: trade.cardGiveUrl,
-          }}
-          cardToGet={{
-            cardReceiveId: trade.cardReceiveId,
-            cardReceiveName: trade.cardReceiveName,
-            cardReceiveUrl: trade.cardReceiveUrl,
-          }}
-          tradeGiverName={trade.tradeGiverName}
-          onTrade={() => handleTrade(trade)} // Pass the trade handler as a prop
-        />
-      ))}
-    </div>
+    <main
+      id="trade"
+      style={{ backgroundImage: `url(${inventoryBg})` }}
+      className="text-white"
+    >
+      <Link to={`/${userDocId}/home`} className="back-button">
+        <i className="fas fa-reply back-icon"></i>
+      </Link>
+
+      <div className="overlay"></div>
+
+      <nav className="flex w-1/2 mx-auto h-1/5">
+        <Link to={`/${userDocId}/shop`}>
+          <img className="filter grayscale" src={shop} alt="" />
+        </Link>
+        <Link to={`/${userDocId}/shop/trades`}>
+          <img src={trade} alt="" />
+        </Link>
+        <Link to={`/${userDocId}/shop/listing`}>
+          <img className="filter grayscale" src={listing} alt="" />
+        </Link>
+      </nav>
+
+      <div className="trade px-5 flex flex-wrap">
+        {trades.map((trade) => (
+          <TradePageContext
+            key={trade.id}
+            cardToGive={{
+              cardGiveId: trade.cardGiveId,
+              cardGiveName: trade.cardGiveName,
+              cardGiveUrl: trade.cardGiveUrl,
+            }}
+            cardToGet={{
+              cardReceiveId: trade.cardReceiveId,
+              cardReceiveName: trade.cardReceiveName,
+              cardReceiveUrl: trade.cardReceiveUrl,
+            }}
+            tradeGiverName={trade.tradeGiverName}
+            onTrade={() => handleTrade(trade)} // Pass the trade handler as a prop
+          />
+        ))}
+      </div>
+    </main>
   );
 };
 
