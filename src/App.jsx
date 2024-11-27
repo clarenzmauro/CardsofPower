@@ -10,6 +10,7 @@ import ListingPage from "./components/Shop/ListingPage.jsx";
 import InventoryPage from "./components/InventoryPage.jsx";
 import DictionaryPage from "./components/DictionaryPage.jsx";
 import AccountPage from "./components/AccountPage.jsx";
+import FriendsPage from "./components/FriendsPage.jsx";
 import { CardsContext, CardsProvider } from "./components/Battlefield/CardsContext.jsx";
 import './index.css';
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
@@ -37,6 +38,7 @@ function App() {
         <Route path="/:userDocId/workshop" element={<Workshop />}/>
         <Route path="/:userDocId/showcase" element={<Showcase />} />
         <Route path="/:userDocId/account" element={<AccountPage />} />
+        <Route path="/:userDocId/friends" element={<FriendsPage />} />
         {/* Only use for testing implementation */}
         {/* <Route path="/" element={<Battlefield />}/> */}
       </Routes>
