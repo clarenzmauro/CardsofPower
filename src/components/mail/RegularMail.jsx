@@ -1,4 +1,3 @@
-
 import PropTypes from 'prop-types';
 import { useState, useEffect } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
@@ -34,15 +33,13 @@ const RegularMail = ({ mailContent, mailSender, mailSent, onDelete, deleting }) 
                     <span>Sent: {mailSent.toDate().toLocaleString()}</span>
                 </div>
             </div>
-            <div className="action-buttons">
-                <button 
-                    className="delete-button"
-                    onClick={onDelete}
-                    disabled={deleting}
-                >
-                    🗑️
-                </button>
-            </div>
+            <button 
+                className="delete-button"
+                onClick={onDelete}
+                disabled={deleting}
+            >
+                🗑️
+            </button>
         </div>
     );
 };
