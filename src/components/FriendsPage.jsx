@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { collection, getDocs, query, where, doc, deleteDoc, getDoc, addDoc, Timestamp, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, deleteDoc, getDoc, addDoc, Timestamp, updateDoc, runTransaction, onSnapshot } from 'firebase/firestore';
 import { firestore } from './firebaseConfig';
 import RegularMail from './mail/RegularMail';
 import GiftMail from './mail/GiftMail';
@@ -19,44 +19,67 @@ const FriendsPage = () => {
     const [searchResults, setSearchResults] = useState([]);
     const [friendsList, setFriendsList] = useState([]);
     const [showMail, setShowMail] = useState(true);
+    const [selectedFriendId, setSelectedFriendId] = useState(null);
 
     useEffect(() => {
         const fetchMails = async () => {
             try {
                 const mailsRef = collection(firestore, 'mail');
                 const mailsQuery = query(mailsRef, where('mailReceiver', '==', userDocId));
-                const mailsSnapshot = await getDocs(mailsQuery);
-                const mailsList = mailsSnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-                setMails(mailsList);
+                
+                // Set up real-time listener
+                const unsubscribe = onSnapshot(mailsQuery, (snapshot) => {
+                    const mailsList = snapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }))
+                    .sort((a, b) => b.mailSent.toMillis() - a.mailSent.toMillis());
+                    setMails(mailsList);
+                    setLoading(false);
+                }, (error) => {
+                    console.error("Error listening to mails:", error);
+                    setLoading(false);
+                });
+
+                // Cleanup listener on unmount
+                return () => unsubscribe();
             } catch (error) {
-                console.error("Error fetching mails:", error);
-            } finally {
+                console.error("Error setting up mail listener:", error);
                 setLoading(false);
             }
         };
+
         fetchMails();
     }, [userDocId]);
 
     useEffect(() => {
         const fetchFriends = async () => {
             try {
-                const userDoc = await getDoc(doc(firestore, 'users', userDocId));
-                if (userDoc.exists() && userDoc.data().friends) {
-                    const friendsData = userDoc.data().friends;
-                    const friendsList = Object.keys(friendsData).map(username => ({
-                        id: username,
-                        username: username,
-                        convoId: friendsData[username].convoId
-                    }));
-                    setFriendsList(friendsList);
-                }
+                // Set up real-time listener for user document
+                const userDocRef = doc(firestore, 'users', userDocId);
+                const unsubscribe = onSnapshot(userDocRef, (doc) => {
+                    if (doc.exists() && doc.data().friends) {
+                        const friendsData = doc.data().friends;
+                        const friendsList = Object.keys(friendsData).map(username => ({
+                            id: username,
+                            username: username,
+                            convoId: friendsData[username].convoId
+                        }));
+                        setFriendsList(friendsList);
+                    } else {
+                        setFriendsList([]);
+                    }
+                }, (error) => {
+                    console.error("Error listening to friends:", error);
+                });
+
+                // Cleanup listener on unmount
+                return () => unsubscribe();
             } catch (error) {
-                console.error("Error fetching friends:", error);
+                console.error("Error setting up friends listener:", error);
             }
         };
+
         fetchFriends();
     }, [userDocId]);
 
@@ -107,65 +130,75 @@ const FriendsPage = () => {
     };
 
      const handleFriendRequestAccept = async (mailId) => {
-        try{
+        try {
             const mailDoc = await getDoc(doc(firestore, 'mail', mailId));
             const mailData = mailDoc.data();
 
-            const senderDoc = await getDoc(doc(firestore, 'users', mailData.mailSender));
-            const receiverDoc = await getDoc(doc(firestore, 'users', userDocId));
-            const senderUsername = senderDoc.data().username;
-            const receiverUsername = receiverDoc.data().username;
+            await runTransaction(firestore, async (transaction) => {
+                const senderDoc = await transaction.get(doc(firestore, 'users', mailData.mailSender));
+                const receiverDoc = await transaction.get(doc(firestore, 'users', userDocId));
+                const senderUsername = senderDoc.data().username;
+                const receiverUsername = receiverDoc.data().username;
 
-            const senderRef = doc(firestore, 'users', mailData.mailSender);
-            const receiverRef = doc(firestore, 'users', userDocId);
+                const chatDocRef = doc(collection(firestore, 'chats'));
+                const chatId = chatDocRef.id;
 
-            await updateDoc(receiverRef, {
-                [`friends.${senderUsername}`]: {
-                    convoId: "TestId"
-                }
+                // Create chat document
+                transaction.set(chatDocRef, {
+                    [mailData.mailSender]: {
+                        counter: 0
+                    },
+                    [userDocId]: {
+                        counter: 0
+                    }
+                });
+
+                // Update both users' friends lists
+                transaction.update(doc(firestore, 'users', mailData.mailSender), {
+                    [`friends.${receiverUsername}`]: {
+                        convoId: chatId
+                    }
+                });
+
+                transaction.update(doc(firestore, 'users', userDocId), {
+                    [`friends.${senderUsername}`]: {
+                        convoId: chatId
+                    }
+                });
+
+                // Create notification mails
+                transaction.set(doc(collection(firestore, 'mail')), {
+                    isFriendRequest: false,
+                    isGifted: {
+                        cardId: "",
+                        cardName: "",
+                        isIt: false
+                    },
+                    mailContent: `${receiverUsername} accepted your friend request!`,
+                    mailReceiver: mailData.mailSender,
+                    mailSender: userDocId,
+                    mailSent: Timestamp.now()
+                });
+
+                transaction.set(doc(collection(firestore, 'mail')), {
+                    isFriendRequest: false,
+                    isGifted: {
+                        cardId: "",
+                        cardName: "",
+                        isIt: false
+                    },
+                    mailContent: `You are now friends with ${senderUsername}!`,
+                    mailReceiver: userDocId,
+                    mailSender: mailData.mailSender,
+                    mailSent: Timestamp.now()
+                });
+
+                // Delete the original friend request mail
+                transaction.delete(doc(firestore, 'mail', mailId));
             });
 
-            await updateDoc(senderRef, {
-                [`friends.${receiverUsername}`]: {
-                    convoId: "TestId"
-                }
-            });
+            // No need to manually update mails or friends list - onSnapshot listeners will handle it
 
-            await addDoc(collection(firestore, 'mail'), {
-                isFriendRequest: false,
-                isGifted: {
-                    cardId: "",
-                    cardName: "",
-                    isIt: false
-                },
-                mailContent: `${receiverUsername} accepted your friend request!`,
-                mailReceiver: mailData.mailSender,
-                mailSender: userDocId,
-                mailSent: Timestamp.now()
-            });
-
-            await addDoc(collection(firestore, 'mail'), {
-                isFriendRequest: false,
-                isGifted: {
-                    cardId: "",
-                    cardName: "",
-                    isIt: false
-                },
-                mailContent: `You are now friends with ${senderUsername}!`,
-                mailReceiver: userDocId,
-                mailSender: mailData.mailSender,
-                mailSent: Timestamp.now()
-            });
-
-            await deleteDoc(doc(firestore, 'mail', mailId));
-
-            const updatedMailsQuery = query(collection(firestore, 'mail'), where('mailReceiver', '==', userDocId));
-            const updatedMailsSnapshot = await getDocs(updatedMailsQuery);
-            const updatedMails = updatedMailsSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setMails(updatedMails);
         } catch (error) {
             console.error("Error accepting friend request:", error);
             alert("Failed to accept friend request. Please try again.");
@@ -224,13 +257,166 @@ const FriendsPage = () => {
     };
 
     const handleGiftAccept = async (mailId, cardId) => {
-        // Handle gift acceptance
-        console.log('Gift accepted:', mailId, cardId);
+        try {
+            // Get the mail data first
+            const mailDoc = await getDoc(doc(firestore, 'mail', mailId));
+            const mailData = mailDoc.data();
+
+            // Start a transaction for all the updates
+            await runTransaction(firestore, async (transaction) => {
+                // Get sender and receiver docs
+                const senderDoc = await transaction.get(doc(firestore, 'users', mailData.mailSender));
+                const receiverDoc = await transaction.get(doc(firestore, 'users', userDocId));
+                const cardDoc = await transaction.get(doc(firestore, 'cards', cardId));
+
+                if (!senderDoc.exists() || !receiverDoc.exists() || !cardDoc.exists()) {
+                    throw new Error("Required documents not found");
+                }
+
+                const senderData = senderDoc.data();
+                const receiverData = receiverDoc.data();
+
+                // Update sender's inventory and count
+                const updatedSenderInventory = senderData.inventory.filter(id => id !== cardId);
+                transaction.update(doc(firestore, 'users', mailData.mailSender), {
+                    inventory: updatedSenderInventory,
+                    currentCardCount: senderData.currentCardCount - 1
+                });
+
+                // Update receiver's inventory and counts
+                const newReceiverCount = (receiverData.currentCardCount || 0) + 1;
+                transaction.update(doc(firestore, 'users', userDocId), {
+                    inventory: [...(receiverData.inventory || []), cardId],
+                    currentCardCount: newReceiverCount,
+                    highestCardCount: Math.max(newReceiverCount, receiverData.highestCardCount || 0)
+                });
+
+                // Update card document
+                transaction.update(doc(firestore, 'cards', cardId), {
+                    boughtFor: 0,
+                    'cardLose.local': 0,
+                    'cardMatch.local': 0,
+                    'cardWin.local': 0,
+                    currentOwnerId: userDocId,
+                    currentOwnerUsername: receiverData.username,
+                    isListed: false,
+                    passCount: cardDoc.data().passCount + 1
+                });
+
+                // Create notification mails
+                transaction.set(doc(collection(firestore, 'mail')), {
+                    isFriendRequest: false,
+                    isGifted: {
+                        cardId: "",
+                        cardName: "",
+                        isIt: false
+                    },
+                    mailContent: `${receiverData.username} accepted your gift!`,
+                    mailReceiver: mailData.mailSender,
+                    mailSender: userDocId,
+                    mailSent: Timestamp.now()
+                });
+
+                transaction.set(doc(collection(firestore, 'mail')), {
+                    isFriendRequest: false,
+                    isGifted: {
+                        cardId: "",
+                        cardName: "",
+                        isIt: false
+                    },
+                    mailContent: `You accepted ${senderData.username}'s gift!`,
+                    mailReceiver: userDocId,
+                    mailSender: mailData.mailSender,
+                    mailSent: Timestamp.now()
+                });
+
+                // Delete the gift mail
+                transaction.delete(doc(firestore, 'mail', mailId));
+            });
+
+            // Update the mails list in the UI
+            const updatedMailsQuery = query(collection(firestore, 'mail'), where('mailReceiver', '==', userDocId));
+            const updatedMailsSnapshot = await getDocs(updatedMailsQuery);
+            const updatedMails = updatedMailsSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setMails(updatedMails);
+
+        } catch (error) {
+            console.error("Error accepting gift:", error);
+            alert("Failed to accept gift. Please try again.");
+        }
     };
 
     const handleGiftReject = async (mailId) => {
-        // Handle gift rejection
-        console.log('Gift rejected:', mailId);
+        try {
+            // Get the mail data first
+            const mailDoc = await getDoc(doc(firestore, 'mail', mailId));
+            const mailData = mailDoc.data();
+            
+            // Start a transaction for all the updates
+            await runTransaction(firestore, async (transaction) => {
+                // Get sender and receiver docs
+                const senderDoc = await transaction.get(doc(firestore, 'users', mailData.mailSender));
+                const receiverDoc = await transaction.get(doc(firestore, 'users', userDocId));
+
+                if (!senderDoc.exists() || !receiverDoc.exists()) {
+                    throw new Error("Required documents not found");
+                }
+
+                const senderData = senderDoc.data();
+                const receiverData = receiverDoc.data();
+
+                // Set the card's isListed back to false
+                transaction.update(doc(firestore, 'cards', mailData.isGifted.cardId), {
+                    isListed: false
+                });
+
+                // Create notification mails
+                transaction.set(doc(collection(firestore, 'mail')), {
+                    isFriendRequest: false,
+                    isGifted: {
+                        cardId: "",
+                        cardName: "",
+                        isIt: false
+                    },
+                    mailContent: `${receiverData.username} rejected your gift!`,
+                    mailReceiver: mailData.mailSender,
+                    mailSender: userDocId,
+                    mailSent: Timestamp.now()
+                });
+
+                transaction.set(doc(collection(firestore, 'mail')), {
+                    isFriendRequest: false,
+                    isGifted: {
+                        cardId: "",
+                        cardName: "",
+                        isIt: false
+                    },
+                    mailContent: `You rejected ${senderData.username}'s gift!`,
+                    mailReceiver: userDocId,
+                    mailSender: mailData.mailSender,
+                    mailSent: Timestamp.now()
+                });
+
+                // Delete the gift mail
+                transaction.delete(doc(firestore, 'mail', mailId));
+            });
+
+            // Update the mails list in UI
+            const updatedMailsQuery = query(collection(firestore, 'mail'), where('mailReceiver', '==', userDocId));
+            const updatedMailsSnapshot = await getDocs(updatedMailsQuery);
+            const updatedMails = updatedMailsSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setMails(updatedMails);
+
+        } catch (error) {
+            console.error("Error rejecting gift:", error);
+            alert("Failed to reject gift. Please try again.");
+        }
     };
 
     const renderMail = (mail) => {
@@ -273,6 +459,7 @@ const FriendsPage = () => {
 
     const handleUserClick = (userId, username) => {
         setSelectedUser({ id: userId, username });
+        setSelectedFriendId(userId);
         setShowMail(false);
 
         const isFriend = friendsList.some(friend => friend.username === username);
@@ -293,7 +480,7 @@ const FriendsPage = () => {
         return usersToDisplay.map(user => (
             <div 
                 key={user.id}
-                className="friend-search-result"
+                className={`friend-search-result ${user.id === selectedFriendId ? 'selected' : ''}`}
                 onClick={() => handleUserClick(user.id, user.username)}
                 style={{ cursor: 'pointer' }}
             >
@@ -334,8 +521,12 @@ const FriendsPage = () => {
                     selectedUser.isFriend ? (
                         <ChatView 
                             friendUsername={selectedUser.username}
+                            currentUserDocId={userDocId}
                             convoId={selectedUser.convoId}
-                            currentUserDocId={userDocId} 
+                            onUnfriend={() => {
+                                setShowMail(true);
+                                setSelectedUser(null);
+                            }}
                         />
                     ) : (
                         <UserProfileView
