@@ -53,3 +53,4 @@ RegularMail.propTypes = {
 };
 
 export default RegularMail;
+
