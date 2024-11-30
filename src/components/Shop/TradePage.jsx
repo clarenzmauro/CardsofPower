@@ -170,6 +170,8 @@ const TradePage = () => {
         {trades.map((trade) => (
           <TradePageContext
             key={trade.id}
+            width="w-2/12"
+            padding="p-2"
             cardToGive={{
               cardGiveId: trade.cardGiveId,
               cardGiveName: trade.cardGiveName,
