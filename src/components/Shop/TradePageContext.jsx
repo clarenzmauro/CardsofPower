@@ -6,9 +6,11 @@ const TradePageContext = ({
   cardToGet,
   tradeGiverName,
   onTrade,
+  width,
+  padding,
 }) => {
   return (
-    <section className="w-2/12 p-2 mb-4">
+    <section className={`${width} ${padding} mb-4`}>
       {cardToGive && (
         <img src={cardToGive.cardGiveUrl} alt={cardToGive.cardGiveName} />
       )}
