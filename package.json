@@ -16,6 +16,7 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0",
     "react-toastify": "^10.0.6",
+    "recharts": "^2.13.3",
     "swiper": "^11.1.15",
     "toastify": "^2.0.1"
   },

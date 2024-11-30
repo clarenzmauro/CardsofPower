@@ -59,6 +59,78 @@ function Battlefield() {
     const [rightButton, setRightButton] = useState('');
     const [assetsLoaded, setAssetsLoaded] = useState(false);
 
+    const divineCards = [
+        "Ra's Herald",
+        "Forgemaster of Creation",
+        "Ixchel",
+        "Celestial Outcast",
+        "Aethers Wrath",
+        "Aethers Wrath",
+        "Celestial Zenith"
+    ];
+
+    const darkCards = [    
+        "Venomous Viper",
+        "Necro Warrior",
+        "Chaos Magus",
+        "Darksteel Scorpion",
+        "Venom Dragon",
+        "Dread of Shadows",
+        "Shadow Rogue"
+    ];
+
+    const earthCards = [
+    "Stone Sentinel",
+    "Vine Guardian",
+    "Ironclad Defender",
+    "Heart of the Mountain",
+    "Steel Guardian",
+    "Earth Golem",
+    ];
+
+    const fireCards = [
+        "Ashen Sovereign",
+        "Lavapulse Phoenix",
+        "Blaze Knight",
+        "Inferno Giant",
+        "Phoenix Hatchling",
+        "Crimson Blade Mage",
+        "Blazing Minotaur"
+    ];
+
+    const lightCards = [
+        "Thunder Colossus",
+        "Solar Guardian",
+        "Thunder Scout",
+        "Electric Sabre",
+        "Lunar Wolf",
+        "Moonlight Archer",
+        "Crystal Guardian",
+        "Starlight Seraph",
+        "Lightbinder Paladin"
+    ];
+
+    const waterCards = [
+        "Abyss Serpent",
+        "Aqua Serpent",
+        "Deep Sea Leviathan",
+        "Frostborne Champion",
+        "Abyss Kraken",
+        "Tidecaller Overlord"
+    ];
+
+    const windCards = [
+        "Storm Wielder",
+        "Cyclone Serpent",   
+        "Gale Striker",
+        "Sky Reaver",
+        "Wind Fairy",
+        "Tempest Wind Beast",
+        "Wind Scout",
+        "Storm Dragon"
+    ];
+
+
     // Fetch user data
     useEffect(() => {
         const fetchUserData = async () => {
@@ -235,7 +307,7 @@ function Battlefield() {
                     timer: 60,
                     currentRound: 0,
                     totalRounds: totalRounds,
-                    currentTurn: 'player1',
+                    currentTurn: 'player1'
                 },
                 lastCard: null,
                 attacks: {
@@ -328,6 +400,7 @@ function Battlefield() {
             return () => unsubscribe();
         }
     }, [showAvailableRooms, isRoomJoined, firestore]);
+
 
      // Function to handle joining an existing room
      const handleJoinRoom = useCallback(async (selectedRoomId) => {
@@ -600,6 +673,22 @@ function Battlefield() {
     const [opponentCards, setOpponentCards] = useState([]);
     const [opponentReady, setOpponentReady] = useState(false);
     const [hasPlacedCard, setHasPlacedCard] = useState(false);
+    const [battlefieldEffectsChecked, setBattlefieldEffectsChecked] = useState(false);
+
+    useEffect(() => {
+        if (gameStage === 'battle' && !battlefieldEffectsChecked) {
+            checkPassiveAfterPreparation();
+            setBattlefieldEffectsChecked(true);
+            console.log("Battlefield effects checked for this battle phase");
+        }
+
+        // Reset the check when leaving battle phase
+        if (gameStage !== 'battle') {
+            setBattlefieldEffectsChecked(false);
+        }
+    }, [gameStage, myDeck, playerGraveyard, battlefieldEffectsChecked]);
+
+    
 
     // Function to toggle a card's position
     const handlePositionToggle = useCallback(async (slotIndex, currentPosition) => {
@@ -753,7 +842,7 @@ function Battlefield() {
                         slotIndex: index,
                         inGameDefPts: selectedCard.card.inGameDefPts || 0,
                         inGameAtkPts: selectedCard.card.inGameAtkPts || 0,
-                        id: selectedCard.card.id
+                        id: selectedCard.card.id,
                     };
                     return updatedDeck;
                 });
@@ -852,9 +941,9 @@ function Battlefield() {
     }, [isRoomJoined, roomId, playerId, firestore, gameStage]);
     
 
-    const [timer, setTimer] = useState(120);
-    const [playerHP, setPlayerHP] = useState(5000);
-    const [opponentHP, setOpponentHP] = useState(5000);
+    let [timer, setTimer] = useState(120);
+    let [playerHP, setPlayerHP] = useState(5000);
+    let [opponentHP, setOpponentHP] = useState(5000);
     const timerRef = useRef(null);
     const isActiveTurnFlag = useMemo(() => currentTurn === playerId, [currentTurn, playerId]);
     const [attackSourceCard, setAttackSourceCard] = useState(null);
@@ -1151,6 +1240,114 @@ function Battlefield() {
         }
     }, [gameStage, playerHP, opponentHP, playerId, determineWinner]);
 
+    const handleCardUseEffect = useCallback(async () => {
+        // Debugging: Log the current selectedCard
+        console.log('Checking card effect for selectedCard:', selectedCard);
+    
+        // Check if selectedCard and its nested properties are defined
+        if (!selectedCard?.card?.cardType) {
+            toast.error('No valid card selected.');
+            console.error('Selected card is invalid:', selectedCard);
+            return;
+        }
+    
+        // Destructure to get cardType, cardName, and cardCharacter
+        const { cardType, cardName, cardCharacter } = selectedCard.card;
+    
+        // Determine effect based on card type
+        switch (cardType) {
+            case 'monster':
+                if (cardCharacter === 'ritual') {
+                    toast.warn('Ritual effects are not implemented yet.');
+                    console.warn(`Ritual monster ${cardName} has no effects implemented.`);
+                } else if (cardCharacter === 'normal') {
+                    toast.info(`${cardName} has no effects.`);
+                    console.log(`Normal monster ${cardName} has no effects.`);
+                
+                } else if (cardName === 'Heart of the Mountain') {
+                    myDeck.forEach((card) => {
+                        if (earthCards.includes(card.cardName)) {
+                            card.inGameAtkPts += 500;
+                            console.log(`${card.cardName} is an Earth card. Attack points increased by 500.`);
+                            toast.success(`${card.cardName}'s attack increased by 500.`);
+
+                        } else if (card.cardType === 'monster' && card.cardName !== 'Heart of the Mountain') {
+                            card.inGameAtkPts += 200;
+                            console.log(`${card.cardName} is a monster card. Attack points increased by 200.`);
+                            toast.info(`${card.cardName}'s attack increased by 200.`);
+                        } else {
+
+                            console.error(`Error updating attack points for ${card.cardName}.`);
+                            toast.error(`Error updating attack points for ${card.cardName}.`);
+                        }
+                    });
+                }
+                break;
+    
+            case 'spell':
+
+            if(cardName === "Fate Swap"){
+                async function switchPlayerHpWithOpponent(playerId, opponentId, playerHP, opponentHP) {
+                    const db = getFirestore();
+                    const playerRef = doc(db, 'rooms', roomId, 'players', playerId);
+                    const opponentRef = doc(db, 'rooms', roomId, 'players', opponentId);
+
+                    // Swap HP values
+                    const temp = playerHP;
+                    playerHP = opponentHP;
+                    opponentHP = temp;
+
+                    // Update Firestore
+                    await updateDoc(playerRef, { hp: playerHP });
+                    await updateDoc(opponentRef, { hp: opponentHP });
+
+                    return { playerHP, opponentHP };
+                }
+
+                const hpSwapResult = await switchPlayerHpWithOpponent(playerId, opponentId, playerHP, opponentHP);
+                setPlayerHP(hpSwapResult.playerHP);
+                setOpponentHP(hpSwapResult.opponentHP);
+                console.log(`Player HP and Opponent HP have been swapped.`);
+                toast.info(`Player HP and Opponent HP have been swapped.`);
+                
+            } else if(cardName === "Sudden Storm"){
+                opponentDeck.forEach(async (card) => {
+                    if (card.cardType === 'monster') {
+                        card.inGameDefPts -= 200;
+                        console.log(`${card.cardName}'s defense decreased by 200.`);
+                        toast.info(`${card.cardName}'s defense decreased by 200.`);
+                        // Update Firestore
+                        const cardRef = doc(firestore, 'cards', card.id);
+                        await updateDoc(cardRef, {
+                            inGameDefPts: card.inGameDefPts
+                        });
+                    }
+                });
+            }
+
+                // Handle spell card effect (e.g., boost attack, heal, etc.)
+                toast.info(`Activating Spell Card: ${cardName}!`);
+                console.log(`Spell card ${cardName} effect activated.`);
+                // Add specific spell effect logic here
+                break;
+    
+            case 'trap':
+                // Handle trap card effect (e.g., defensive counter)
+                toast.info(`Trap Card ${cardName} Ready!`);
+                console.log(`Trap card ${cardName} effect set.`);
+                // Add specific trap effect logic here
+                break;
+    
+            default:
+                // Handle unknown or unsupported card types
+                toast.warn(`Unknown card type: ${cardType}.`);
+                console.error(`Unsupported card type: ${cardType}`);
+                break;
+        }
+        // Call switchTurn to change the turn after using a card
+    }, [selectedCard, firestore, cards, playerHP, opponentHP]);
+
+
     // Function to initiate an attack
     const handleAttackInitiation = useCallback(async () => {
         // Debugging: Log the current selectedCard
@@ -1210,6 +1407,9 @@ function Battlefield() {
 
     // Function to handle target selection
     const handleTargetSelection = useCallback(async (targetIndex) => {
+
+        
+
         if (!attackSourceCard) {
             toast.warn('No attack source selected.');
             return;
@@ -1224,15 +1424,91 @@ function Battlefield() {
         const targetCard = opponentDeck[targetIndex];
         if (!targetCard || !targetCard.id) {
             toast.warn('No valid target card selected.');
-            return;
-        }
+        } else {
+            if (attackSourceCard.cardName === "Moonlight Archer") {
+                const damage = 500;
+                try {
+                    await runTransaction(firestore, async (transaction) => {
+                        const roomDocRef = doc(firestore, 'rooms', roomId);
+                        const roomDoc = await transaction.get(roomDocRef);
+                        if (!roomDoc.exists()) {
+                            throw new Error('Room does not exist!');
+                        }
+            
+                        const targetDocRef = doc(firestore, 'rooms', roomId, 'players', opponentId, 'deck', targetIndex.toString());
+                        const targetDoc = await transaction.get(targetDocRef);
+                        if (!targetDoc.exists()) {
+                            throw new Error('Target card does not exist.');
+                        }
+            
+                        // Retrieve current inGameAtkPts of the target card
+                        const currentDefPts = targetDoc.data().inGameDefPts || 0;
+                        const newDefPts = Math.max(currentDefPts - damage, 0);
+            
+                        // Update inGameAtkPts in the database
+                        transaction.update(targetDocRef, {
+                            inGameDefPts: newDefPts
+                        });
+                    });
+            
+                    toast.success(`Moonlight Archer reduced ${targetCard.cardName}'s attack by 500.`);
+                    console.log(`Moonlight Archer reduced ${targetCard.cardName}'s attack by 500.`);
+                } catch (error) {
+                    console.error('Error performing Moonlight Archer attack:', error);
+                    toast.error('Failed to perform Moonlight Archer attack.');
+                }
+                return;
+            }
 
-        // **Position Check: Only 'attack' position cards can be targeted**
+            
+            if (attackSourceCard.cardName === "Lunar Wolf" && targetCard.position === 'defense') {
+
+                const cardId = "SVPSxf2mVaiGMT6UOkHg"; 
+                const cardDocRef = doc(firestore, 'cards', cardId);
+
+                getDoc(cardDocRef)
+                                .then((docSnap) => {
+                                    if (docSnap.exists()) {
+                                        const currentAtkPts = docSnap.data().inGameAtkPts || 0;
+                                        const inGameAtkPts = docSnap.data().inGameAtkPts || 0; 
+                                        const incrementValue = 500;
+                                        if (typeof incrementValue !== 'number') {
+                                            console.error("Invalid inGameAtkPts value:", inGameAtkPts);
+                                            return;
+                                        }
+                                        let newAtkPts = currentAtkPts + incrementValue;
+                            
+                                        updateDoc(cardDocRef, {
+                                            inGameAtkPts: newAtkPts
+                                        }).then(() => {
+                                            toast.info("Lunar Wolf's attack increased by 500 due to attacking a card in defense position!");
+                                            console.log("Lunar Wolf's attack increased by 500 due to attacking a card in defense position!");
+                                        }).catch((error) => {
+                                            toast.info("Error updating Lunar Wolf's attack.");
+                                            console.error("Error updating Lunar Wolf's attack:", error);
+                                        });
+                                    } else {
+                                        toast.info("Lunar Wolf's  document not found.");
+                                        console.log("Lunar Wolf's document not found.");
+                                    }
+                                })
+                                .catch((error) => {
+                                    console.error("Error retrieving Lunar Wolf's document:", error);
+                                });
+
+                toast.info("Lunar Wolf's attack increased by 500 due to attacking a card in defense position!");
+                console.log("Lunar Wolf's attack increased by 500 due to attacking a card in defense position!");
+                return;
+            }
+        }
         if (targetCard.position !== 'attack') {
             toast.warn('You cannot attack a card in Defense position.');
             console.warn(`Attempted to attack a card in Defense position at index ${targetIndex}.`);
             return;
         }
+
+
+        // **Position Check: Only 'attack' position cards can be targeted**
 
         try {
             await runTransaction(firestore, async (transaction) => {
@@ -1249,10 +1525,12 @@ function Battlefield() {
                     throw new Error('Target card does not exist.');
                 }
 
+                const attackSourceName = attackSourceCard.cardName;
                 const targetCardData = targetDoc.data();
                 const currentDefPts = targetCardData.inGameDefPts || 0;
                 const attackingPts = attackSourceCard.attackPts || 0;
                 const newDefPts = Math.max(currentDefPts - attackingPts, 0);
+                const targetCardName = targetCardData.cardName;
 
                 console.log('Attack calculation:', {
                     currentDefPts,
@@ -1268,6 +1546,7 @@ function Battlefield() {
                 });
 
                 if (newDefPts <= 0) {
+
                     // Move to graveyard if defense points are depleted
                     const graveyardRef = collection(firestore, 'rooms', roomId, 'players', opponentId, 'graveyard');
                     await addDoc(graveyardRef, { ...targetCardData });
@@ -1287,6 +1566,97 @@ function Battlefield() {
                         inGameDefPts: targetCardData.defPts || 0 // Reset to original defense points
                     });
 
+                    if (targetCardName === "Lavapulse Phoenix" && !targetCardData.hasActivatedPassive) {
+                        console.log("Lavapulse Phoenix's passive effect activated: Both players lose 200 HP.");
+                        targetCardData.hasActivatedPassive = true; 
+                        await updateDoc(doc(firestore, 'rooms', roomId), {
+                            'hp.player1': playerHP - 200,
+                            'hp.player2': opponentHP - 200
+                        });
+                    }
+
+                    console.log(`Card destroyed. Opponent's card moved to graveyard.`);
+
+                    if (attackSourceName === "Ra's Herald") {
+                        const cardId = "4PlalkUkDSwPIxMHh7gd";
+                        const cardDocRef = doc(firestore, 'cards', cardId);
+                        // Get the current document to retrieve currentDefPts
+                        getDoc(cardDocRef)
+                            .then((docSnap) => {
+                                if (docSnap.exists()) {
+                                    const currentDefPts = docSnap.data().inGameDefPts || 0;
+                    
+                                    // Ensure inGameAtkPts is defined
+                                    const incrementValue = inGameAtkPts || 0;
+                                    if (typeof incrementValue !== 'number') {
+                                        console.error("Invalid inGameAtkPts value:", inGameAtkPts);
+                                        return;
+                                    }
+                                    let newDefPts = currentDefPts + incrementValue;
+                                    if (newDefPts > 1500) {
+                                        newDefPts = 1500;
+                                    }
+                                    // Update the inGameDefPts by adding the enemy's inGameAtkPts
+                                    updateDoc(cardDocRef, {
+                                        inGameDefPts: newDefPts
+                                    }).then(() => {
+                                        toast.info("Ra's Herald Heals");
+                                        console.log("Ra's Herald Heals");
+                                    }).catch((error) => {
+                                        toast.info("Error updating Ra's Herald.");
+                                        console.error("Error updating Ra's Herald:", error);
+                                    });
+                                } else {
+                                    toast.info("Ra's Herald document not found.");
+                                    console.log("Ra's Herald document not found.");
+                                }
+                            })
+                            .catch((error) => {
+                                console.error("Error retrieving Ra's Herald document:", error);
+                            });
+                    }
+
+                    if (attackSourceName === "Cyclone Serpent") {
+                        myDeck.forEach(card => {
+                            if (card.cardType === 'monster') {
+                                // Set maxHP based on defPts if not already set
+                                card.maxHP = card.maxHP || card.defPts;
+
+                                // Heal the card by increasing inGameDefPts by 100, ensuring it doesn't exceed maxHP
+                                card.inGameDefPts = Math.min(card.inGameDefPts + 100, card.maxHP);
+
+                                // Update Firestore document for each monster card
+                                const cardRef = doc(firestore, 'cards', card.id);
+                                updateDoc(cardRef, {
+                                    inGameDefPts: card.inGameDefPts
+                                }).then(() => {
+                                    console.log(`Updated ${card.cardName}'s inGameDefPts in Firestore.`);
+                                }).catch((error) => {
+                                    console.error(`Error updating ${card.cardName}'s inGameDefPts in Firestore:`, error);
+                                });
+                                console.log(`Healed ${card.cardName} by 100 points due to Cyclone Serpent's effect.`);
+                                toast.info(`Healed ${card.cardName} by 100 points due to Cyclone Serpent's effect.`);
+                            }
+                        });
+                    }
+
+                    if (attackSourceName === "Electric Sabre") {
+                        const damageToOpponent = 300;
+                        const currentOpponentHP = roomDoc.data().hp[opponentId] || 5000;
+                        const newOpponentHP = currentOpponentHP - damageToOpponent;
+                    
+                        // Update the opponent's HP in the database
+                        transaction.update(roomDocRef, {    
+                            [`hp.${opponentId}`]: Math.max(newOpponentHP, 0)
+                        });
+                    
+                        // Update the local state of the opponent's HP 
+                        setOpponentHP(Math.max(newOpponentHP, 0));
+                    
+                        console.log("Electric Sabre attacked: Opponent loses 300 HP.");
+                    }
+
+
                     // **Damage to Opponent's HP based on cardLevel**
                     const cardLevel = cards.find(c => c.id === targetCardData.id)?.cardLevel || 0;
                     if (cardLevel > 0) {
@@ -1299,8 +1669,8 @@ function Battlefield() {
                         setOpponentHP(Math.max(newOpponentHP, 0));
                     }
                 } else {
-                    // Update the defense points of the target card in the deck
-                    transaction.update(targetDocRef, {
+                    // Update the defense points of the target card in the cards collection
+                    transaction.update(cardDocRef, {
                         inGameDefPts: newDefPts
                     });
                 }
@@ -1313,7 +1683,7 @@ function Battlefield() {
                             attackPts: attackSourceCard.attackPts,
                             action: 'attack',
                             targetCard: {
-                                cardName: targetCard.cardName,
+                                cardName: targetCardData.cardName,
                                 previousDefPts: currentDefPts,
                                 newDefPts: newDefPts,
                                 wasDestroyed: newDefPts <= 0
@@ -1378,6 +1748,187 @@ function Battlefield() {
         }
     }, [attackSourceCard, opponentDeck, firestore, roomId, opponentId, switchTurn, cards, isActiveTurnFlag, opponentUsername]);
 
+    const checkPassiveAfterPreparation = useCallback(() => { 
+
+        myDeck.forEach(card => {
+            if (card.cardName === "Wind Fairy" && card.position === 'defense') {
+                setPlayerHP(prevHP => {
+                    const healedHP = prevHP + 500;
+                    const newHP = Math.min(healedHP, 5000); // Ensure max HP is 5000
+                    
+                    // Update Firestore
+                    const playerDocRef = doc(firestore, 'rooms', roomId, 'players', playerId);
+                    updateDoc(playerDocRef, {
+                        hp: newHP
+                    }).then(() => {
+                        console.log("Firestore updated: Player HP increased to " + newHP);
+                        toast.success("Firestore updated: Player HP increased to " + newHP);
+                    }).catch(error => {
+                        console.error("Error updating Firestore: ", error);
+                        toast.error("Failed to update Firestore.");
+                    });
+
+                    return newHP;
+                });
+                console.log("Wind Fairy's effect activated: Player HP increased.");
+            }
+        });
+
+        const infernoGiantInDeck = myDeck.some(card => card.cardName === "Inferno Giant");
+        if (infernoGiantInDeck) {
+            const fireCardsInGraveyard = playerGraveyard.filter(card => card.cardAttribute === "fire");
+            const fireCardCount = fireCardsInGraveyard.length;
+            if (fireCardCount > 0) {
+                const cardId = "dmJl4pNltNoOcKE2n4kL"; 
+                const cardDocRef = doc(firestore, 'cards', cardId);
+
+                getDoc(cardDocRef)
+                                .then((docSnap) => {
+                                    if (docSnap.exists()) {
+                                        const currentAtkPts = docSnap.data().inGameAtkPts || 0;
+                                        const newAtkPts = currentAtkPts + (500 * fireCardCount);
+                                        if (typeof newAtkPts !== 'number') {
+                                            console.error("Invalid newAtkPts value:", newAtkPts);
+                                            return;
+                                        }
+                                        updateDoc(cardDocRef, {
+                                            inGameAtkPts: newAtkPts
+                                        }).then(() => {
+                                            toast.info(`Inferno Giant's Attack increased by ${500 * fireCardCount} due to ${fireCardCount} fire cards in the graveyard.`);
+                                            console.log(`Inferno Giant's Attack increased by ${500 * fireCardCount} due to ${fireCardCount} fire cards in the graveyard.`);
+                                        });
+                                    } else {
+                                        console.error("Inferno Giant document does not exist.");
+                                    }
+                                })
+                                .catch((error) => {
+                                    toast.info("Error fetching Inferno Giant.");
+                                    console.error("Error fetching Inferno Giant:", error);
+
+                                });
+            }
+        }
+
+        const venomDragonInDeck = myDeck.some(card => card.cardName === "Venom Dragon");
+
+        if (venomDragonInDeck) {
+            let darkCardCount = 0;
+            const checkedCards = [];
+            opponentDeck.forEach(card => {
+                if (darkCards.includes(card.cardName) && card.cardName !== "Venom Dragon" && !checkedCards.includes(card.cardName)){
+                    darkCardCount += 1;
+                    checkedCards.push(card.cardName); 
+                }
+            });
+            if (darkCardCount > 0) {
+                setOpponentHP(prevHP => {
+                    const newHP = prevHP - (500 * darkCardCount);
+                    
+                    // Update Firestore
+                    const roomDocRef = doc(firestore, 'rooms', roomId);
+                    updateDoc(roomDocRef, {
+                        'hp.player2': newHP
+                    }).then(() => {
+                        console.log(`Firestore updated: Opponent HP decreased by ${500 * darkCardCount}.`);
+                        toast.success(`Firestore updated: Opponent HP decreased by ${500 * darkCardCount}.`);
+                    }).catch(error => {
+                        console.error("Error updating Firestore: ", error);
+                        toast.error("Failed to update Firestore.");
+                    });
+
+                    return newHP;
+                });
+                console.log(`Venom Dragon's effect activated: Opponent HP decreased by ${500 * darkCardCount} due to ${darkCardCount} dark cards in opponent's deck.`);
+                toast.success(`Venom Dragon's effect activated: Opponent HP decreased by ${500 * darkCardCount} due to ${darkCardCount} dark cards in opponent's deck.`);
+            }
+        }
+
+        let hasBlazingMinotaur = myDeck.some(card => card.cardName === "Blazing Minotaur");
+        if (hasBlazingMinotaur) {
+            const checkedCards = [];
+            myDeck.forEach(card => {
+                if (fireCards.includes(card.cardName) && card.cardName !== "Blazing Minotaur" && !checkedCards.includes(card.cardName)) {
+                    const cardId = "EY45LZZyMhLdPQONWess";
+                    const cardDocRef = doc(firestore, 'cards', cardId);
+                    getDoc(cardDocRef).then(docSnapshot => {
+                        if (docSnapshot.exists()) {
+
+                            const currentAtkPts = docSnapshot.data().inGameAtkPts;
+                            const newAtkPts = currentAtkPts + 200;
+                            if (typeof newAtkPts !== 'number') {
+                                console.error("Invalid newAtkPts value:", newAtkPts);
+                                return;
+                            }
+                            updateDoc(cardDocRef, {
+                                inGameAtkPts: newAtkPts
+                            }).then(() => {
+                                toast.info("Blazing Minotaur's Attack increased.");R
+                                console.log("Blazing Minotaur's Attack increased.");
+
+                            });
+                        } else {
+                            console.error("Blazing Minotaur document does not exist.");
+                        }
+                    }).catch((error) => {
+                        toast.info("Error fetching Blazing Minotaur.");
+                        console.error("Error fetching Blazing Minotaur:", error);
+                    });
+                    checkedCards.push(card.cardName);
+                }
+            });
+        }
+
+        const tidecallerOverlord = myDeck.find(card => card.cardName === "Tidecaller Overlord");
+        if (tidecallerOverlord) {
+            const checkedCards = [];
+            const enemycheckedCards = [];
+            let opponentWaterCount = 0;
+            let userWaterCount = 0;
+
+            myDeck.forEach(card => { 
+            if (waterCards.includes(card.cardName) && card.cardName !== "Tidecaller Overlord" && !checkedCards.includes(card.cardName)){
+                userWaterCount += 1;
+            }
+            });
+            opponentDeck.forEach(card => {
+            if (waterCards.includes(card.cardName) && card.cardName !== "Tidecaller Overlord" && !enemycheckedCards.includes(card.cardName)){
+                opponentWaterCount += 1;
+            }
+            });
+        
+            const tidecallerOverlordId = "wfU4vJS1yIy3A8GGSUqr";
+            const cardDocRef = doc(firestore, 'cards', tidecallerOverlordId);
+            getDoc(cardDocRef).then(docSnapshot => {
+                if (docSnapshot.exists()) {
+                    const currentAtkPts = docSnapshot.data().inGameAtkPts || 0;
+                    const currentDefPts = docSnapshot.data().inGameDefPts || 0;
+
+                    const newAtkPts = currentAtkPts + (opponentWaterCount * 200);
+                    const newDefPts = currentDefPts + (userWaterCount * 500);
+        
+                    updateDoc(cardDocRef, {
+                        inGameAtkPts: newAtkPts,
+                        inGameDefPts: newDefPts
+                    }).then(() => {
+                        console.log(`Tidecaller Overlord's stats updated in Firestore: ATK = ${newAtkPts}, DEF = ${newDefPts}.`);
+                        toast.info(`Tidecaller Overlord's stats updated in Firestore: ATK = ${newAtkPts}, DEF = ${newDefPts}.`);
+                    }).catch(error => {
+                        console.error('Error updating Tidecaller Overlord in Firestore:', error);
+                        toast.error('Failed to update Tidecaller Overlord stats in Firestore.');
+                    });
+                } else {
+                    console.error("Tidecaller Overlord document does not exist.");
+                }
+                checkedCards.push(card.cardName);
+                enemycheckedCards.push(card.cardName);
+            }).catch(error => {
+                console.error("Error fetching Tidecaller Overlord document:", error);
+            
+            });
+        }
+
+    }, [myDeck, playerGraveyard, setPlayerHP, setOpponentHP, firestore, cards, opponentDeck]);
+
     // Function to handle spell card usage
     const handleSpellUsage = useCallback(async (spellCard) => {
         if (gameStage !== 'battle') {
@@ -1402,7 +1953,7 @@ function Battlefield() {
                         }
 
                         const currentHP = roomDoc.data().hp[playerId] || 5000;
-                        const newHP = Math.min(currentHP + 20, 5000);
+                        const newHP = Math.min(currentHP + 20, 5000); // Ensure max HP is 5000
                         transaction.update(roomDocRef, {
                             [`hp.${playerId}`]: newHP
                         });
@@ -1576,9 +2127,31 @@ function Battlefield() {
         }
     }, [gameStage, handlePreparationSlotClick, handleBattleCardPlacement, isActiveTurnFlag, myDeck, attackSourceCard, selectedCard]);
 
+    const handleFlipCard = useCallback((card, index) => {
+        if (card.position === 'defense') {
+            // Update the card's position to attack
+            const updatedCard = { ...card, position: 'attack' };
 
+            // Update Firestore
+            const cardDocRef = doc(firestore, 'rooms', roomId, 'players', playerId, 'deck', index.toString());
+            updateDoc(cardDocRef, { position: 'attack' }).then(() => {
+                console.log(`Card ${card.cardName} flipped to attack position.`);
+                toast.success(`${card.cardName} is now in attack position.`);
+            }).catch(error => {
+                console.error('Error updating card position:', error);
+                toast.error('Failed to flip card position.');
+            });
 
-
+            // Update local state
+            setMyDeck(prevDeck => {
+                const newDeck = [...prevDeck];
+                newDeck[index] = updatedCard;
+                return newDeck;
+            });
+        } else {
+            toast.info('Card is already in attack position.');
+        }
+    }, [firestore, roomId, playerId, setMyDeck]);
 
     // Function to handle multiplayer game state updates
     useEffect(() => {
@@ -1817,6 +2390,7 @@ function Battlefield() {
                         setGameStage('preparation');
                         setTimer(120);
                         toast.success('Both players are ready. Starting Preparation Phase.');
+                        console.log('Both players are ready. Starting Preparation Phase.');
                     }
                 } else if (playerId === 'player2') {
                     setPlayer1Username(p1?.username || 'Opponent');
@@ -1905,32 +2479,12 @@ function Battlefield() {
 
         return () => unsubscribe();
     }, [roomId, playerId, firestore]);
-
+    
     // Function to get the active player's username
     const getActivePlayerUsername = useCallback(() => {
         return currentTurn === 'player1' ? player1Username : player2Username;
     }, [currentTurn, player1Username, player2Username]);
 
-    // Function to handle using card effects
-    const handleUseEffect = useCallback(async () => {
-        if (!selectedCard || !selectedCard.card) {
-            toast.warn('Please select a card to use its effect.');
-            return;
-        }
-
-        if (!isActiveTurnFlag) {
-            toast.warn('You can only use effects during your turn.');
-            return;
-        }
-
-        try {
-            // TODO: Implement card effect logic here
-            toast.info('Card effect system coming soon!');
-        } catch (error) {
-            console.error('Error using card effect:', error);
-            toast.error('Failed to use card effect.');
-        }
-    }, [selectedCard, isActiveTurnFlag]);
 
     /**
      * Renders the Battlefield component UI.
@@ -2205,20 +2759,13 @@ function Battlefield() {
                                 </button>
                                 <button
                                     className={isActiveTurnFlag ? styles.actionButton : styles.actionButtonDisabled}
-                                    onClick={isActiveTurnFlag ? switchTurn : undefined}
+                                    onClick={isActiveTurnFlag ? handleCardUseEffect : undefined}
                                     disabled={!isActiveTurnFlag}
-                                    aria-label="End Turn"
+                                    aria-label={selectedCard?.card?.cardType === 'monster' ? "Use Effect" : "Use Card"}
                                 >
-                                    End Turn
+                                    {selectedCard?.card?.cardType === 'monster' ? "Use Effect" : "Use Card"}
                                 </button>
-                                <button
-                                    className={isActiveTurnFlag ? styles.actionButton : styles.actionButtonDisabled}
-                                    onClick={isActiveTurnFlag ? handleUseEffect : undefined}
-                                    disabled={!isActiveTurnFlag}
-                                    aria-label="Use Effect"
-                                >
-                                    Use Effect
-                                </button>
+
                                 {attackSourceCard && (
                                     <button
                                         className={styles.cancelAttackButton}
@@ -2263,6 +2810,7 @@ function Battlefield() {
         </div>
     );
 
+
 }
 
 export default Battlefield;
@@ -2274,5 +2822,3 @@ export default Battlefield;
  * Fixed winning conditions
  * Fixed End Stage
 */
-
-// in the long run, you'll win
