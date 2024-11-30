@@ -662,66 +662,6 @@ const ListingPage = () => {
               ) : (
                 <p>No shop history found.</p>
               )}
-              {tradeHistory.length > 0 ? (
-                tradeHistory.map((item) => (
-                  <div key={item.id}>
-                    <TradePageContext
-                      cardToGive={{
-                        cardGiveId: item.cardGiveId,
-                        cardGiveName: item.cardGiveName,
-                        cardGiveUrl: item.cardGiveUrl,
-                      }}
-                      cardToGet={{
-                        cardReceiveId: item.cardReceiveId,
-                        cardReceiveName: item.cardReceiveName,
-                        cardReceiveUrl: item.cardReceiveUrl,
-                      }}
-                      tradeGiverName={item.tradeGiverName}
-                      onTrade={() =>
-                        handleRemoveTrade(item.id, {
-                          cardGiveId: item.cardGiveId,
-                          cardReceiveId: item.cardReceiveId,
-                          cardGiveMarketCount: item.cardGiveMarketCount || 1,
-                          cardReceiveMarketCount:
-                            item.cardReceiveMarketCount || 1,
-                        })
-                      }
-                    />
-                  </div>
-                ))
-              ) : (
-                <p>No shop history found.</p>
-              )}
-              {tradeHistory.length > 0 ? (
-                tradeHistory.map((item) => (
-                  <div key={item.id}>
-                    <TradePageContext
-                      cardToGive={{
-                        cardGiveId: item.cardGiveId,
-                        cardGiveName: item.cardGiveName,
-                        cardGiveUrl: item.cardGiveUrl,
-                      }}
-                      cardToGet={{
-                        cardReceiveId: item.cardReceiveId,
-                        cardReceiveName: item.cardReceiveName,
-                        cardReceiveUrl: item.cardReceiveUrl,
-                      }}
-                      tradeGiverName={item.tradeGiverName}
-                      onTrade={() =>
-                        handleRemoveTrade(item.id, {
-                          cardGiveId: item.cardGiveId,
-                          cardReceiveId: item.cardReceiveId,
-                          cardGiveMarketCount: item.cardGiveMarketCount || 1,
-                          cardReceiveMarketCount:
-                            item.cardReceiveMarketCount || 1,
-                        })
-                      }
-                    />
-                  </div>
-                ))
-              ) : (
-                <p>No shop history found.</p>
-              )}
             </div>
           </section>
         </main>
