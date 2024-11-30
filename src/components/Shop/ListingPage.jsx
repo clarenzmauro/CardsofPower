@@ -121,6 +121,7 @@ const ListingPage = () => {
 
   const closeOverlay = () => {
     setShowOverlay(false);
+    setShowRightOverlay(false);
   };
 
   const handleCardClick = (card) => {
@@ -489,11 +490,11 @@ const ListingPage = () => {
               {selectedCard ? (
                 <>
                   <img
-                    className="hidden lg:block"
+                    className="hidden lg:block w-full"
                     src={selectedCard.imageUrl}
                     alt={`Card ${selectedCard.id}`}
                   />
-                  <button onClick={handleCloseSelectedCard}>Close</button>
+                  <button onClick={handleCloseSelectedCard}>Remove</button>
                 </>
               ) : (
                 "View My Cards"
@@ -569,91 +570,161 @@ const ListingPage = () => {
       )}
 
       {viewMode === "trade" && (
-        <div>
-          <button onClick={handleLeftSectionClick}>
-            {selectedCard ? (
-              <>
-                <img
-                  src={selectedCard.imageUrl}
-                  alt={`Card ${selectedCard.id}`}
-                  className="selected-card-image"
-                />
-                <button
-                  className="close-button"
-                  onClick={handleCloseSelectedCard}
-                >
-                  Close
-                </button>
-              </>
-            ) : (
-              "Card To Give"
-            )}
-          </button>
+        <main>
+          {/* Listing Panel */}
+          <section className="listingPanel sm:p-3 lg:p-5">
+            <select
+              className="bg-white py-2 rounded-lg text-black"
+              value={viewMode}
+              onChange={(e) => setViewMode(e.target.value)}
+            >
+              <option className="text-center" value="sell">
+                Sell
+              </option>
+              <option className="text-center" value="trade">
+                Trade
+              </option>
+            </select>
 
-          <button
-            className={`trade-middle-button ${
-              !selectedCard || !selectedCardToGet ? "disabled" : ""
-            }`}
-            onClick={handleTrade}
-            disabled={!selectedCard || !selectedCardToGet} // Disable if either card is not selected
-          >
-            Trade
-          </button>
-
-          <button onClick={handleRightSectionClick}>
-            {selectedCardToGet ? (
-              <>
-                <img
-                  src={selectedCardToGet.imageUrl}
-                  alt={`Card ${selectedCardToGet.id}`}
-                  className="selected-card-image"
-                />
-                <button
-                  className="close-button"
-                  onClick={handleCloseSelectedCardToGet}
-                >
-                  Close
-                </button>
-              </>
-            ) : (
-              "Card To Get"
-            )}
-          </button>
-
-          <div>
-            <h3>Trade History</h3>
-            {tradeHistory.length > 0 ? (
-              tradeHistory.map((item) => (
-                <div key={item.id} className="shop-history-card">
-                  <TradePageContext
-                    cardToGive={{
-                      cardGiveId: item.cardGiveId,
-                      cardGiveName: item.cardGiveName,
-                      cardGiveUrl: item.cardGiveUrl,
-                    }}
-                    cardToGet={{
-                      cardReceiveId: item.cardReceiveId,
-                      cardReceiveName: item.cardReceiveName,
-                      cardReceiveUrl: item.cardReceiveUrl,
-                    }}
-                    tradeGiverName={item.tradeGiverName}
-                    onTrade={() =>
-                      handleRemoveTrade(item.id, {
-                        cardGiveId: item.cardGiveId,
-                        cardReceiveId: item.cardReceiveId,
-                        cardGiveMarketCount: item.cardGiveMarketCount || 1,
-                        cardReceiveMarketCount:
-                          item.cardReceiveMarketCount || 1,
-                      })
-                    }
+            <button onClick={handleLeftSectionClick}>
+              {selectedCard ? (
+                <>
+                  <p>Card To Give</p>
+                  <img
+                    className="sm:w-1/3 lg:w-2/3 mx-auto"
+                    src={selectedCard.imageUrl}
+                    alt={`Card ${selectedCard.id}`}
                   />
-                </div>
-              ))
-            ) : (
-              <p>No shop history found.</p>
-            )}
-          </div>
-        </div>
+                  <button onClick={handleCloseSelectedCard}>Remove</button>
+                </>
+              ) : (
+                "Card To Give"
+              )}
+            </button>
+
+            <button onClick={handleRightSectionClick}>
+              {selectedCardToGet ? (
+                <>
+                  <p>Card To Give</p>
+                  <img
+                    className="sm:w-1/3 lg:w-2/3 mx-auto"
+                    src={selectedCardToGet.imageUrl}
+                    alt={`Card ${selectedCardToGet.id}`}
+                  />
+                  <button onClick={handleCloseSelectedCardToGet}>Remove</button>
+                </>
+              ) : (
+                "Card To Get"
+              )}
+            </button>
+
+            <button
+              className="bg-white py-2 rounded-lg text-black"
+              onClick={handleTrade}
+              disabled={!selectedCard || !selectedCardToGet} // Disable if either card is not selected
+            >
+              Trade
+            </button>
+          </section>
+
+          {/* Display */}
+          <section className="shop-history p-5">
+            <h3 className="lg:text-4xl">Trade History</h3>
+
+            <div className="cards">
+              {tradeHistory.length > 0 ? (
+                tradeHistory.map((item) => (
+                  <div key={item.id}>
+                    <TradePageContext
+                      cardToGive={{
+                        cardGiveId: item.cardGiveId,
+                        cardGiveName: item.cardGiveName,
+                        cardGiveUrl: item.cardGiveUrl,
+                      }}
+                      cardToGet={{
+                        cardReceiveId: item.cardReceiveId,
+                        cardReceiveName: item.cardReceiveName,
+                        cardReceiveUrl: item.cardReceiveUrl,
+                      }}
+                      tradeGiverName={item.tradeGiverName}
+                      onTrade={() =>
+                        handleRemoveTrade(item.id, {
+                          cardGiveId: item.cardGiveId,
+                          cardReceiveId: item.cardReceiveId,
+                          cardGiveMarketCount: item.cardGiveMarketCount || 1,
+                          cardReceiveMarketCount:
+                            item.cardReceiveMarketCount || 1,
+                        })
+                      }
+                    />
+                  </div>
+                ))
+              ) : (
+                <p>No shop history found.</p>
+              )}
+              {tradeHistory.length > 0 ? (
+                tradeHistory.map((item) => (
+                  <div key={item.id}>
+                    <TradePageContext
+                      cardToGive={{
+                        cardGiveId: item.cardGiveId,
+                        cardGiveName: item.cardGiveName,
+                        cardGiveUrl: item.cardGiveUrl,
+                      }}
+                      cardToGet={{
+                        cardReceiveId: item.cardReceiveId,
+                        cardReceiveName: item.cardReceiveName,
+                        cardReceiveUrl: item.cardReceiveUrl,
+                      }}
+                      tradeGiverName={item.tradeGiverName}
+                      onTrade={() =>
+                        handleRemoveTrade(item.id, {
+                          cardGiveId: item.cardGiveId,
+                          cardReceiveId: item.cardReceiveId,
+                          cardGiveMarketCount: item.cardGiveMarketCount || 1,
+                          cardReceiveMarketCount:
+                            item.cardReceiveMarketCount || 1,
+                        })
+                      }
+                    />
+                  </div>
+                ))
+              ) : (
+                <p>No shop history found.</p>
+              )}
+              {tradeHistory.length > 0 ? (
+                tradeHistory.map((item) => (
+                  <div key={item.id}>
+                    <TradePageContext
+                      cardToGive={{
+                        cardGiveId: item.cardGiveId,
+                        cardGiveName: item.cardGiveName,
+                        cardGiveUrl: item.cardGiveUrl,
+                      }}
+                      cardToGet={{
+                        cardReceiveId: item.cardReceiveId,
+                        cardReceiveName: item.cardReceiveName,
+                        cardReceiveUrl: item.cardReceiveUrl,
+                      }}
+                      tradeGiverName={item.tradeGiverName}
+                      onTrade={() =>
+                        handleRemoveTrade(item.id, {
+                          cardGiveId: item.cardGiveId,
+                          cardReceiveId: item.cardReceiveId,
+                          cardGiveMarketCount: item.cardGiveMarketCount || 1,
+                          cardReceiveMarketCount:
+                            item.cardReceiveMarketCount || 1,
+                        })
+                      }
+                    />
+                  </div>
+                ))
+              ) : (
+                <p>No shop history found.</p>
+              )}
+            </div>
+          </section>
+        </main>
       )}
 
       {showOverlay && (
@@ -677,17 +748,21 @@ const ListingPage = () => {
       )}
 
       {showRightOverlay && (
-        <div>
-          <div>
-            <button onClick={() => setShowRightOverlay(false)}>Close</button>
+        <div className="cards-overlay p-5">
+          <button className="block ms-auto" onClick={closeOverlay}>
+            Close
+          </button>
 
-            <div>
-              {availableCards.map((card) => (
-                <div key={card.id} onClick={() => handleCardToGetClick(card)}>
-                  <img src={card.imageUrl} alt={`Card ${card.id}`} />
-                </div>
-              ))}
-            </div>
+          <div>
+            {availableCards.map((card) => (
+              <img
+                src={card.imageUrl}
+                alt={`Card ${card.id}`}
+                key={card.id}
+                onClick={() => handleCardToGetClick(card)}
+                className="p-2"
+              />
+            ))}
           </div>
         </div>
       )}
