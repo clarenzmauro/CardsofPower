@@ -40,7 +40,9 @@ import {
 
 } from 'recharts';
 
-import profpic from "../assets/images/prof_pic8.jpg";
+import profpic from "../assets/profile/prof_pic8.jpg";
+
+import ProfilePicModal from './ProfilePicModal';
 
 
 
@@ -81,6 +83,8 @@ const AccountContent = ({ userData, userDocId }) => {
         friendly: 'N/A'
 
     });
+
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
 
 
@@ -464,6 +468,26 @@ const AccountContent = ({ userData, userDocId }) => {
 
 
 
+    // Get the current profile picture path
+
+    const currentProfPic = userData?.profPicUrl 
+
+        ? `/src/assets/profile/${userData.profPicUrl}`
+
+        : '/src/assets/profile/prof_pic8.jpg'; // default picture
+
+
+
+    const handleProfPicUpdate = (newPicUrl) => {
+
+        // This will trigger a re-render with the new profile picture
+
+        userData.profPicUrl = newPicUrl;
+
+    };
+
+
+
     return (
 
         <div className="flex-1 p-4 h-screen overflow-y-auto">
@@ -476,11 +500,27 @@ const AccountContent = ({ userData, userDocId }) => {
 
             <div className="flex items-start mb-8">
 
-                <div className="w-32 h-32 rounded-full bg-gray-200 flex-shrink-0 mr-6 overflow-hidden">
+                <button 
 
-                    <img src={profpic} alt="Profile" className="w-full h-full object-cover" />
+                    onClick={() => setIsModalOpen(true)}
 
-                </div>
+                    className="w-32 h-32 rounded-full bg-gray-200 flex-shrink-0 mr-6 overflow-hidden
+
+                             hover:ring-2 hover:ring-blue-500 transition-all cursor-pointer"
+
+                >
+
+                    <img 
+
+                        src={currentProfPic} 
+
+                        alt="Profile" 
+
+                        className="w-full h-full object-cover"
+
+                    />
+
+                </button>
 
 
 
@@ -529,6 +569,24 @@ const AccountContent = ({ userData, userDocId }) => {
                 </div>
 
             </div>
+
+
+
+            {/* Profile Picture Modal */}
+
+
+
+            <ProfilePicModal 
+
+                isOpen={isModalOpen}
+
+                onClose={() => setIsModalOpen(false)}
+
+                userId={userDocId}
+
+                onUpdate={handleProfPicUpdate}
+
+            />
 
 
 
@@ -1816,7 +1874,21 @@ const EconomyContent = ({ userData }) => {
 
                 const cardDocs = await Promise.all(cardPromises);
 
-                const cards = cardDocs.map(doc => doc.data());
+                
+
+                // Get card data and filter out any undefined or null documents
+
+                const cards = cardDocs
+
+                    .map(doc => {
+
+                        if (!doc.exists()) return null;
+
+                        return doc.data();
+
+                    })
+
+                    .filter(card => card !== null && card !== undefined);
 
 
 
@@ -1830,11 +1902,33 @@ const EconomyContent = ({ userData }) => {
 
                         cards.forEach(card => {
 
-                            if (card.cardType) typeCount[card.cardType]++;
+                            // Only process if card and cardType exist
+
+                            if (card && typeof card.cardType === 'string') {
+
+                                const type = card.cardType.toLowerCase();
+
+                                if (type in typeCount) {
+
+                                    typeCount[type]++;
+
+                                }
+
+                            }
 
                         });
 
-                        data = Object.entries(typeCount).map(([name, value]) => ({name, value}));
+                        data = Object.entries(typeCount)
+
+                            .filter(([_, value]) => value > 0)
+
+                            .map(([name, value]) => ({
+
+                                name: name.charAt(0).toUpperCase() + name.slice(1),
+
+                                value
+
+                            }));
 
                         break;
 
