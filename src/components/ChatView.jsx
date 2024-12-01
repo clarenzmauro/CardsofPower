@@ -280,15 +280,36 @@ const ChatView = ({ friendUsername, currentUserDocId, convoId, onUnfriend }) => 
         }
     };
 
-    const handleReport = () => {
+    const handleReport = async () => {
         if (reportText.trim().length > 100) {
             alert("Report message cannot exceed 100 characters");
             return;
         }
-        // TODO: Handle report submission
-        console.log('Report submitted:', reportText);
-        setShowReportModal(false);
-        setReportText('');
+
+        try {
+            // Get the reported user's document ID
+            const usersRef = collection(firestore, 'users');
+            const q = query(usersRef, where('username', '==', friendUsername));
+            const querySnapshot = await getDocs(q);
+            
+            if (!querySnapshot.empty) {
+                const reportedUserId = querySnapshot.docs[0].id;
+
+                // Add report to the reports collection
+                await addDoc(collection(firestore, 'report'), {
+                    reportContent: reportText.trim(),
+                    reportReceiver: reportedUserId,
+                    reportSender: currentUserDocId
+                });
+
+                setShowReportModal(false);
+                setReportText('');
+                alert('Report submitted successfully');
+            }
+        } catch (error) {
+            console.error("Error submitting report:", error);
+            alert("Failed to submit report. Please try again.");
+        }
     };
 
     return (
