@@ -1,0 +1,93 @@
+.mail-entries {
+  padding: 20px;
+}
+
+.mail-form {
+  max-width: 600px;
+  margin: 0 auto;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.mail-form textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 10px;
+  margin-bottom: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  resize: vertical;
+}
+
+.character-count {
+  text-align: right;
+  color: #666;
+  margin-bottom: 15px;
+  font-size: 0.9em;
+}
+
+.send-options {
+  margin-bottom: 20px;
+}
+
+.send-options label {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.send-options select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-top: 10px;
+  min-height: 100px;
+}
+
+.send-button {
+  width: 100%;
+  padding: 10px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.send-button:hover {
+  background-color: #0056b3;
+}
+
+.users-checkbox-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 10px;
+  margin-top: 10px;
+}
+
+.selected-count {
+  margin-bottom: 10px;
+  color: #666;
+  font-size: 0.9em;
+}
+
+.user-checkbox {
+  display: block;
+  padding: 5px 0;
+  cursor: pointer;
+}
+
+.user-checkbox input {
+  margin-right: 8px;
+}
+
+.send-all-checkbox {
+  display: block;
+  margin-bottom: 15px;
+  font-weight: bold;
+} 
