@@ -15,7 +15,7 @@ import ShopPageContext from "./ShopPageContext"; // Ensure you're importing the 
 import shop from "../../assets/images/shop-sign.png";
 import trade from "../../assets/images/trade.png";
 import listing from "../../assets/images/listing.png";
-import inventoryBg from "../../assets/backgrounds/inventory.jpg";
+import shopBg from "../../assets/backgrounds/shop.jpg";
 import "./ShopPage.css";
 
 const ShopPage = () => {
@@ -158,7 +158,7 @@ const ShopPage = () => {
   return (
     <main
       id="shop"
-      style={{ backgroundImage: `url(${inventoryBg})` }}
+      style={{ backgroundImage: `url(${shopBg})` }}
       className="text-white"
     >
       <Link to={`/${userDocId}/home`} className="back-button">
