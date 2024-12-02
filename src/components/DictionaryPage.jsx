@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { firestore, storage } from "./firebaseConfig";
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { ref as storageRef, getDownloadURL } from "firebase/storage";
-import inventoryBg from "../assets/backgrounds/inventory.jpg";
+import dictionaryBg from "../assets/backgrounds/dictionary.jpg";
 import "./InventoryPage.css";
 
 function DictionaryPage() {
@@ -153,7 +153,7 @@ function DictionaryPage() {
   return (
     <main
       id="dictionary"
-      style={{ backgroundImage: `url(${inventoryBg})` }}
+      style={{ backgroundImage: `url(${dictionaryBg})` }}
       className="sm:px-12 lg:px-24"
     >
       <Link to={`/${userDocId}/home`} className="back-button">
