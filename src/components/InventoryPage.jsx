@@ -133,7 +133,7 @@ function InventoryPage() {
       <div className="wrapper sm:pt-4 lg:pt-12 text-white">
         <div className="cards">
           <div className="mb-4 flex justify-between">
-            <h1 className="sm:text-4xl lg:text-6xl">Inventory</h1>
+            <h1 className="sm:text-4xl lg:text-6xl ms-10 lg:ms-0">Inventory</h1>
 
             <input
               type="text"
