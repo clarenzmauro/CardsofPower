@@ -18,7 +18,7 @@ import TradePageContext from "./TradePageContext";
 import shop from "../../assets/images/shop-sign.png";
 import trade from "../../assets/images/trade.png";
 import listing from "../../assets/images/listing.png";
-import inventoryBg from "../../assets/backgrounds/inventory.jpg";
+import shopBg from "../../assets/backgrounds/shop.jpg";
 import "./ListingPage.css";
 
 const ListingPage = () => {
@@ -447,7 +447,7 @@ const ListingPage = () => {
   return (
     <div
       id="listing-page"
-      style={{ backgroundImage: `url(${inventoryBg})` }}
+      style={{ backgroundImage: `url(${shopBg})` }}
       className="text-white"
     >
       <Link to={`/${userDocId}/home`} className="back-button">
