@@ -3,6 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { storage, firestore } from "./firebaseConfig";
 import { ref as storageRef, getDownloadURL } from "firebase/storage";
 import { doc, getDoc } from "firebase/firestore";
+import loginBackground from "../assets/backgrounds/login.jpg";
+import "./Showcase.css";
 
 function Showcase() {
   const { userDocId } = useParams();
@@ -46,31 +48,32 @@ function Showcase() {
     fetchInventory();
   }, [userDocId]);
 
-  const handleContinue= () => {
-    navigate(`/${userDocId}/home`)
-};
+  const handleContinue = () => {
+    navigate(`/${userDocId}/home`);
+  };
 
   return (
-    <main id="showcase" className="text-center">
-      <h1 className="text-4xl my-4">Showcase</h1>
+    <main
+      id="showcase"
+      className="text-white text-center mx-auto"
+      style={{ backgroundImage: `url(${loginBackground})` }}
+    >
+      <div className="overlay"></div>
 
-      <div className="card-grid">
+      <div>
+        <h1 className="text-xl lg:text-5xl lg:mb-4">
+          Ahoy, Buccaneer! Begin Yer Quest with 10 Free Cards!
+        </h1>
+        <button onClick={handleContinue}>Click here to continue</button>
+      </div>
+
+      <div className="cards">
         {inventoryCards.length > 0 ? (
           inventoryCards.map((card, index) => (
-            <div key={index} className="card-display">
-              <img
-                className="mx-auto"
-                src={card.imageUrl}
-                alt={card.cardName || "Card Image"}
-              />
-              <h2 className="mt-4">{card.cardName || "Unnamed Card"}</h2>
-              <button onClick={handleContinue}>Click to Continue</button>
-            </div>
+            <img src={card.imageUrl} alt={card.cardName || "Card Image"} />
           ))
         ) : (
-          <p className="text-xl text-white mt-4">
-            No cards available in inventory.
-          </p>
+          <p className="w-full">No cards available in inventory.</p>
         )}
       </div>
     </main>
