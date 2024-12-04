@@ -501,7 +501,14 @@ const FriendsPage = () => {
                     className="sidebar-header-button"
                     onClick={handleMailButtonClick}
                 >
-                    Mail
+                    <div className="button-container">
+            <img 
+                src="/src/assets/images/mail_catalog.png" 
+                alt="Mail" 
+                            className="mail-catalog-image"
+                            />
+                        <span className="button-text">Mail</span>
+                    </div>
                 </button>
                 <div className="search-section">
                     <input
