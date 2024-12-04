@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types';
 import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, Timestamp, getDoc, doc } from 'firebase/firestore';
 import { firestore } from './firebaseConfig';
 import './UserProfileView.css';
 
@@ -8,7 +8,22 @@ const UserProfileView = ({ username, userId, currentUserDocId }) => {
     const [isPending, setIsPending] = useState(false);
     const [notification, setNotification] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
+    const [profilePicUrl, setProfilePicUrl] = useState('');
 
+    useEffect(() => {
+        const fetchProfilePic = async () => {
+            try {
+                const userDoc = await getDoc(doc(firestore, 'users', userId));
+                if (userDoc.exists() && userDoc.data().profPicUrl) {
+                    setProfilePicUrl(userDoc.data().profPicUrl);
+                }
+            } catch (error) {
+                console.error("Error fetching profile picture:", error);
+            }
+        };
+
+        fetchProfilePic();
+    }, [userId]);
     // Check if there's already a pending friend request
     useEffect(() => {
         const checkPendingRequest = async () => {
@@ -90,8 +105,16 @@ const UserProfileView = ({ username, userId, currentUserDocId }) => {
 
     return (
         <div className="user-profile-view">
-            <div className="profile-pic-container">
-                <div className="profile-pic">Profile Pic</div>
+           <div className="profile-pic-container">
+                {profilePicUrl ? (
+                    <img 
+                        src={`/src/assets/profile/${profilePicUrl}`}
+                        alt={`${username}'s profile`}
+                        className="profile-pic"
+                    />
+                ) : (
+                    <div className="profile-pic">Profile Pic</div>
+                )}
             </div>
 
             <div className="username">{username}</div>
