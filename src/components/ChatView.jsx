@@ -316,11 +316,6 @@ const ChatView = ({ friendUsername, currentUserDocId, convoId, onUnfriend }) => 
         <div className="chat-container">
             {/* Header */}
             <div className="chat-header">
-                <div className="friend-profile-pic">
-                    <div className="profile-circle">
-                        <span className="profile-username">prof pic</span>
-                    </div>
-                </div>
                 <div className="friend-name">{friendUsername}</div>
                 <div className="options-menu" onClick={() => setShowMenu(!showMenu)}>⋮</div>
                 {showMenu && (
