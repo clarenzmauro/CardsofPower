@@ -486,11 +486,10 @@ const AccountContent = ({ userData, userDocId }) => {
 
     };
 
-
-
+    const backgroundImage = '/src/assets/backgrounds/account_background.jpg';
     return (
 
-        <div className="flex-1 p-4 h-screen overflow-y-auto">
+        <div className="flex-1 p-4 h-screen overflow-y-auto bg-[#1f1410] text-[#d4af37]">
 
 
 
@@ -504,9 +503,9 @@ const AccountContent = ({ userData, userDocId }) => {
 
                     onClick={() => setIsModalOpen(true)}
 
-                    className="w-32 h-32 rounded-full bg-gray-200 flex-shrink-0 mr-6 overflow-hidden
+                    className="w-32 h-32 rounded-full bg-[#3b2f2f] flex-shrink-0 mr-6 overflow-hidden
 
-                             hover:ring-2 hover:ring-blue-500 transition-all cursor-pointer"
+                             hover:ring-2 hover:ring-[#d4af37] transition-all cursor-pointer"
 
                 >
 
@@ -534,7 +533,7 @@ const AccountContent = ({ userData, userDocId }) => {
 
                         readOnly 
 
-                        className="bg-gray-100 p-2"
+                        className="bg-[#3b2f2f] p-2 text-[#d4af37] border border-[#8b7355]"
 
                     />
 
@@ -548,7 +547,7 @@ const AccountContent = ({ userData, userDocId }) => {
 
                         readOnly 
 
-                        className="bg-gray-100 p-2"
+                        className="bg-[#3b2f2f] p-2 text-[#d4af37] border border-[#8b7355]"
 
                     />
 
@@ -562,7 +561,7 @@ const AccountContent = ({ userData, userDocId }) => {
 
                         readOnly 
 
-                        className="bg-gray-100 p-2"
+                        className="bg-[#3b2f2f] p-2 text-[#d4af37] border border-[#8b7355]"
 
                     />
 
@@ -596,7 +595,7 @@ const AccountContent = ({ userData, userDocId }) => {
 
             <div className="mt-4">
 
-                <h3>Cards (3 most used)</h3>
+                <h3 className="text-[#d4af37] font-bold">Cards (3 most used)</h3>
 
                 <div className="flex gap-4 mt-2">
 
@@ -606,7 +605,7 @@ const AccountContent = ({ userData, userDocId }) => {
 
                             key={index}
 
-                            className="w-32 h-48 bg-gray-200 overflow-hidden"
+                            className="w-32 h-48 bg-[#3b2f2f] border border-[#8b7355] overflow-hidden"
 
                         >
 
@@ -670,39 +669,45 @@ const AccountContent = ({ userData, userDocId }) => {
 
                 <div className="flex justify-between mt-4 mb-6">
 
-                    <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center">
+                    <div className="w-24 h-24 rounded-full bg-[#8b7355] flex items-center justify-center
+                    border-2 border-[#d4af37] shadow-lg">
 
-                        <span className="text-xl font-bold">{userRanks.strategist}</span>
-
-                    </div>
-
-                    <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center">
-
-                        <span className="text-xl font-bold">{userRanks.cardMaster}</span>
+                        <span className="text-xl font-bold text-[#2a1810]">{userRanks.strategist}</span>
 
                     </div>
 
-                    <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center">
+                    <div className="w-24 h-24 rounded-full bg-[#8b7355] flex items-center justify-center
+                    border-2 border-[#d4af37] shadow-lg">
 
-                        <span className="text-xl font-bold">{userRanks.kingMidas}</span>
-
-                    </div>
-
-                    <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center">
-
-                        <span className="text-xl font-bold">{userRanks.artisan}</span>
+                        <span className="text-xl font-bold text-[#2a1810]">{userRanks.cardMaster}</span>
 
                     </div>
 
-                    <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center">
+                    <div className="w-24 h-24 rounded-full bg-[#8b7355] flex items-center justify-center
+                    border-2 border-[#d4af37] shadow-lg">
 
-                        <span className="text-xl font-bold">{userRanks.shopRaider}</span>
+                        <span className="text-xl font-bold text-[#2a1810]">{userRanks.kingMidas}</span>
 
                     </div>
 
-                    <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center">
+                    <div className="w-24 h-24 rounded-full bg-[#8b7355] flex items-center justify-center
+                    border-2 border-[#d4af37] shadow-lg">
 
-                        <span className="text-xl font-bold">{userRanks.friendly}</span>
+                        <span className="text-xl font-bold text-[#2a1810]">{userRanks.artisan}</span>
+
+                    </div>
+
+                    <div className="w-24 h-24 rounded-full bg-[#8b7355] flex items-center justify-center
+                    border-2 border-[#d4af37] shadow-lg">
+
+                        <span className="text-xl font-bold text-[#2a1810]">{userRanks.shopRaider}</span>
+
+                    </div>
+
+                    <div className="w-24 h-24 rounded-full bg-[#8b7355] flex items-center justify-center
+                    border-2 border-[#d4af37] shadow-lg">
+
+                        <span className="text-xl font-bold text-[#2a1810]">{userRanks.friendly}</span>
 
                     </div>
 
@@ -728,13 +733,13 @@ const AccountContent = ({ userData, userDocId }) => {
 
                             <h5>Strategist (WinRate)</h5>
 
-                            <div className="h-40 overflow-y-auto bg-gray-100 p-2">
+                            <div className="h-40 overflow-y-auto bg-[#3b2f2f] p-2">
 
                                 {leaderboards.strategist.length > 0 ? (
 
                                     leaderboards.strategist.map((player, i) => (
 
-                                        <div key={i} className="py-1">
+                                        <div key={i} className="py-1 text-[#d4af37]">
 
                                             {player.username} ({player.winRate.toFixed(2)}%)
 
@@ -762,11 +767,11 @@ const AccountContent = ({ userData, userDocId }) => {
 
                             <h5>King Midas (Gold Count)</h5>
 
-                            <div className="h-40 overflow-y-auto bg-gray-100 p-2">
+                            <div className="h-40 overflow-y-auto bg-[#3b2f2f] p-2">
 
                                 {leaderboards.kingMidas.map((player, i) => (
 
-                                    <div key={i} className="py-1">
+                                    <div key={i} className="py-1 text-[#d4af37]">
 
                                         {player.username} ({player.goldCount.toLocaleString()})
 
@@ -784,11 +789,11 @@ const AccountContent = ({ userData, userDocId }) => {
 
                             <h5>Shop Raider</h5>
 
-                            <div className="h-40 overflow-y-auto bg-gray-100 p-2">
+                            <div className="h-40 overflow-y-auto bg-[#3b2f2f] p-2">
 
                                 {leaderboards.shopRaider.map((player, i) => (
 
-                                    <div key={i} className="py-1">
+                                    <div key={i} className="py-1 text-[#d4af37]">
 
                                         {player.username} ({player.score})
 
@@ -814,11 +819,11 @@ const AccountContent = ({ userData, userDocId }) => {
 
                             <h5>Card Master (Card Count)</h5>
 
-                            <div className="h-40 overflow-y-auto bg-gray-100 p-2">
+                            <div className="h-40 overflow-y-auto bg-[#3b2f2f] p-2">
 
                                 {leaderboards.cardMaster.map((player, i) => (
 
-                                    <div key={i} className="py-1">
+                                    <div key={i} className="py-1 text-[#d4af37]">
 
                                         {player.username} ({player.cardCount})
 
@@ -836,11 +841,11 @@ const AccountContent = ({ userData, userDocId }) => {
 
                             <h5>Artisan Supreme (Cards Created)</h5>
 
-                            <div className="h-40 overflow-y-auto bg-gray-100 p-2">
+                            <div className="h-40 overflow-y-auto bg-[#3b2f2f] p-2">
 
                                 {leaderboards.artisan.map((player, i) => (
 
-                                    <div key={i} className="py-1">
+                                    <div key={i} className="py-1 text-[#d4af37]">
 
                                         {player.username} ({player.created})
 
@@ -858,11 +863,11 @@ const AccountContent = ({ userData, userDocId }) => {
 
                             <h5>Friendly Neighborhood</h5>
 
-                            <div className="h-40 overflow-y-auto bg-gray-100 p-2">
+                            <div className="h-40 overflow-y-auto bg-[#3b2f2f] p-2">
 
                                 {leaderboards.friendly.map((player, i) => (
 
-                                    <div key={i} className="py-1">
+                                    <div key={i} className="py-1 text-[#d4af37]">
 
                                         {player.username} ({player.friendCount})
 
@@ -1692,7 +1697,7 @@ const BattlefieldContent = ({ userData }) => {
 
 
 
-                <div className="flex justify-center items-center">
+                <div className="flex justify-center items-center ">
 
                     <RadarChart width={300} height={300} data={radarData}>
 
@@ -1708,9 +1713,9 @@ const BattlefieldContent = ({ userData }) => {
 
                             dataKey="A"
 
-                            stroke="#2E555B"
+                            stroke="#d4af37"
 
-                            fill="#2E555B"
+                            fill="#8b7355"
 
                             fillOpacity={0.6}
 
@@ -2101,23 +2106,29 @@ const EconomyContent = ({ userData }) => {
 
                 {/* Gold Count Graph */}
 
-                <div className="bg-gray-200 p-4 rounded-lg relative">
+                <div className="p-4 rounded-lg relative bg-[#3b2f2f]">
 
-                    <h3 className="text-center mb-2">Gold Count Graph</h3>
+                    <h3 className="text-center mb-2 text-white">Gold Count Graph</h3>
 
                     <div className="flex items-center">
 
                         <BarChart width={400} height={300} data={goldData}>
 
-                            <CartesianGrid strokeDasharray="3 3" />
+                            <CartesianGrid strokeDasharray="3 3" stroke="#8b7355" />
 
-                            <XAxis dataKey="name" />
+                            <XAxis dataKey="name" stroke="#d4af37" />
 
-                            <YAxis />
+                            <YAxis stroke="#d4af37" />
 
-                            <Tooltip content={<CustomTooltip />} />
+                            <Tooltip 
+                                contentStyle={{ 
+                                    backgroundColor: '#3b2f2f',
+                                    border: '1px solid #8b7355',
+                                    color: '#d4af37'
+                                }} 
+                            />
 
-                            <Bar dataKey="value" fill="#FFD700" />
+                            <Bar dataKey="value" fill="#d4af37" />
 
                         </BarChart>
 
@@ -2141,23 +2152,29 @@ const EconomyContent = ({ userData }) => {
 
                 {/* Card Count Graph */}
 
-                <div className="bg-gray-200 p-4 rounded-lg relative">
+                <div className="bg-gray-200 p-4 rounded-lg relative bg-[#3b2f2f]">
 
-                    <h3 className="text-center mb-2">Card Count Graph</h3>
+                    <h3 className="text-center mb-2 text-white">Card Count Graph</h3>
 
                     <div className="flex items-center">
 
                         <BarChart width={400} height={300} data={cardData}>
 
-                            <CartesianGrid strokeDasharray="3 3" />
+                            <CartesianGrid strokeDasharray="3 3" stroke="#8b7355" />
 
-                            <XAxis dataKey="name" />
+                            <XAxis dataKey="name" stroke="#d4af37" />
 
-                            <YAxis />
+                            <YAxis stroke="#d4af37" />
 
-                            <Tooltip content={<CustomTooltip />} />
+                            <Tooltip 
+                                contentStyle={{ 
+                                    backgroundColor: '#3b2f2f',
+                                    border: '1px solid #8b7355',
+                                    color: '#d4af37'
+                                }} 
+                            />
 
-                            <Bar dataKey="value" fill="#82ca9d" />
+                            <Bar dataKey="value" fill="#d4af37" />
 
                         </BarChart>
 
@@ -2183,7 +2200,7 @@ const EconomyContent = ({ userData }) => {
 
             {/* Bottom Section */}
 
-            <div className="relative">
+            <div className="relative ">
 
                 {/* Filter Dropdown */}
 
@@ -2221,11 +2238,11 @@ const EconomyContent = ({ userData }) => {
 
                 {/* Card Shifts Graph (Pie Chart) */}
 
-                <div className="mt-12 bg-gray-200 p-4 rounded-lg mx-auto w-2/3 flex justify-center">
+                <div className="mt-12 bg-[#3b2f2f] p-4 rounded-lg mx-auto w-2/3 flex justify-center">
 
                     <div>
 
-                        <h3 className="text-center mb-2">Card Shifts Graph</h3>
+                        <h3 className="text-center mb-2 text-white">Card Shifts Graph</h3>
 
                         <PieChart width={400} height={400}>
 
@@ -2395,7 +2412,7 @@ const AccountPage = () => {
 
     return (
 
-        <div className="flex">
+        <div className="flex bg-[#2a1810]">
 
 
 
@@ -2403,11 +2420,14 @@ const AccountPage = () => {
 
 
 
-            <div className="w-48 bg-gray-300">
+            <div className="w-48 bg-[#3b2f2f] text-[#d4af37]">
 
-                <div className={`p-4 ${activeTab === 'account' ? 'bg-gray-500' : ''}`}
-
-                    onClick={() => setActiveTab('account')}>
+                <div 
+                    className={`p-4 cursor-pointer hover:bg-[#5c4033] transition-colors ${
+                        activeTab === 'account' ? 'bg-[#5c4033] border-l-4 border-[#d4af37]' : ''
+                    }`}
+                    onClick={() => setActiveTab('account')}
+                >
 
                     Account
 
@@ -2415,9 +2435,12 @@ const AccountPage = () => {
 
 
 
-                <div className={`p-4 ${activeTab === 'battlefield' ? 'bg-gray-500' : ''}`}
-
-                    onClick={() => setActiveTab('battlefield')}>
+                <div 
+                    className={`p-4 cursor-pointer hover:bg-[#5c4033] transition-colors ${
+                        activeTab === 'battlefield' ? 'bg-[#5c4033] border-l-4 border-[#d4af37]' : ''
+                    }`}
+                    onClick={() => setActiveTab('battlefield')}
+                >
 
                     Battlefield
 
@@ -2425,9 +2448,12 @@ const AccountPage = () => {
 
 
 
-                <div className={`p-4 ${activeTab === 'economy' ? 'bg-gray-500' : ''}`}
-
-                    onClick={() => setActiveTab('economy')}>
+                <div 
+                    className={`p-4 cursor-pointer hover:bg-[#5c4033] transition-colors ${
+                        activeTab === 'economy' ? 'bg-[#5c4033] border-l-4 border-[#d4af37]' : ''
+                    }`}
+                    onClick={() => setActiveTab('economy')}
+                >
 
                     Economy
 
@@ -2437,11 +2463,13 @@ const AccountPage = () => {
 
 
 
-            {/* Main Content */}
+            {/* Semi-transparent overlay for better readability */}
 
+            <div className="flex-1 bg-black/30">
 
+                {renderContent()}
 
-            {renderContent()}
+            </div>
 
         </div>
 
