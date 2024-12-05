@@ -126,7 +126,7 @@ function LoginForm({ onSwitch }) {
             {error}
           </p>
         )}
-        <button className="loginBtn" type="submit">
+        <button className="btn" type="submit">
           Log in
         </button>
       </form>
@@ -144,7 +144,7 @@ function ForgotPasswordForm({ onSwitch }) {
       <form>
         <input type="email" placeholder="Email" required />
 
-        <button type="submit">Send</button>
+        <button className="btn" type="submit">Send</button>
       </form>
 
       <p>
@@ -317,7 +317,7 @@ function SignupForm({ onSwitch }) {
             {error}
           </p>
         )}
-        <button type="submit">Sign up</button>
+        <button className="btn" type="submit">Sign up</button>
       </form>
 
       <p>
