@@ -44,9 +44,11 @@ const LoadingPage = () => {
           const userData = userDoc.data();
           const currentCardCount = userData.currentCardCount || 0;
           const inventorySize = (userData.inventory || []).length;
+          console.log(`[Card Count Check] User: ${userData.username}, Count: ${currentCardCount}, Actual Inventory: ${inventorySize}`);
 
           if (currentCardCount !== inventorySize) {
-            setError("Anomalies have been found. Please wait for maintenance");
+            console.error(`[Card Count Mismatch] User: ${userData.username}, Stored Count: ${currentCardCount}, Actual Count: ${inventorySize}`);
+            setError(`Card count mismatch for user: ${userData.username}`);
             return;
           }
 
@@ -57,16 +59,36 @@ const LoadingPage = () => {
         // 2. Friendship Validation (16.67-33.33%)
         setStatusMessage("Validating friendship connections...");
         processedUsers = 0;
+        
+        // Create a username to user map for quick lookups
+        const usernameMap = new Map();
+        usersSnapshot.docs.forEach(doc => {
+          const data = doc.data();
+          usernameMap.set(data.username, { ...data, docId: doc.id });
+        });
+        console.log('[Friendship Check] Total users in system:', usernameMap.size);
+
         for (const userDoc of usersSnapshot.docs) {
           const userData = userDoc.data();
-          const userFriends = userData.friends || [];
+          const userFriends = userData.friends || {};
+          console.log(`[Friendship Check] User: ${userData.username}, Friends:`, Object.keys(userFriends));
 
-          for (const friendId of userFriends) {
-            const friendData = usersMap.get(friendId);
-            if (!friendData || !(friendData.friends || []).includes(userDoc.id)) {
-              setError("Anomalies have been found. Please wait for maintenance");
+          for (const friendUsername of Object.keys(userFriends)) {
+            const friendData = usernameMap.get(friendUsername);
+            if (!friendData) {
+              console.error(`[Friend Not Found] User: ${userData.username} has non-existent friend: ${friendUsername}`);
+              setError(`Non-existent friend found: ${friendUsername}`);
               return;
             }
+            
+            const friendsFriends = friendData.friends || {};
+            if (!friendsFriends[userData.username]) {
+              console.error(`[Asymmetric Friendship] ${userData.username} -> ${friendUsername}, but not vice versa`);
+              console.error(`${friendUsername}'s friends:`, Object.keys(friendsFriends));
+              setError(`Asymmetric friendship detected between ${userData.username} and ${friendUsername}`);
+              return;
+            }
+            console.log(`[Friendship Valid] ${userData.username} <-> ${friendUsername}`);
           }
 
           processedUsers++;
@@ -81,9 +103,11 @@ const LoadingPage = () => {
           const gamesPlayed = userData.gamesPlayed || 0;
           const gamesWon = userData.gamesWon || 0;
           const gamesLost = userData.gamesLost || 0;
+          console.log(`[Game Stats] User: ${userData.username}, Played: ${gamesPlayed}, Won: ${gamesWon}, Lost: ${gamesLost}`);
 
           if (gamesWon + gamesLost > gamesPlayed) {
-            setError("Anomalies have been found. Please wait for maintenance");
+            console.error(`[Invalid Game Stats] User: ${userData.username}, Total (${gamesWon + gamesLost}) exceeds played (${gamesPlayed})`);
+            setError(`Invalid game statistics for user: ${userData.username}`);
             return;
           }
 
@@ -96,11 +120,13 @@ const LoadingPage = () => {
         processedCards = 0;
         for (const cardDoc of cardsSnapshot.docs) {
           const cardData = cardDoc.data();
+          console.log(`[Card Ownership] Card: ${cardDoc.id}, Owner: ${cardData.currentOwnerUsername}`);
           
           if (cardData.isOwned) {
             const owner = usersMap.get(cardData.currentOwnerId);
             if (!owner || owner.username !== cardData.currentOwnerUsername) {
-              setError("Anomalies have been found. Please wait for maintenance");
+              console.error(`[Invalid Card Owner] Card: ${cardDoc.id}, Listed Owner: ${cardData.currentOwnerUsername}, Actual Owner: ${owner?.username || 'Not Found'}`);
+              setError(`Invalid card ownership for card: ${cardDoc.id}`);
               return;
             }
           }
@@ -117,8 +143,11 @@ const LoadingPage = () => {
           
           if (cardData.isOwned) {
             const owner = usersMap.get(cardData.currentOwnerId);
+            console.log(`[Inventory Check] Card: ${cardDoc.id}, Owner: ${cardData.currentOwnerUsername}, In Inventory: ${owner?.inventory?.includes(cardDoc.id)}`);
+            
             if (!owner || !(owner.inventory || []).includes(cardDoc.id)) {
-              setError("Anomalies have been found. Please wait for maintenance");
+              console.error(`[Card-Inventory Mismatch] Card ${cardDoc.id} owned by ${cardData.currentOwnerUsername} but not in their inventory`);
+              setError(`Card-inventory mismatch for card: ${cardDoc.id}`);
               return;
             }
           }
@@ -132,6 +161,8 @@ const LoadingPage = () => {
         processedCards = 0;
         for (const cardDoc of cardsSnapshot.docs) {
           const cardData = cardDoc.data();
+          console.log(`[Stats Sync] Card: ${cardDoc.id}, ATK: ${cardData.atkPts}, DEF: ${cardData.defPts}`);
+          
           await updateDoc(doc(cardsRef, cardDoc.id), {
             inGameAtkPts: cardData.atkPts,
             inGameDefPts: cardData.defPts
