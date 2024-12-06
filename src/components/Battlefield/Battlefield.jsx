@@ -27,6 +27,8 @@ function Battlefield() {
      * UX - Join an existing room
      * UX - Preparation Stage
      * UX - Battle Stage
+     * UX - If a player still has cards and health > 0, the game loops into the Preparation Stage again after 10 rounds
+     * UX - If a player has health <= 0, the game ends
      * UX - End Stage
      * 
      */
@@ -336,7 +338,8 @@ function Battlefield() {
                 deck: [],
                 graveyard: [],
                 hasPlacedCard: false,
-                lastCard: null
+                lastCard: null,
+                userDocId: userDoc.id
             });
 
             // Initialize player1's deck with 5 blank slots, including 'id': null
@@ -500,7 +503,8 @@ function Battlefield() {
                 deck: [],
                 graveyard: [],
                 hasPlacedCard: false,
-                lastCard: null
+                lastCard: null,
+                userDocId: userDoc.id
             }, { merge: true });
 
             setRoomId(selectedRoomId.trim());
@@ -948,35 +952,112 @@ function Battlefield() {
     const isActiveTurnFlag = useMemo(() => currentTurn === playerId, [currentTurn, playerId]);
     const [attackSourceCard, setAttackSourceCard] = useState(null);
     const [isWinner, setIsWinner] = useState(false);
+    const [winnerUserDocId, setWinnerUserDocId] = useState(null);
+    const [loserUserDocId, setLoserUserDocId] = useState(null);
 
-    // Function to determine the winner
+    const loadTransferableCards = useCallback(async () => {
+        if (!userDocId) return;
+
+        try {
+            const userDoc = await getDoc(doc(firestore, 'users', userDocId));
+            if (!userDoc.exists()) {
+                console.error('User document not found');
+                return;
+            }
+
+            const inventory = userDoc.data().inventory || [];
+            const cardPromises = inventory.map(async (cardId) => {
+                const cardDocRef = doc(firestore, 'cards', cardId);
+                const cardDocSnap = await getDoc(cardDocRef);
+                
+                if (!cardDocSnap.exists()) {
+                    console.warn(`Card document does not exist for cardId: ${cardId}`);
+                    return null;
+                }
+
+                const cardData = cardDocSnap.data();
+                let finalImageUrl = cardData.imageUrl;
+
+                // If imageUrl is a path in storage (e.g., "assets/cards/cardX.png"), 
+                // we need to get the actual download URL.
+                if (finalImageUrl && !finalImageUrl.startsWith('http')) {
+                    try {
+                        finalImageUrl = await getDownloadURL(storageRef(storage, finalImageUrl));
+                    } catch (error) {
+                        console.error('Error fetching card image URL:', error);
+                        finalImageUrl = ''; // fallback to empty string if failed
+                    }
+                }
+
+                return {
+                    id: cardDocSnap.id,
+                    ...cardData,
+                    imageUrl: finalImageUrl
+                };
+            });
+
+            const cards = (await Promise.all(cardPromises)).filter(card => card !== null);
+
+            setTransferableCards(cards);
+        } catch (error) {
+            console.error('Error loading transferable cards:', error);
+            toast.error('Failed to load cards for transfer.');
+        }
+    }, [userDocId, firestore, storage]);
+
     const determineWinner = useCallback(async () => {
         let determinedWinner;
         const player1HP = playerId === 'player1' ? playerHP : opponentHP;
         const player2HP = playerId === 'player1' ? opponentHP : playerHP;
-        
-        // First check if either player's HP is 0 or below
+    
+        // Fetch userDocIds for both players
+        const player1DocRef = doc(firestore, 'rooms', roomId, 'players', 'player1');
+        const player1Snap = await getDoc(player1DocRef);
+        const player1UserDocId = player1Snap.exists() ? player1Snap.data().userDocId : null;
+    
+        const player2DocRef = doc(firestore, 'rooms', roomId, 'players', 'player2');
+        const player2Snap = await getDoc(player2DocRef);
+        const player2UserDocId = player2Snap.exists() ? player2Snap.data().userDocId : null;
+    
+        // Determine the winner based on HP and cards
         if (player1HP <= 0) {
             determinedWinner = 'player2';
         } else if (player2HP <= 0) {
             determinedWinner = 'player1';
         } else if (gameStage === 'finished') {
-            // If round is done, compare HP values
+            // If finishing after normal conditions (like rounds ended), determine by HP comparison
             determinedWinner = player1HP > player2HP ? 'player1' : 'player2';
         } else {
-            // If no winner can be determined yet, return
-            return;
+            // If no immediate winner by HP, check if a player is out of cards:
+            const playerHasCards = await checkCardsRemaining();
+            if (!playerHasCards) {
+                // If the current player has no cards, they lose
+                determinedWinner = (playerId === 'player1') ? 'player2' : 'player1';
+            } else {
+                // If the opponent has no cards, they lose
+                determinedWinner = (opponentId === 'player1') ? 'player2' : 'player1';
+            }
         }
-
+    
+        if (!determinedWinner) return;
+    
+        // Now derive the winner and loser userDocIds
+        const winnerUserDocIdLocal = determinedWinner === 'player1' ? player1UserDocId : player2UserDocId;
+        const loserUserDocIdLocal = determinedWinner === 'player1' ? player2UserDocId : player1UserDocId;
+    
+        // Store these in state for use in handleCardTransfer
+        setWinnerUserDocId(winnerUserDocIdLocal);
+        setLoserUserDocId(loserUserDocIdLocal);
+    
         setWinner(determinedWinner);
         setIsWinner(determinedWinner === playerId);
         setShowGameOverlay(true);
-
-        // Update Firestore immediately with the winner
+    
+        // Update Firestore with the winner
         try {
             const roomDocRef = doc(firestore, 'rooms', roomId);
             const docSnap = await getDoc(roomDocRef);
-            
+    
             if (docSnap.exists()) {
                 await updateDoc(roomDocRef, {
                     'gameState.winner': determinedWinner,
@@ -985,22 +1066,16 @@ function Battlefield() {
                         player2: playerId === 'player1' ? opponentHP : playerHP
                     }
                 });
-
-                // Set a timeout to hide the overlay and update game stage
+    
                 setTimeout(async () => {
                     setShowGameOverlay(false);
-                    
-                    try {
-                        // Check again if document still exists before updating
-                        const currentDocSnap = await getDoc(roomDocRef);
-                        if (currentDocSnap.exists()) {
-                            await updateDoc(roomDocRef, {
-                                'gameState.gameStage': 'finished',
-                                'gameState.timer': 0
-                            });
-                        }
-                    } catch (error) {
-                        console.log('Game already concluded:', error.message);
+                    // Move to the end stage
+                    const currentDocSnap = await getDoc(roomDocRef);
+                    if (currentDocSnap.exists()) {
+                        await updateDoc(roomDocRef, {
+                            'gameState.gameStage': 'finished',
+                            'gameState.timer': 0
+                        });
                     }
                 }, 10000);
             } else {
@@ -1010,8 +1085,99 @@ function Battlefield() {
             console.error('Error updating game state:', error);
             toast.error('Error updating game state. The game may have ended.');
         }
+    
+        // If current player is the loser, load their cards for transfer
+        if (determinedWinner !== playerId) {
+            await loadTransferableCards();
+            setShowCardTransferModal(true);
+        }
+    }, [playerHP, opponentHP, playerId, opponentId, gameStage, firestore, roomId, loadTransferableCards, setWinnerUserDocId, setLoserUserDocId]);        
 
-    }, [playerHP, opponentHP, playerId, gameStage, firestore, roomId]);
+    // 3. Handle Card Transfer
+    const handleCardTransfer = useCallback(async (cardToTransfer) => {
+        if (!cardToTransfer) {
+            toast.error('Please select a card to transfer.');
+            return;
+        }
+    
+        // Ensure you have winnerUserDocId and loserUserDocId set in state or accessible variables
+        // These should be determined in determineWinner and stored for use here.
+        if (!winnerUserDocId || !loserUserDocId) {
+            console.error('Winner or loser userDocId is missing.');
+            toast.error('Unable to transfer card due to missing user data.');
+            return;
+        }
+    
+        try {
+            const winnerDocRef = doc(firestore, 'users', winnerUserDocId);
+            const loserDocRef = doc(firestore, 'users', loserUserDocId);
+    
+            await runTransaction(firestore, async (transaction) => {
+                const winnerDoc = await transaction.get(winnerDocRef);
+                const loserDoc = await transaction.get(loserDocRef);
+    
+                if (!winnerDoc.exists() || !loserDoc.exists()) {
+                    throw new Error('User documents not found');
+                }
+    
+                // Get current inventories
+                const winnerInventory = winnerDoc.data().inventory || [];
+                const loserInventory = loserDoc.data().inventory || [];
+    
+                // Remove card from loser's inventory
+                const updatedLoserInventory = loserInventory.filter(cardId => cardId !== cardToTransfer.id);
+    
+                // Add card to winner's inventory
+                const updatedWinnerInventory = [...winnerInventory, cardToTransfer.id];
+    
+                // Update both documents
+                transaction.update(winnerDocRef, { inventory: updatedWinnerInventory });
+                transaction.update(loserDocRef, { inventory: updatedLoserInventory });
+            });
+    
+            toast.success(`Card ${cardToTransfer.cardName} has been transferred to the winner!`);
+            setShowCardTransferModal(false);
+            setSelectedTransferCard(null);
+    
+        } catch (error) {
+            console.error('Error transferring card:', error);
+            toast.error('Failed to transfer card. Please try again.');
+        }
+    }, [winnerUserDocId, loserUserDocId, firestore]);
+
+    // 4. Displaying the Transfer Modal at the End Stage
+    const CardTransferModal = () => {
+        if (!showCardTransferModal) return null;
+
+        return (
+            <div className={styles.modalOverlay}>
+                <div className={styles.modal}>
+                    <h2>Select a Card to Give to the Winner</h2>
+                    <div className={styles.cardGrid}>
+                        {transferableCards.map(card => (
+                            <div 
+                                key={card.id}
+                                className={`${styles.cardItem} ${selectedTransferCard?.id === card.id ? styles.selected : ''}`}
+                                onClick={() => setSelectedTransferCard(card)}
+                            >
+                                <img src={card.imageUrl} alt={card.cardName} />
+                                <p>{card.cardName}</p>
+                            </div>
+                        ))}
+                    </div>
+                    <div className={styles.modalButtons}>
+                        <button 
+                            onClick={() => handleCardTransfer(selectedTransferCard)}
+                            disabled={!selectedTransferCard}
+                        >
+                            Transfer Card
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     // Function to switch turns
     const switchTurn = useCallback(async () => {
         const roomDocRef = doc(firestore, 'rooms', roomId);
@@ -1019,7 +1185,7 @@ function Battlefield() {
 
         try {
             await runTransaction(firestore, async (transaction) => {
-                // Read roomDocRef and targetDocRef first
+                // Read roomDocRef first
                 const roomDoc = await transaction.get(roomDocRef);
                 if (!roomDoc.exists()) {
                     throw new Error('Room does not exist!');
@@ -1040,10 +1206,25 @@ function Battlefield() {
                 if (nextTurn === 'player1') {
                     newRound += 1;
                     if (newRound > totalRounds) {
-                        transaction.update(roomDocRef, {
-                            [`${gameStateField}.gameStage`]: 'finished',
-                            [`${gameStateField}.timer`]: 0,
-                        });
+                        // Check if players have cards remaining
+                        const cardsRemaining = await checkCardsRemaining();
+                        
+                        if (cardsRemaining) {
+                            // Reset round counter and transition back to preparation stage
+                            transaction.update(roomDocRef, {
+                                [`${gameStateField}.currentRound`]: 1,
+                                [`${gameStateField}.gameStage`]: 'preparation',
+                                [`${gameStateField}.timer`]: 120, // Reset preparation timer
+                                [`${gameStateField}.currentTurn`]: 'player1'
+                            });
+                            toast.info('Starting new battle phase! Players have cards remaining.');
+                        } else {
+                            // End the game if no cards remaining
+                            transaction.update(roomDocRef, {
+                                [`${gameStateField}.gameStage`]: 'finished',
+                                [`${gameStateField}.timer`]: 0,
+                            });
+                        }
                         return;
                     } else {
                         transaction.update(roomDocRef, {
@@ -1051,10 +1232,6 @@ function Battlefield() {
                         });
                     }
                 }
-                const opponentLastSelectedCardRef = doc(firestore, 'rooms', roomId, 'players', opponentId);
-                transaction.update(opponentLastSelectedCardRef, {
-                    lastSelectedCard: null
-                });
 
                 transaction.update(roomDocRef, {
                     [`${gameStateField}.currentTurn`]: nextTurn,
@@ -1076,6 +1253,17 @@ function Battlefield() {
                     console.log('Game has finished.');
                     toast.info('Game has finished.');
                     determineWinner(); // Call function to determine the winner
+                } else if (updatedGameState.gameStage === 'preparation') {
+                    console.log('Starting new preparation phase.');
+                    toast.success('Starting new preparation phase! Place your cards.');
+                    
+                    // Reset player readiness states
+                    const player1Ref = doc(firestore, 'rooms', roomId, 'players', 'player1');
+                    const player2Ref = doc(firestore, 'rooms', roomId, 'players', 'player2');
+                    await updateDoc(player1Ref, { hasPlacedCard: false });
+                    await updateDoc(player2Ref, { hasPlacedCard: false });
+                    setHasPlacedCard(false);
+                    setOpponentReady(false);
                 }
 
                 // Reset hasPlacedCard for the new active player
@@ -1089,6 +1277,26 @@ function Battlefield() {
             toast.error('Failed to switch turn.');
         }
     }, [roomId, firestore, determineWinner]);
+
+    // Function to check if players have cards remaining
+    const checkCardsRemaining = useCallback(async () => {
+        try {
+            // Check player's hand
+            const playerHandRef = collection(firestore, 'rooms', roomId, 'players', playerId, 'hand');
+            const playerHandSnap = await getDocs(playerHandRef);
+            const playerHasCards = !playerHandSnap.empty;
+
+            // Check opponent's hand
+            const opponentHandRef = collection(firestore, 'rooms', roomId, 'players', opponentId, 'hand');
+            const opponentHandSnap = await getDocs(opponentHandRef);
+            const opponentHasCards = !opponentHandSnap.empty;
+
+            return playerHasCards || opponentHasCards;
+        } catch (error) {
+            console.error('Error checking remaining cards:', error);
+            return false;
+        }
+    }, [firestore, roomId, playerId, opponentId]);
 
     // Function to start the timer
     useEffect(() => {
@@ -1285,12 +1493,49 @@ function Battlefield() {
                             toast.error(`Error updating attack points for ${card.cardName}.`);
                         }
                     });
-                    await switchTurn();
                 }
                 break;
     
             case 'spell':
 
+            if(cardName === "Fate Swap"){
+                async function switchPlayerHpWithOpponent(playerId, opponentId, playerHP, opponentHP) {
+                    const db = getFirestore();
+                    const playerRef = doc(db, 'rooms', roomId, 'players', playerId);
+                    const opponentRef = doc(db, 'rooms', roomId, 'players', opponentId);
+
+                    // Swap HP values
+                    const temp = playerHP;
+                    playerHP = opponentHP;
+                    opponentHP = temp;
+
+                    // Update Firestore
+                    await updateDoc(playerRef, { hp: playerHP });
+                    await updateDoc(opponentRef, { hp: opponentHP });
+
+                    return { playerHP, opponentHP };
+                }
+
+                const hpSwapResult = await switchPlayerHpWithOpponent(playerId, opponentId, playerHP, opponentHP);
+                setPlayerHP(hpSwapResult.playerHP);
+                setOpponentHP(hpSwapResult.opponentHP);
+                console.log(`Player HP and Opponent HP have been swapped.`);
+                toast.info(`Player HP and Opponent HP have been swapped.`);
+                
+            } else if(cardName === "Sudden Storm"){
+                opponentDeck.forEach(async (card) => {
+                    if (card.cardType === 'monster') {
+                        card.inGameDefPts -= 200;
+                        console.log(`${card.cardName}'s defense decreased by 200.`);
+                        toast.info(`${card.cardName}'s defense decreased by 200.`);
+                        // Update Firestore
+                        const cardRef = doc(firestore, 'cards', card.id);
+                        await updateDoc(cardRef, {
+                            inGameDefPts: card.inGameDefPts
+                        });
+                    }
+                });
+            }
 
                 // Handle spell card effect (e.g., boost attack, heal, etc.)
                 toast.info(`Activating Spell Card: ${cardName}!`);
@@ -1533,8 +1778,9 @@ function Battlefield() {
                         inGameDefPts: targetCardData.defPts || 0 // Reset to original defense points
                     });
 
-                    if (targetCardName === "Lavapulse Phoenix" ) {
+                    if (targetCardName === "Lavapulse Phoenix" && !targetCardData.hasActivatedPassive) {
                         console.log("Lavapulse Phoenix's passive effect activated: Both players lose 200 HP.");
+                        targetCardData.hasActivatedPassive = true; 
                         await updateDoc(doc(firestore, 'rooms', roomId), {
                             'hp.player1': playerHP - 200,
                             'hp.player2': opponentHP - 200
@@ -1828,7 +2074,7 @@ function Battlefield() {
                             updateDoc(cardDocRef, {
                                 inGameAtkPts: newAtkPts
                             }).then(() => {
-                                toast.info("Blazing Minotaur's Attack increased.");R
+                                toast.info("Blazing Minotaur's Attack increased.");
                                 console.log("Blazing Minotaur's Attack increased.");
 
                             });
@@ -1901,91 +2147,55 @@ function Battlefield() {
             toast.warn('You can only use Spell cards during the Battle phase.');
             return;
         }
-    
+
         if (!isActiveTurnFlag) {
             toast.warn("It's not your turn!");
             return;
         }
-    
+
         try {
             switch (spellCard.cardName.toLowerCase()) {
-                case 'fate swap': {
-                    // Function to swap player and opponent HP
-                    const switchPlayerHpWithOpponent = async (playerId, opponentId, playerHP, opponentHP) => {
-                       
-                        const playerRef = doc(firestore, 'rooms', roomId, 'players', playerId);
-                        const opponentRef = doc(firestore, 'rooms', roomId, 'players', opponentId);
-    
-                        // Swap HP values
-                        const tempHP = playerHP;
-                        playerHP = opponentHP;
-                        opponentHP = tempHP;
-    
-                        // Update Firestore
-                        await updateDoc(playerRef, { hp: playerHP });
-                        await updateDoc(opponentRef, { hp: opponentHP });
-    
-                        return { playerHP, opponentHP };
-                    };
-    
-                    const { playerHP: newPlayerHP, opponentHP: newOpponentHP } =
-                        await switchPlayerHpWithOpponent(playerId, opponentId, playerHP, opponentHP);
-    
-                    // Update local state
-                    setPlayerHP(newPlayerHP);
-                    setOpponentHP(newOpponentHP);
-                    console.log(`Player HP (${newPlayerHP}) and Opponent HP (${newOpponentHP}) swapped.`);
-                    toast.info(`Player HP and Opponent HP have been swapped.`);
-                    break;
-                }
-    
-                case 'sudden storm': {
-                    // Reduce defense points for all opponent's monster cards
-                    const updateCards = opponentDeck.map(async (card) => {
-                        if (card.cardType === 'monster') {
-                            const newDefPts = card.inGameDefPts - 200;
-                            card.inGameDefPts = newDefPts;
-    
-                            console.log(`${card.cardName}'s defense decreased by 200.`);
-                            toast.info(`${card.cardName}'s defense decreased by 200.`);
-    
-                            // Update Firestore
-                            const cardRef = doc(firestore, 'cards', card.id);
-                            await updateDoc(cardRef, { inGameDefPts: newDefPts });
+                case 'heal':
+                    // Example: Restore 20 HP to the player
+                    await runTransaction(firestore, async (transaction) => {
+                        const roomDocRef = doc(firestore, 'rooms', roomId);
+                        const roomDoc = await transaction.get(roomDocRef);
+                        if (!roomDoc.exists()) {
+                            throw new Error('Room does not exist!');
                         }
+
+                        const currentHP = roomDoc.data().hp[playerId] || 5000;
+                        const newHP = Math.min(currentHP + 20, 5000); // Ensure max HP is 5000
+                        transaction.update(roomDocRef, {
+                            [`hp.${playerId}`]: newHP
+                        });
                     });
-    
-                    // Await all updates to complete
-                    await Promise.all(updateCards);
+                    toast.success('Heal spell used! Restored 20 HP.');
+                    console.log('Heal spell used.');
                     break;
-                }
-    
+                // Add more spell cases here
                 default:
                     toast.warn('Unknown spell effect.');
-                    console.warn(`Spell effect for ${spellCard.cardName} is not defined.`);
-                    return;
+                    console.warn(`Spell effect for ${spellCard.cardName} not defined.`);
             }
-    
-            // Remove the spell card from the player's hand and move it to the graveyard
+
+            // Remove spell card from hand and add to graveyard
             const handDocRef = doc(firestore, 'rooms', roomId, 'players', playerId, 'hand', spellCard.id);
             await deleteDoc(handDocRef);
-    
+
             const graveyardRef = collection(firestore, 'rooms', roomId, 'players', playerId, 'graveyard');
             await addDoc(graveyardRef, spellCard);
-    
+
             // Update local state
-            setMyCards((prevCards) => prevCards.filter((card) => card.id !== spellCard.id));
+            setMyCards(prevCards => prevCards.filter(card => card.id !== spellCard.id));
             toast.success(`Used spell card: ${spellCard.cardName}`);
             console.log(`Used spell card: ${spellCard.cardName}`);
-            await switchTurn();
 
-
-    
         } catch (error) {
             console.error('Error using spell card:', error);
             toast.error('Failed to use spell card.');
         }
-    }, [gameStage, isActiveTurnFlag, roomId, playerId, playerHP, opponentHP, opponentDeck, firestore]);
+    }, [gameStage, isActiveTurnFlag, roomId, playerId, firestore]);
 
     // Function to handle card selection from hand or deck
     const handleCardSelection = useCallback((card, index, source) => {
@@ -2414,7 +2624,8 @@ function Battlefield() {
                 unsubscribePlayers();
             };
         }
-    }, [isRoomJoined, roomId, playerId, gameStage, firestore, cards, determineWinner, isActiveTurnFlag]);
+    }, [isRoomJoined, roomId, playerId, firestore, gameStage]);
+    
 
     // Function to listen to graveyard changes
     useEffect(() => {
@@ -2487,6 +2698,10 @@ function Battlefield() {
         return currentTurn === 'player1' ? player1Username : player2Username;
     }, [currentTurn, player1Username, player2Username]);
 
+    // Add new state variables at the top of the component
+    const [showCardTransferModal, setShowCardTransferModal] = useState(false);
+    const [transferableCards, setTransferableCards] = useState([]);
+    const [selectedTransferCard, setSelectedTransferCard] = useState(null);
 
     /**
      * Renders the Battlefield component UI.
@@ -2767,6 +2982,14 @@ function Battlefield() {
                                 >
                                     {selectedCard?.card?.cardType === 'monster' ? "Use Effect" : "Use Card"}
                                 </button>
+                                <button
+                                    className={isActiveTurnFlag ? styles.actionButton : styles.actionButtonDisabled}
+                                    onClick={isActiveTurnFlag ? switchTurn : undefined}
+                                    disabled={!isActiveTurnFlag}
+                                    aria-label="End Turn"
+                                >
+                                    End Turn
+                                </button>
 
                                 {attackSourceCard && (
                                     <button
@@ -2791,8 +3014,15 @@ function Battlefield() {
                             player1Username={player1Username}
                             player2Username={player2Username}
                             userDocId={userDocId}
-                        />
+                            handleCardTransfer={handleCardTransfer}
+                            showCardTransferModal={showCardTransferModal}
+                            setShowCardTransferModal={setShowCardTransferModal}
+                            transferableCards={transferableCards}
+                            selectedTransferCard={selectedTransferCard}
+                            setSelectedTransferCard={setSelectedTransferCard}
+                        />   
                     )}
+                    {CardTransferModal()}
                 </div>
             )}
 
@@ -2811,16 +3041,12 @@ function Battlefield() {
             />
         </div>
     );
-
-
 }
 
 export default Battlefield;
 
 /**
- * 11/23 Changelog
- * Major Structure Changes
- * Initial Last Card set to null
- * Fixed winning conditions
- * Fixed End Stage
+ * 12/06 Changelog
+ * Game stage loop done 
+ * Card Transfer done
 */
