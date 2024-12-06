@@ -32,7 +32,7 @@
   background-color: rgb(49, 20, 1);
 }
 
-@media (max-width: 666px) {
+@media (orientation: portrait) {
   * {
       display: none;
   }
