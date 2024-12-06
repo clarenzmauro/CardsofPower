@@ -1129,7 +1129,17 @@ function Battlefield() {
     
                 // Add card to winner's inventory
                 const updatedWinnerInventory = [...winnerInventory, cardToTransfer.id];
-    
+                
+                //Update 'cards' collection with a +1 pass count
+                //Also in 'cards' collection, update the currentOwnerId and currentOwnerUsername
+
+                const cardDocRef = doc(firestore, 'cards', cardToTransfer.id);
+                transaction.update(cardDocRef, {
+                    passCount: increment(1),
+                    currentOwnerId: winnerDocRef.id,
+                    currentOwnerUsername: winnerDoc.data().username
+                });
+                
                 // Update both documents
                 transaction.update(winnerDocRef, { inventory: updatedWinnerInventory });
                 transaction.update(loserDocRef, { inventory: updatedLoserInventory });
