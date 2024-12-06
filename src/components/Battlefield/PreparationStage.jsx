@@ -48,106 +48,121 @@ function PreparationStage({
 
     return (
         <div className={styles.preparationContainer} ref={preparationRef}>
-            <h2>Preparation Phase</h2>
-            <p>Place your Monster and Trap cards in the slots.</p>
-            <p><strong>Opponent:</strong> {opponentUsername}</p>
-            <p><strong>Time Remaining:</strong> {preparationTimer} seconds</p>
-
-            <div className={styles.deckSlots}>
-                <h3>Your Deck Slots</h3>
-                <div className={styles.slotsContainer}>
-                    {myDeck.map((card, index) => (
-                        <div
-                            key={index}
-                            className={`${styles.slot} ${selectedSlot === index ? styles.selectedSlot : ''}`}
-                            onClick={() => {
-                                if (card.cardName) {
-                                    setSelectedSlot(index);
-                                } else {
-                                    handleSlotClick(index);
-                                    setSelectedSlot(null);
-                                }
-                            }}
-                            aria-label={`Deck Slot ${index + 1}`}
-                        >
-                            <img
-                                src={card.imageUrl !== backCard ? card.imageUrl : backCard}
-                                alt={card.cardName || `Slot ${index + 1}`}
-                                className={styles.cardImage}
-                            />
-                            {card.cardName ? (
-                                <div className={styles.cardDetails}>
-                                    <p>{card.cardName}</p>
-                                    {/* **Conditionally render the position toggle button only for Monster cards** */}
-                                    {card.cardType === 'monster' && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation(); // Prevent triggering slot click
-                                                handlePositionToggle(index, card.position);
-                                            }}
-                                            className={styles.positionButton}
-                                            aria-label={`Toggle position for ${card.cardName}`}
-                                        >
-                                            {card.position === 'attack' ? 'Switch to Defense' : 'Switch to Attack'}
-                                        </button>
-                                    )}
-                                    <p>Position: {card.position.charAt(0).toUpperCase() + card.position.slice(1)}</p>
-                                    {/* **Render Remove Button if this slot is selected** */}
-                                    {selectedSlot === index && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation(); // Prevent triggering slot click
-                                                handleRemoveCard(index);
-                                                setSelectedSlot(null);
-                                            }}
-                                            className={styles.removeButton}
-                                            aria-label={`Remove ${card.cardName} from slot ${index + 1}`}
-                                        >
-                                            Remove
-                                        </button>
-                                    )}
-                                </div>
-                            ) : (
-                                <p>Empty Slot</p>
-                            )}
-                        </div>
-                    ))}
-                </div>
+          <div className="flex justify-between mb-2">
+            <div className="text-start">
+              <h2>Preparation Phase</h2>
+              <p>Place your Monster and Trap cards in the slots.</p>
+              <p>Time Remaining: {preparationTimer} seconds</p>
             </div>
-
-            <div className={styles.handContainer}>
-                <h3>Your Hand</h3>
-                <div className={styles.handCards}>
-                    {myCards.length === 0 ? (
-                        <p className={styles.emptyHand}>No cards in hand. Acquire more cards!</p>
-                    ) : (
-                        myCards.map((card, index) => (
-                            <div
-                                key={card.id}
-                                className={`${styles.handCard} ${selectedCard && selectedCard.card.id === card.id ? styles.selectedCard : ''}`}
-                                onClick={() => handleCardSelection(card, index)}
-                                aria-label={`Hand Card ${index + 1}`}
-                            >
-                                <img src={card.imageUrl} alt={card.cardName} className={styles.handCardImage} />
-                                <p className={styles.handCardName}>{card.cardName}</p>
-                                <p className={styles.handCardType}>{card.cardType}</p>
-                            </div>
-                        ))
-                    )}
-                </div>
-            </div>
-
-            <button
+    
+            <div className="text-end">
+              <p className="mb-2">Opponent: {opponentUsername}</p>
+    
+              <button
                 onClick={handleReady}
                 className={styles.readyButton}
                 disabled={playerReady}
                 aria-label="Ready to Battle"
-            >
-                {playerReady ? 'Ready!' : 'Ready to Battle'}
-            </button>
-
-            {playerReady && <p className={styles.readyStatus}>You are ready!</p>}
-            {opponentReady && <p className={styles.readyStatus}>{opponentUsername} is ready!</p>}
+              >
+                {playerReady ? "Ready!" : "Ready to Battle"}
+              </button>
+            </div>
+          </div>
+    
+          <div className={styles.deckSlots}>
+            <div className={`${styles.slotsContainer} mb-4`}>
+              {myDeck.map((card, index) => (
+                <div
+                  key={index}
+                  className={`${styles.slot} ${
+                    selectedSlot === index ? styles.selectedSlot : ""
+                  }`}
+                  onClick={() => {
+                    if (card.cardName) {
+                      setSelectedSlot(index);
+                    } else {
+                      handleSlotClick(index);
+                      setSelectedSlot(null);
+                    }
+                  }}
+                  aria-label={`Deck Slot ${index + 1}`}
+                >
+                  <img
+                    src={card.imageUrl !== backCard ? card.imageUrl : backCard}
+                    alt={card.cardName || `Slot ${index + 1}`}
+                    className={styles.cardImage}
+                  />
+                  {card.cardName ? (
+                    <div className="p-2">
+                      {/* **Conditionally render the position toggle button only for Monster cards** */}
+                      {card.cardType === "monster" && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent triggering slot click
+                            handlePositionToggle(index, card.position);
+                          }}
+                          className={styles.positionButton}
+                          aria-label={`Toggle position for ${card.cardName}`}
+                        >
+                          {card.position === "attack"
+                            ? "Switch to Defense"
+                            : "Switch to Attack"}
+                        </button>
+                      )}
+                      {/* **Render Remove Button if this slot is selected** */}
+                      {selectedSlot === index && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent triggering slot click
+                            handleRemoveCard(index);
+                            setSelectedSlot(null);
+                          }}
+                          className="block mx-auto mt-2"
+                          aria-label={`Remove ${card.cardName} from slot ${
+                            index + 1
+                          }`}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <p>Empty Slot</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+    
+          <div className={styles.handContainer}>
+            <div className={`${styles.handCards} scrollbar-hidden`}>
+              {myCards.length === 0 ? (
+                <p className={styles.emptyHand}>
+                  No cards in hand. Acquire more cards!
+                </p>
+              ) : (
+                myCards.map((card, index) => (
+                  <img
+                    src={card.imageUrl}
+                    key={card.id}
+                    className={`${styles.handCardImage} ${
+                      selectedCard && selectedCard.card.id === card.id
+                        ? styles.selectedCard
+                        : ""
+                    }`}
+                    onClick={() => handleCardSelection(card, index)}
+                    alt={card.cardName}
+                    aria-label={`Hand Card ${index + 1}`}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+    
+          {playerReady && <p className={styles.readyStatus}>You are ready!</p>}
+          {opponentReady && (
+            <p className={styles.readyStatus}>{opponentUsername} is ready!</p>
+          )}
         </div>
     );
 }
