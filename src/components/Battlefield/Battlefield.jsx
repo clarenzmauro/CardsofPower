@@ -2709,336 +2709,414 @@ function Battlefield() {
      * @returns {JSX.Element} The rendered Battlefield component
      */
     return (
-        <div className={styles.background} style={{ backgroundImage: `url(${background})` }}>
-            {showGameOverlay && gameStage === 'battle' && (
-                <GameOverlay 
-                    isWinner={isWinner}
-                    playerHP={Math.max(playerHP, 0)}
-                    opponentHP={Math.max(opponentHP, 0)}
-                    playerName={playerId === 'player1' ? 'Player 1' : 'Player 2'}
-                    opponentName={playerId === 'player1' ? 'Player 2' : 'Player 1'}
-                />
-            )}
-            {!isRoomJoined && (
-                <div className={styles.lobby}>
-                    <h2>Welcome to the Battle</h2>
-                    <div className={styles.roomActions}>
-                        <button onClick={handleCreateRoom} className={styles.createRoomButton} aria-label="Create Room">Create Room</button>
-                        <button
-                            onClick={() => setShowAvailableRooms(prev => !prev)}
-                            className={styles.joinRoomButton}
-                            aria-label="Join Room"
-                        >
-                            {showAvailableRooms ? 'Close Room List' : 'Join Room'}
-                        </button>
-                    </div>
-                    {showAvailableRooms && (
-                        <div className={styles.availableRooms}>
-                            <h3>Available Rooms</h3>
-                            {loadingRooms ? (
-                                <p>Loading rooms...</p>
-                            ) : errorLoadingRooms ? (
-                                <p className={styles.error}>{errorLoadingRooms}</p>
-                            ) : availableRooms.length === 0 ? (
-                                <p>No available rooms. Create one!</p>
-                            ) : (
-                                <ul className={styles.roomsList}>
-                                    {availableRooms.map(room => (
-                                        <li key={room.id} className={styles.roomItem}>
-                                            <span>Room ID: {room.id} <br/></span>
-                                            {/* **Display the host's username from the 'host' field** */}
-                                            <span>Host: {room.host || 'Unknown'}</span>
-                                            <div className={styles.roomButtons}>
-                                                <button
-                                                    onClick={() => handleJoinRoom(room.id)}
-                                                    className={styles.joinRoomButton}
-                                                    aria-label={`Join Room ${room.id}`}
-                                                >
-                                                    Join
-                                                </button>
-                                                {/* **Conditional Rendering of Delete Button** */}
-                                                {isAdmin && (
-                                                    <button
-                                                        onClick={() => handleDeleteRoom(room.id)}
-                                                        className={styles.deleteRoomButton}
-                                                        aria-label={`Delete Room ${room.id}`}
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {isRoomJoined && (
-                <div className={styles.gameContainer}>
-                    {/* Conditional Rendering Based on gameStage */}
-                    {gameStage === 'waiting' && (
-                        <WaitingForPlayer roomId={roomId} playerId={playerId} />
-                    )}
-
-                    {gameStage === 'preparation' && (
-                        <PreparationStage
-                            handleReady={handleReady}
-                            playerReady={playerReady}
-                            opponentReady={opponentReady}
-                            opponentUsername={opponentUsername}
-                            preparationTimer={timer}
-                            myDeck={myDeck}
-                            handleSlotClick={handleSlotClick}
-                            handleCardSelection={handleCardSelection}
-                            myCards={myCards}
-                            selectedCard={selectedCard}
-                            handlePositionToggle={handlePositionToggle}
-                            handleRemoveCard={handleRemoveCard}
-                        />                    
-                    )}
-
-                    {gameStage === 'battle' && (
-                        <>
-                            {/* Top Section: Timer */}
-                            <Timer
-                                gameStage={gameStage}
-                                timer={timer}
-                                currentRound={currentRound}
-                                totalRounds={totalRounds}
-                                activePlayer={getActivePlayerUsername()}
-                            />
-
-                            {/* Opponent's Section */}
-                            <div className={styles.opponentSection}>
-                                {/* Opponent's Graveyard */}
-                                <div className={styles.opponentGraveyard}>
-                                    <h3>{opponentUsername}'s Graveyard</h3>
-                                    {/* Hide opponent's graveyard cards and show only the count */}
-                                    <p>Number of Cards: {opponentGraveyard.length}</p>
-                                </div>
-
-                                {/* Opponent's Hand */}
-                                <div className={styles.opponentHand}>
-                                    <h3>{opponentUsername}'s Hand</h3>
-                                    <div className={styles.hand}>
-                                        {opponentCards.length === 0 ? (
-                                            <p className={styles.emptyMessage}>No cards.</p>
-                                        ) : (
-                                            opponentCards.map((card, index) => (
-                                                <img
-                                                    key={`opponent-hand-card-${index}`}
-                                                    src={backCard} // Always show back card
-                                                    alt={`Opponent's Card ${index + 1}`}
-                                                    className={styles.handCard}
-                                                />
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Opponent's Stats */}
-                                <div className={styles.opponentStats}>
-                                    <h3>{opponentUsername}'s Stats</h3>
-                                    <p>HP: {opponentHP}</p>
-                                    <p>Cards in Hand: {opponentCards.length}</p>
-                                </div>
-                            </div>
-
-                            {/* Middle Section: Decks */}
-                            <div className={styles.decksSection}>
-                                {/* Opponent's Deck */}
-                                <CardSlots
-                                    title={`${opponentUsername}'s Deck`}
-                                    cards={opponentDeck}
-                                    selectedCard={attackSourceCard ? attackSourceCard : null}
-                                    onSlotClick={attackSourceCard ? handleTargetSelection : () => {}}
-                                    isOpponent={true}
-                                    isPlayer={false}
-                                    gameStage={gameStage}
-                                    backCardImage={backCard}
-                                />
-
-                                {/* Player's Deck */}
-                                <CardSlots
-                                    title="Your Deck"
-                                    cards={myDeck}
-                                    selectedCard={selectedCard}
-                                    onSlotClick={handleSlotClick} // Updated to use unified handler
-                                    isOpponent={false}
-                                    isPlayer={true}
-                                    gameStage={gameStage}
-                                    backCardImage={backCard}
-                                />
-                            </div>
-
-                            {/* Last Card Played */}
-                            <div className={styles.lastCardContainer}>
-                                <h3>Last Card Played</h3>
-                                {lastCard ? (
-                                    <>
-                                        {lastCard.position === 'defense' ? (
-                                            <img className={styles.lastCard} src={backCard} alt="Last Card (Defense Position)" />
-                                        ) : (
-                                            <img className={styles.lastCard} src={lastCard.imageUrl} alt="Last Card" />
-                                        )}
-                                        {lastCardOwner && <p>{lastCardOwner} played this card.</p>}
-                                    </>
-                                ) : (
-                                    <>
-                                        <img className={styles.lastCard} src={blankCardImage} alt="No Last Card" />
-                                        <p>No cards have been played yet.</p>
-                                    </>
-                                )}
-                            </div>
-
-                            {/* Player's Section */}
-                            <div className={styles.playerSection}>
-                                {/* Player's Graveyard */}
-                                <div className={styles.playerGraveyard}>
-                                    <h3>Your Graveyard</h3>
-                                    <div className={styles.graveyardCards}>
-                                        {playerGraveyard.length === 0 ? (
-                                            <p className={styles.emptyMessage}>Empty</p>
-                                        ) : (
-                                            playerGraveyard.map((card, index) => (
-                                                <img
-                                                    key={`player-graveyard-card-${index}`}
-                                                    src={card.imageUrl || blankCardImage}
-                                                    alt={`Graveyard Card ${index + 1}`}
-                                                    className={styles.graveyardCard}
-                                                />
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Player's Hand */}
-                                <div className={styles.playerHand}>
-                                    <h3>Your Hand</h3>
-                                    <div className={styles.hand}>
-                                        {myCards.length === 0 ? (
-                                            <p className={styles.emptyMessage}>No cards in hand.</p>
-                                        ) : (
-                                            myCards.map((card, index) => (
-                                                <img
-                                                    key={`player-hand-card-${index}`}
-                                                    src={card.imageUrl}
-                                                    alt={`Hand Card ${index + 1}`}
-                                                    className={`${styles.handCard} ${selectedCard && selectedCard.card.id === card.id ? styles.selected : ''}`}
-                                                    onClick={() => {
-                                                        if (gameStage === 'preparation') {
-                                                            handleCardSelection(card, index, 'hand');
-                                                        } else if (isActiveTurnFlag && gameStage === 'battle' && card.cardType === 'spell') {
-                                                            handleSpellUsage(card);
-                                                        }
-                                                    }}
-                                                    role={isActiveTurnFlag && gameStage === 'battle' && card.cardType === 'spell' ? 'button' : 'img'}
-                                                    tabIndex={isActiveTurnFlag && gameStage === 'battle' && card.cardType === 'spell' ? 0 : -1}
-                                                    onKeyPress={
-                                                        isActiveTurnFlag && gameStage === 'battle' && card.cardType === 'spell'
-                                                            ? (e) => {
-                                                                  if (e.key === 'Enter') handleSpellUsage(card);
-                                                              }
-                                                            : undefined
-                                                    }
-                                                    style={{
-                                                        cursor:
-                                                            gameStage === 'preparation' || (isActiveTurnFlag && gameStage === 'battle' && card.cardType === 'spell')
-                                                                ? 'pointer'
-                                                                : 'default',
-                                                    }}
-                                                />
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Player's Stats */}
-                                <div className={styles.playerStats}>
-                                    <h3>Your Stats</h3>
-                                    <p>HP: {playerHP}</p>
-                                    <p>Cards in Hand: {myCards.length}</p>
-                                </div>
-                            </div>
-
-                            {/* Action Buttons */}
-                            <div className={styles.actionButtons}>
-                                <button
-                                    className={isActiveTurnFlag ? styles.actionButton : styles.actionButtonDisabled}
-                                    onClick={isActiveTurnFlag && !attackSourceCard ? handleAttackInitiation : undefined}
-                                    disabled={!isActiveTurnFlag || attackSourceCard !== null}
-                                    aria-label="Attack"
-                                >
-                                    Attack
-                                </button>
-                                <button
-                                    className={isActiveTurnFlag ? styles.actionButton : styles.actionButtonDisabled}
-                                    onClick={isActiveTurnFlag ? handleCardUseEffect : undefined}
-                                    disabled={!isActiveTurnFlag}
-                                    aria-label={selectedCard?.card?.cardType === 'monster' ? "Use Effect" : "Use Card"}
-                                >
-                                    {selectedCard?.card?.cardType === 'monster' ? "Use Effect" : "Use Card"}
-                                </button>
-                                <button
-                                    className={isActiveTurnFlag ? styles.actionButton : styles.actionButtonDisabled}
-                                    onClick={isActiveTurnFlag ? switchTurn : undefined}
-                                    disabled={!isActiveTurnFlag}
-                                    aria-label="End Turn"
-                                >
-                                    End Turn
-                                </button>
-
-                                {attackSourceCard && (
-                                    <button
-                                        className={styles.cancelAttackButton}
-                                        onClick={() => {
-                                            setAttackSourceCard(null);
-                                            toast.info('Attack cancelled.');
-                                        }}
-                                        aria-label="Cancel Attack"
-                                    >
-                                        Cancel Attack
-                                    </button>
-                                )}
-                            </div>
-                        </>
-                    )}
-
-                    {gameStage === 'finished' && (
-                        <EndStage
-                            roomId={roomId}
-                            winner={winner}
-                            player1Username={player1Username}
-                            player2Username={player2Username}
-                            userDocId={userDocId}
-                            handleCardTransfer={handleCardTransfer}
-                            showCardTransferModal={showCardTransferModal}
-                            setShowCardTransferModal={setShowCardTransferModal}
-                            transferableCards={transferableCards}
-                            selectedTransferCard={selectedTransferCard}
-                            setSelectedTransferCard={setSelectedTransferCard}
-                        />   
-                    )}
-                    {CardTransferModal()}
-                </div>
-            )}
-
-            {/* Toast Notifications */}
-            <ToastContainer
-                position="top-right"
-                autoClose={5000}
-                hideProgressBar={false}
-                newestOnTop={false}
-                closeOnClick
-                rtl={false}
-                pauseOnFocusLoss
-                draggable
-                pauseOnHover
-                theme="dark"
+        <div
+          className={styles.background}
+          style={{ backgroundImage: `url(${background})` }}
+        >
+          {showGameOverlay && gameStage === "battle" && (
+            <GameOverlay
+              isWinner={isWinner}
+              playerHP={Math.max(playerHP, 0)}
+              opponentHP={Math.max(opponentHP, 0)}
+              playerName={playerId === "player1" ? "Player 1" : "Player 2"}
+              opponentName={playerId === "player1" ? "Player 2" : "Player 1"}
             />
+          )}
+    
+          {/* Push */}
+          {!isRoomJoined && (
+            <div className="text-white text-center">
+              <h2 className="text-5xl mb-4">Welcome to the Battle</h2>
+              <div className={styles.roomActions}>
+                <button
+                  onClick={handleCreateRoom}
+                  className={`me-4 ${styles.roomButton}`}
+                  aria-label="Create Room"
+                >
+                  Create Room
+                </button>
+                <button
+                  onClick={() => setShowAvailableRooms((prev) => !prev)}
+                  className={`mb-4 ${styles.roomButton}`}
+                  aria-label="Join Room"
+                >
+                  {showAvailableRooms ? "Close Room List" : "Join Room"}
+                </button>
+              </div>
+              {showAvailableRooms && (
+                <div className={styles.rooms}>
+                  <h3>Available Rooms</h3>
+                  {loadingRooms ? (
+                    <p>Loading rooms...</p>
+                  ) : errorLoadingRooms ? (
+                    <p className={styles.error}>{errorLoadingRooms}</p>
+                  ) : availableRooms.length === 0 ? (
+                    <p>No available rooms. Create one!</p>
+                  ) : (
+                    <ul>
+                      {availableRooms.map((room) => (
+                        <li key={room.id}>
+                          <span>
+                            Room ID: {room.id} <br />
+                          </span>
+                          {/* **Display the host's username from the 'host' field** */}
+                          <span>Host: {room.host || "Unknown"}</span>
+                          <div>
+                            <button
+                              onClick={() => handleJoinRoom(room.id)}
+                              className={styles.roomButton}
+                              aria-label={`Join Room ${room.id}`}
+                            >
+                              Join
+                            </button>
+                            {/* **Conditional Rendering of Delete Button** */}
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleDeleteRoom(room.id)}
+                                className={styles.roomButton}
+                                aria-label={`Delete Room ${room.id}`}
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          {/* Push */}
+    
+          {isRoomJoined && (
+            <div className={styles.gameContainer}>
+              {/* Conditional Rendering Based on gameStage */}
+              {gameStage === "waiting" && (
+                <WaitingForPlayer roomId={roomId} playerId={playerId} />
+              )}
+    
+              {gameStage === "preparation" && (
+                <PreparationStage
+                  handleReady={handleReady}
+                  playerReady={playerReady}
+                  opponentReady={opponentReady}
+                  opponentUsername={opponentUsername}
+                  preparationTimer={timer}
+                  myDeck={myDeck}
+                  handleSlotClick={handleSlotClick}
+                  handleCardSelection={handleCardSelection}
+                  myCards={myCards}
+                  selectedCard={selectedCard}
+                  handlePositionToggle={handlePositionToggle}
+                  handleRemoveCard={handleRemoveCard}
+                />
+              )}
+    
+              {gameStage === "battle" && (
+                <>
+                  {/* Top Section: Timer */}
+                  <Timer
+                    gameStage={gameStage}
+                    timer={timer}
+                    currentRound={currentRound}
+                    totalRounds={totalRounds}
+                    activePlayer={getActivePlayerUsername()}
+                  />
+    
+                  {/* Opponent's Section */}
+                  <div className={`text-white ${styles.opponentSection}`}>
+                    {/* Opponent's Graveyard */}
+                    <div className={styles.opponentGraveyard}>
+                      <h3 className="text-2xl">{opponentGraveyard.length} Cards</h3>
+                      {/* Hide opponent's graveyard cards and show only the count */}
+                      <p>{opponentUsername}'s Graveyard</p>
+                    </div>
+    
+                    {/* Opponent's Hand */}
+                    <div className={styles.opponentHand}>
+                      <div className={styles.hand}>
+                        {opponentCards.length === 0 ? (
+                          <p className={styles.emptyMessage}>No cards.</p>
+                        ) : (
+                          opponentCards.map((card, index) => (
+                            <img
+                              key={`opponent-hand-card-${index}`}
+                              src={backCard} // Always show back card
+                              alt={`Opponent's Card ${index + 1}`}
+                              className={styles.handCard}
+                            />
+                          ))
+                        )}
+                      </div>
+                    </div>
+    
+                    {/* Opponent's Stats */}
+                    <div className={styles.opponentStats}>
+                      <h3 className="text-2xl">{opponentUsername}'s Stats</h3>
+                      <p className="text-xl">HP: {opponentHP}</p>
+                      <p className="text-xl">
+                        Cards in Hand: {opponentCards.length}
+                      </p>
+                    </div>
+                  </div>
+    
+                  {/* Middle Section: Decks */}
+                  <div
+                    className={`flex justify-evenly items-center h-1/2 ${styles.midRow}`}
+                  >
+                    <div className={styles.decksSection}>
+                      {/* Opponent's Deck */}
+                      <CardSlots
+                        title={`${opponentUsername}'s Deck`}
+                        cards={opponentDeck}
+                        selectedCard={attackSourceCard ? attackSourceCard : null}
+                        onSlotClick={
+                          attackSourceCard ? handleTargetSelection : () => {}
+                        }
+                        isOpponent={true}
+                        isPlayer={false}
+                        gameStage={gameStage}
+                        backCardImage={backCard}
+                      />
+    
+                      {/* Player's Deck */}
+                      <CardSlots
+                        title="Your Deck"
+                        cards={myDeck}
+                        selectedCard={selectedCard}
+                        onSlotClick={handleSlotClick} // Updated to use unified handler
+                        isOpponent={false}
+                        isPlayer={true}
+                        gameStage={gameStage}
+                        backCardImage={backCard}
+                      />
+                    </div>
+    
+                    {/* Last Card Played */}
+                    <div className="flex flex-col w-1/4 text-white">
+                      <div className={styles.lastCardContainer}>
+                        <h3>Last Card Played</h3>
+                        {lastCard ? (
+                          <>
+                            {lastCard.position === "defense" ? (
+                              <img
+                                className={styles.lastCard}
+                                src={backCard}
+                                alt="Last Card (Defense Position)"
+                              />
+                            ) : (
+                              <img
+                                className={styles.lastCard}
+                                src={lastCard.imageUrl}
+                                alt="Last Card"
+                              />
+                            )}
+                            {lastCardOwner && (
+                              <p>{lastCardOwner} played this card.</p>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <img
+                              className={styles.lastCard}
+                              src={blankCardImage}
+                              alt="No Last Card"
+                            />
+                            <p>No cards have been played yet.</p>
+                          </>
+                        )}
+                      </div>
+    
+                      {/* Action Buttons */}
+                      <div className={styles.actionButtons}>
+                        <button
+                          className={
+                            isActiveTurnFlag
+                              ? styles.actionButton
+                              : styles.actionButtonDisabled
+                          }
+                          onClick={
+                            isActiveTurnFlag && !attackSourceCard
+                              ? handleAttackInitiation
+                              : undefined
+                          }
+                          disabled={!isActiveTurnFlag || attackSourceCard !== null}
+                          aria-label="Attack"
+                        >
+                          Attack
+                        </button>
+    
+                        <button
+                          className={
+                            isActiveTurnFlag
+                              ? styles.actionButton
+                              : styles.actionButtonDisabled
+                          }
+                          onClick={
+                            isActiveTurnFlag ? handleCardUseEffect : undefined
+                          }
+                          disabled={!isActiveTurnFlag}
+                          aria-label={
+                            selectedCard?.card?.cardType === "monster"
+                              ? "Use Effect"
+                              : "Use Card"
+                          }
+                        >
+                          {selectedCard?.card?.cardType === "monster"
+                            ? "Use Effect"
+                            : "Use Card"}
+                        </button>
+    
+                        <button
+                          className={
+                            isActiveTurnFlag
+                              ? styles.actionButton
+                              : styles.actionButtonDisabled
+                          }
+                          onClick={isActiveTurnFlag ? switchTurn : undefined}
+                          disabled={!isActiveTurnFlag}
+                          aria-label="End Turn"
+                        >
+                          End Turn
+                        </button>
+    
+                        {attackSourceCard && (
+                          <button
+                            className={
+                              isActiveTurnFlag
+                                ? styles.actionButton
+                                : styles.actionButtonDisabled
+                            }
+                            onClick={() => {
+                              setAttackSourceCard(null);
+                              toast.info("Attack cancelled.");
+                            }}
+                            aria-label="Cancel Attack"
+                          >
+                            Cancel Attack
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+    
+                  {/* Player's Section */}
+                  <div className={`text-white ${styles.playerSection}`}>
+                    {/* Player's Graveyard */}
+                    <div className={styles.playerGraveyard}>
+                      <h3 className="text-2xl">{playerGraveyard.length} Cards</h3>
+                      <p>Your Graveyard</p>
+                    </div>
+    
+                    {/* Player's Hand */}
+                    <div className={styles.playerHand}>
+                      <div className={styles.hand}>
+                        {myCards.length === 0 ? (
+                          <p className={styles.emptyMessage}>No cards in hand.</p>
+                        ) : (
+                          myCards.map((card, index) => (
+                            <img
+                              key={`player-hand-card-${index}`}
+                              src={card.imageUrl}
+                              alt={`Hand Card ${index + 1}`}
+                              className={`${styles.handCard} ${
+                                selectedCard && selectedCard.card.id === card.id
+                                  ? styles.selected
+                                  : ""
+                              }`}
+                              onClick={() => {
+                                if (gameStage === "preparation") {
+                                  handleCardSelection(card, index, "hand");
+                                } else if (
+                                  isActiveTurnFlag &&
+                                  gameStage === "battle" &&
+                                  card.cardType === "spell"
+                                ) {
+                                  handleSpellUsage(card);
+                                }
+                              }}
+                              role={
+                                isActiveTurnFlag &&
+                                gameStage === "battle" &&
+                                card.cardType === "spell"
+                                  ? "button"
+                                  : "img"
+                              }
+                              tabIndex={
+                                isActiveTurnFlag &&
+                                gameStage === "battle" &&
+                                card.cardType === "spell"
+                                  ? 0
+                                  : -1
+                              }
+                              onKeyPress={
+                                isActiveTurnFlag &&
+                                gameStage === "battle" &&
+                                card.cardType === "spell"
+                                  ? (e) => {
+                                      if (e.key === "Enter") handleSpellUsage(card);
+                                    }
+                                  : undefined
+                              }
+                              style={{
+                                cursor:
+                                  gameStage === "preparation" ||
+                                  (isActiveTurnFlag &&
+                                    gameStage === "battle" &&
+                                    card.cardType === "spell")
+                                    ? "pointer"
+                                    : "default",
+                              }}
+                            />
+                          ))
+                        )}
+                      </div>
+                    </div>
+    
+                    {/* Player's Stats */}
+                    <div className={styles.playerStats}>
+                      <h3 className="text-2xl">Your Stats</h3>
+                      <p className="text-xl">HP: {playerHP}</p>
+                      <p className="text-xl">Cards in Hand: {myCards.length}</p>
+                    </div>
+                  </div>
+                </>
+              )}
+    
+              {gameStage === "finished" && (
+                <EndStage
+                  roomId={roomId}
+                  winner={winner}
+                  player1Username={player1Username}
+                  player2Username={player2Username}
+                  userDocId={userDocId}
+                  handleCardTransfer={handleCardTransfer}
+                  showCardTransferModal={showCardTransferModal}
+                  setShowCardTransferModal={setShowCardTransferModal}
+                  transferableCards={transferableCards}
+                  selectedTransferCard={selectedTransferCard}
+                  setSelectedTransferCard={setSelectedTransferCard}
+                />
+              )}
+              {CardTransferModal()}
+            </div>
+          )}
+    
+          {/* Toast Notifications */}
+          <ToastContainer
+            position="top-right"
+            autoClose={5000}
+            hideProgressBar={false}
+            newestOnTop={false}
+            closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+            theme="dark"
+          />
         </div>
     );
 }
