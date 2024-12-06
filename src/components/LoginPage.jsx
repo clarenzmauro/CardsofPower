@@ -203,7 +203,7 @@ function SignupForm({ onSwitch }) {
         email,
         password,
         dateCreated: Timestamp.now(),
-        friends: [],
+        friends: {},
         gamesPlayed: 0,
         gamesLost: 0,
         gamesWon: 0,
@@ -223,6 +223,7 @@ function SignupForm({ onSwitch }) {
           sustain: 0, // Tracks the number of Sustain-related cards or effects
           trap: 0, // Tracks the number of Trap cards or activations
         },
+        profPicUrl: "prof_pic1.jpg",
       };
 
       const userDocRef = await addDoc(collection(firestore, "users"), newUser);
