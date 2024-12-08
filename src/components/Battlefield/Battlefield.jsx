@@ -1507,46 +1507,6 @@ function Battlefield() {
                 break;
     
             case 'spell':
-
-            if(cardName === "Fate Swap"){
-                async function switchPlayerHpWithOpponent(playerId, opponentId, playerHP, opponentHP) {
-                    const db = getFirestore();
-                    const playerRef = doc(db, 'rooms', roomId, 'players', playerId);
-                    const opponentRef = doc(db, 'rooms', roomId, 'players', opponentId);
-
-                    // Swap HP values
-                    const temp = playerHP;
-                    playerHP = opponentHP;
-                    opponentHP = temp;
-
-                    // Update Firestore
-                    await updateDoc(playerRef, { hp: playerHP });
-                    await updateDoc(opponentRef, { hp: opponentHP });
-
-                    return { playerHP, opponentHP };
-                }
-
-                const hpSwapResult = await switchPlayerHpWithOpponent(playerId, opponentId, playerHP, opponentHP);
-                setPlayerHP(hpSwapResult.playerHP);
-                setOpponentHP(hpSwapResult.opponentHP);
-                console.log(`Player HP and Opponent HP have been swapped.`);
-                toast.info(`Player HP and Opponent HP have been swapped.`);
-                
-            } else if(cardName === "Sudden Storm"){
-                opponentDeck.forEach(async (card) => {
-                    if (card.cardType === 'monster') {
-                        card.inGameDefPts -= 200;
-                        console.log(`${card.cardName}'s defense decreased by 200.`);
-                        toast.info(`${card.cardName}'s defense decreased by 200.`);
-                        // Update Firestore
-                        const cardRef = doc(firestore, 'cards', card.id);
-                        await updateDoc(cardRef, {
-                            inGameDefPts: card.inGameDefPts
-                        });
-                    }
-                });
-            }
-
                 // Handle spell card effect (e.g., boost attack, heal, etc.)
                 toast.info(`Activating Spell Card: ${cardName}!`);
                 console.log(`Spell card ${cardName} effect activated.`);
@@ -2157,55 +2117,91 @@ function Battlefield() {
             toast.warn('You can only use Spell cards during the Battle phase.');
             return;
         }
-
+    
         if (!isActiveTurnFlag) {
             toast.warn("It's not your turn!");
             return;
         }
-
+    
         try {
             switch (spellCard.cardName.toLowerCase()) {
-                case 'heal':
-                    // Example: Restore 20 HP to the player
-                    await runTransaction(firestore, async (transaction) => {
-                        const roomDocRef = doc(firestore, 'rooms', roomId);
-                        const roomDoc = await transaction.get(roomDocRef);
-                        if (!roomDoc.exists()) {
-                            throw new Error('Room does not exist!');
-                        }
-
-                        const currentHP = roomDoc.data().hp[playerId] || 5000;
-                        const newHP = Math.min(currentHP + 20, 5000); // Ensure max HP is 5000
-                        transaction.update(roomDocRef, {
-                            [`hp.${playerId}`]: newHP
-                        });
-                    });
-                    toast.success('Heal spell used! Restored 20 HP.');
-                    console.log('Heal spell used.');
+                case 'fate swap': {
+                    // Function to swap player and opponent HP
+                    const switchPlayerHpWithOpponent = async (playerId, opponentId, playerHP, opponentHP) => {
+                       
+                        const playerRef = doc(firestore, 'rooms', roomId, 'players', playerId);
+                        const opponentRef = doc(firestore, 'rooms', roomId, 'players', opponentId);
+    
+                        // Swap HP values
+                        const tempHP = playerHP;
+                        playerHP = opponentHP;
+                        opponentHP = tempHP;
+    
+                        // Update Firestore
+                        await updateDoc(playerRef, { hp: playerHP });
+                        await updateDoc(opponentRef, { hp: opponentHP });
+    
+                        return { playerHP, opponentHP };
+                    };
+    
+                    const { playerHP: newPlayerHP, opponentHP: newOpponentHP } =
+                        await switchPlayerHpWithOpponent(playerId, opponentId, playerHP, opponentHP);
+    
+                    // Update local state
+                    setPlayerHP(newPlayerHP);
+                    setOpponentHP(newOpponentHP);
+                    console.log(`Player HP (${newPlayerHP}) and Opponent HP (${newOpponentHP}) swapped.`);
+                    toast.info(`Player HP and Opponent HP have been swapped.`);
                     break;
-                // Add more spell cases here
+                }
+    
+                case 'sudden storm': {
+                    // Reduce defense points for all opponent's monster cards
+                    const updateCards = opponentDeck.map(async (card) => {
+                        if (card.cardType === 'monster') {
+                            const newDefPts = card.inGameDefPts - 200;
+                            card.inGameDefPts = newDefPts;
+    
+                            console.log(`${card.cardName}'s defense decreased by 200.`);
+                            toast.info(`${card.cardName}'s defense decreased by 200.`);
+    
+                            // Update Firestore
+                            const cardRef = doc(firestore, 'cards', card.id);
+                            await updateDoc(cardRef, { inGameDefPts: newDefPts });
+                        }
+                    });
+    
+                    // Await all updates to complete
+                    await Promise.all(updateCards);
+                    break;
+                }
+    
                 default:
                     toast.warn('Unknown spell effect.');
-                    console.warn(`Spell effect for ${spellCard.cardName} not defined.`);
+                    console.warn(`Spell effect for ${spellCard.cardName} is not defined.`);
+                    return;
             }
-
-            // Remove spell card from hand and add to graveyard
+    
+            // Remove the spell card from the player's hand and move it to the graveyard
             const handDocRef = doc(firestore, 'rooms', roomId, 'players', playerId, 'hand', spellCard.id);
             await deleteDoc(handDocRef);
-
+    
             const graveyardRef = collection(firestore, 'rooms', roomId, 'players', playerId, 'graveyard');
             await addDoc(graveyardRef, spellCard);
-
+    
             // Update local state
-            setMyCards(prevCards => prevCards.filter(card => card.id !== spellCard.id));
+            setMyCards((prevCards) => prevCards.filter((card) => card.id !== spellCard.id));
             toast.success(`Used spell card: ${spellCard.cardName}`);
             console.log(`Used spell card: ${spellCard.cardName}`);
+            await switchTurn();
 
+
+    
         } catch (error) {
             console.error('Error using spell card:', error);
             toast.error('Failed to use spell card.');
         }
-    }, [gameStage, isActiveTurnFlag, roomId, playerId, firestore]);
+    }, [gameStage, isActiveTurnFlag, roomId, playerId, playerHP, opponentHP, opponentDeck, firestore]);
 
     // Function to handle card selection from hand or deck
     const handleCardSelection = useCallback((card, index, source) => {
@@ -2978,6 +2974,25 @@ function Battlefield() {
                             ? "Use Effect"
                             : "Use Card"}
                         </button>
+
+                        <button
+                            className={
+                                isActiveTurnFlag 
+                                    ? styles.actionButton 
+                                    : styles.actionButtonDisabled
+                            }
+                            onClick={
+                                isActiveTurnFlag ? handleFlipCard : undefined
+                            }
+                            disabled={!isActiveTurnFlag}
+                            aria-label={
+                                selectedCard?.card?.cardType === 'monster' ? "Flip Card" : "Card Cannot be Flipped"
+                            }
+                        >
+                            {selectedCard?.card?.cardType === 'monster' 
+                                ? "Flip Card" 
+                                : "Card Cannot be Flipped"}
+                                </button>
     
                         <button
                           className={
