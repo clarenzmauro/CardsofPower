@@ -187,42 +187,60 @@ const LoadingPage = () => {
 
   if (error) {
     return (
-      <main id="loading" className="flex flex-col items-center justify-center">
+      <div id="loading">
         <video
           ref={videoRef}
           src={videoFile}
           muted
-          autoPlay
           loop
+          autoPlay
           playsInline
-          className="w-screen h-screen object-cover absolute top-0 left-0 -z-10"
+          className="fixed top-0 left-0 w-full h-full object-cover -z-10"
         />
-        <div className="text-white text-xl font-bold">{error}</div>
-      </main>
+        
+        <div className="loading-bar">
+          <div 
+            className="loading-progress"
+            style={{ 
+              width: `${Math.min(Math.max(progress, 0), 100)}%`
+            }}
+          />
+        </div>
+        
+        <div className="status-message">
+          <span style={{ color: '#ff4444' }}>{error}</span>
+        </div>
+      </div>
     );
   }
 
   return (
-    <main id="loading" className="flex flex-col items-center justify-center">
+    <div id="loading">
       <video
         ref={videoRef}
         src={videoFile}
         muted
-        autoPlay
         loop
+        autoPlay
         playsInline
-        className="w-screen h-screen object-cover absolute top-0 left-0 -z-10"
+        className="fixed top-0 left-0 w-full h-full object-cover -z-10"
       />
+      
       <div className="loading-bar">
-        <div
-          className="loading-progress"
-          style={{ width: `${progress}%` }}
-        ></div>
+        <div 
+          className="loading-progress" 
+          style={{ width: `${Math.min(Math.max(progress, 0), 100)}%` }}
+        />
       </div>
+      
       <div className="status-message">
-        {statusMessage}
+        {error ? (
+          <span style={{ color: '#ff4444' }}>{error}</span>
+        ) : (
+          <span>{statusMessage}</span>
+        )}
       </div>
-    </main>
+    </div>
   );
 };
 
