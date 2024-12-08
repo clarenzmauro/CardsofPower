@@ -2152,7 +2152,7 @@ const EconomyContent = ({ userData }) => {
 
                 {/* Card Count Graph */}
 
-                <div className="bg-gray-200 p-4 rounded-lg relative bg-[#3b2f2f]">
+                <div className="p-4 rounded-lg relative bg-[#3b2f2f]">
 
                     <h3 className="text-center mb-2 text-white">Card Count Graph</h3>
 
