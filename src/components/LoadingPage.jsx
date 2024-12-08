@@ -156,7 +156,7 @@ const LoadingPage = () => {
           setProgress(66.67 + (processedCards / totalCards) * 16.67);
         }
 
-        // 6. Synchronize Card Stats (83.33-100%)
+        // 6. Synchronize Card Stats (83.33-91.67%)
         setStatusMessage("Synchronizing card battle statistics...");
         processedCards = 0;
         for (const cardDoc of cardsSnapshot.docs) {
@@ -169,7 +169,26 @@ const LoadingPage = () => {
           });
 
           processedCards++;
-          setProgress(83.33 + (processedCards / totalCards) * 16.67);
+          setProgress(83.33 + (processedCards / totalCards) * 8.33);
+        }
+
+        // 7. Update ROI Values (91.67-100%)
+        setStatusMessage("Updating ROI values for all cards...");
+        processedCards = 0;
+        for (const cardDoc of cardsSnapshot.docs) {
+          const cardData = cardDoc.data();
+          const marketValue = cardData.marketValue || 0;
+          const boughtFor = cardData.boughtFor || 0;
+          const roi = marketValue - boughtFor;
+          
+          console.log(`[ROI Update] Card: ${cardDoc.id}, Market Value: ${marketValue}, Bought For: ${boughtFor}, ROI: ${roi}`);
+          
+          await updateDoc(doc(cardsRef, cardDoc.id), {
+            roi: roi
+          });
+
+          processedCards++;
+          setProgress(91.67 + (processedCards / totalCards) * 8.33);
         }
 
         // All validations passed
