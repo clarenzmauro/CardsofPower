@@ -310,7 +310,7 @@ const AccountContent = ({ userData, userDocId }) => {
 
                         username: userData.username,
 
-                        friendCount: (userData.friends || []).length
+                        friendCount: Object.keys(userData.friends || {}).length
 
                     });
 
@@ -1475,7 +1475,7 @@ const BattlefieldContent = ({ userData }) => {
 
                 <div className="w-32 h-32 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex flex-col items-center justify-center text-white shadow-lg">
 
-                    <span className="text-2xl font-bold">{userData?.currentCardCount||0}/{userData?.highestCardCount||0}</span>
+                    <span className="text-2xl font-bold">{userData?.currentCardCount||0} / {userData?.highestCardCount||0}</span>
 
                     <span className="text-sm">Cards</span>
 
