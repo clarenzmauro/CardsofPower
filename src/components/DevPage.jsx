@@ -6,10 +6,9 @@ import ReportsEntries from './ReportsEntries';
 import MailEntries from './MailEntries';
 
 const DevPage = () => {
-  const [activeTab, setActiveTab] = useState('gameData');
+  const [activeTab, setActiveTab] = useState('usersData');
 
   const tabs = [
-    { id: 'gameData', label: 'Game Data' },
     { id: 'usersData', label: 'Users Data' },
     { id: 'workshop', label: 'Workshop' },
     { id: 'reports', label: 'Reports' },
