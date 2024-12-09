@@ -33,7 +33,24 @@
 }
 
 @media (orientation: portrait) {
-  * {
-      display: none;
+  body > * {
+    display: none;
+  }
+
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    width: 100vw;
+    background-color: #000;
+    color: #fff;
+    text-align: center;
+  }
+
+  body::before {
+    content: "Please rotate your device for the best experience.";
+    font-size: 1.5rem;
+    padding: 1rem;
   }
 }
