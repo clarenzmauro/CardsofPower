@@ -1,6 +1,11 @@
 "use client";
 import { SignIn } from "@clerk/nextjs";
 
+/**
+ * @description
+ * custom page for the sign-in component of clerk
+ */
+
 export default function SignInPage() {
     return (
         <main 
@@ -15,7 +20,7 @@ export default function SignInPage() {
                 <SignIn
                     routing="path"
                     path="/sign-in"
-                    fallbackRedirectUrl="/dashboard"
+                    fallbackRedirectUrl="/main-menu"
                     signUpUrl="/sign-up"
                     appearance={{
                         variables: {
