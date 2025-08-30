@@ -1,36 +1,36 @@
-"use client";
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 import Link from "next/link";
-import { SignedIn, SignedOut } from "@clerk/nextjs";
 
 /**
  * @description
  * Landing page that routes users to the right place.
  *
  * @receives data from:
- * - n/a; receives auth state from Clerk context
+ * - Clerk auth() server helper for authentication state
  *
  * @sends data to:
- * - /dashboard: navigation for authenticated users
+ * - /main-menu: server-side redirect for authenticated users
  * - /sign-in: navigation for unauthenticated users
  *
  * @sideEffects:
- * - Client-side navigation only
+ * - Server-side redirect for authenticated users
  */
-export default function Home() {
-	return (
-		<div className="container mx-auto max-w-3xl px-4 py-10">
-			<SignedIn>
-				<div className="rounded-lg border p-6 text-center">
-					<p className="mb-4">You are signed in.</p>
-					<Link className="underline" href="/dashboard">Go to dashboard</Link>
-				</div>
-			</SignedIn>
-			<SignedOut>
-				<div className="rounded-lg border p-6 text-center">
-					<p className="mb-4">Welcome to Cards of Power</p>
-					<Link className="underline" href={{ pathname: "/sign-in" }}>Sign in to continue</Link>
-				</div>
-			</SignedOut>
-		</div>
-	);
+export default async function Home() {
+    const { userId } = await auth();
+    
+	// if signed in then go to main menu, otherwise, sign in
+    if (userId) {
+        redirect("/main-menu");
+    } else {
+		redirect("/sign-in");
+	}
+
+    return (
+        <div className="container mx-auto max-w-3xl px-4 py-10">
+            <div className="rounded-lg border p-6 text-center">
+				{/* loading screen to be added here soon */}
+            </div>
+        </div>
+    );
 }

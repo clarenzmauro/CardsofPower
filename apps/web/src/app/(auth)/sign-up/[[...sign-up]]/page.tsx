@@ -15,11 +15,11 @@ export default function SignUpPage() {
             <SignUp
                 routing="path"
                 path="/sign-up"
-                fallbackRedirectUrl="/dashboard"
+                fallbackRedirectUrl="/main-menu"
                 signInUrl="/sign-in"
                 appearance={{
                     variables: {
-                        colorBackground: 'rgba(125, 75, 26, 0.85)', // same as sign-in
+                        colorBackground: 'rgba(125, 75, 26, 0.85)',
                         colorText: '#000000',
                         fontFamily: 'var(--font-pirata-one)',
                         fontSize: "20px",

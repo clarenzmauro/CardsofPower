@@ -3,7 +3,7 @@ import { Geist, Geist_Mono, Pirata_One } from "next/font/google";
 import "../index.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import Providers from "@/components/providers";
-import Header from "@/components/header";
+// import Header from "@/components/header";
 
 const geistSans = Geist({
 	variable: "--font-geist-sans",
@@ -39,7 +39,7 @@ export default function RootLayout({
 				<ClerkProvider>
 					<Providers>
 						<div className="grid grid-rows-[auto_1fr] h-svh">
-							<Header />
+							{/* <Header /> */}
 							{children}
 						</div>
 					</Providers>
