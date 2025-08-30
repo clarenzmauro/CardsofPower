@@ -1,46 +1,36 @@
 "use client";
-import { useQuery } from "convex/react";
-import { api } from "@cards-of-power/backend/convex/_generated/api";
+import Link from "next/link";
+import { SignedIn, SignedOut } from "@clerk/nextjs";
 
-const TITLE_TEXT = `
- ██████╗ ███████╗████████╗████████╗███████╗██████╗
- ██╔══██╗██╔════╝╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗
- ██████╔╝█████╗     ██║      ██║   █████╗  ██████╔╝
- ██╔══██╗██╔══╝     ██║      ██║   ██╔══╝  ██╔══██╗
- ██████╔╝███████╗   ██║      ██║   ███████╗██║  ██║
- ╚═════╝ ╚══════╝   ╚═╝      ╚═╝   ╚══════╝╚═╝  ╚═╝
-
- ████████╗    ███████╗████████╗ █████╗  ██████╗██╗  ██╗
- ╚══██╔══╝    ██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝
-    ██║       ███████╗   ██║   ███████║██║     █████╔╝
-    ██║       ╚════██║   ██║   ██╔══██║██║     ██╔═██╗
-    ██║       ███████║   ██║   ██║  ██║╚██████╗██║  ██╗
-    ╚═╝       ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
- `;
-
+/**
+ * @description
+ * Landing page that routes users to the right place.
+ *
+ * @receives data from:
+ * - n/a; receives auth state from Clerk context
+ *
+ * @sends data to:
+ * - /dashboard: navigation for authenticated users
+ * - /sign-in: navigation for unauthenticated users
+ *
+ * @sideEffects:
+ * - Client-side navigation only
+ */
 export default function Home() {
-	const healthCheck = useQuery(api.healthCheck.get);
-
 	return (
-		<div className="container mx-auto max-w-3xl px-4 py-2">
-			<pre className="overflow-x-auto font-mono text-sm">{TITLE_TEXT}</pre>
-			<div className="grid gap-6">
-				<section className="rounded-lg border p-4">
-					<h2 className="mb-2 font-medium">API Status</h2>
-					<div className="flex items-center gap-2">
-						<div
-							className={`h-2 w-2 rounded-full ${healthCheck === "OK" ? "bg-green-500" : healthCheck === undefined ? "bg-orange-400" : "bg-red-500"}`}
-						/>
-						<span className="text-sm text-muted-foreground">
-							{healthCheck === undefined
-								? "Checking..."
-								: healthCheck === "OK"
-									? "Connected"
-									: "Error"}
-						</span>
-					</div>
-				</section>
-			</div>
+		<div className="container mx-auto max-w-3xl px-4 py-10">
+			<SignedIn>
+				<div className="rounded-lg border p-6 text-center">
+					<p className="mb-4">You are signed in.</p>
+					<Link className="underline" href="/dashboard">Go to dashboard</Link>
+				</div>
+			</SignedIn>
+			<SignedOut>
+				<div className="rounded-lg border p-6 text-center">
+					<p className="mb-4">Welcome to Cards of Power</p>
+					<Link className="underline" href={{ pathname: "/sign-in" }}>Sign in to continue</Link>
+				</div>
+			</SignedOut>
 		</div>
 	);
 }
