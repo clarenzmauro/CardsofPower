@@ -1,6 +1,11 @@
 "use client";
 import { SignIn } from "@clerk/nextjs";
 
+/**
+ * @description
+ * custom page for the sign-in component of clerk
+ */
+
 export default function SignInPage() {
     return (
         <main 

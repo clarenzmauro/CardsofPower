@@ -1,6 +1,11 @@
 "use client";
 import { SignUp } from "@clerk/nextjs";
 
+/**
+ * @description
+ * custom page for the sign-up of clerk
+ */
+
 export default function SignUpPage() {
     return (
         <main 
@@ -11,6 +16,7 @@ export default function SignUpPage() {
                 routing="path"
                 path="/sign-up"
                 fallbackRedirectUrl="/dashboard"
+                signInUrl="/sign-in"
                 appearance={{
                     variables: {
                         colorBackground: 'rgba(125, 75, 26, 0.85)', // same as sign-in
