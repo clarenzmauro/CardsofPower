@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Pirata_One } from "next/font/google";
 import "../index.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import Providers from "@/components/providers";
@@ -15,6 +15,12 @@ const geistMono = Geist_Mono({
 	subsets: ["latin"],
 });
 
+const pirataOne = Pirata_One({
+	variable: "--font-pirata-one",
+	subsets:["latin"],
+	weight: "400"
+})
+
 export const metadata: Metadata = {
 	title: "cards-of-power",
 	description: "cards-of-power",
@@ -28,7 +34,7 @@ export default function RootLayout({
 	return (
 		<html lang="en" suppressHydrationWarning>
 			<body
-				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+				className={`${geistSans.variable} ${geistMono.variable} ${pirataOne.variable} antialiased`}
 			>
 				<ClerkProvider>
 					<Providers>
