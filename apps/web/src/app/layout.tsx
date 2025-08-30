@@ -5,15 +5,15 @@ import { ClerkProvider } from "@clerk/nextjs";
 import Providers from "@/components/providers";
 // import Header from "@/components/header";
 
-const geistSans = Geist({
-	variable: "--font-geist-sans",
-	subsets: ["latin"],
-});
+// const geistSans = Geist({
+// 	variable: "--font-geist-sans",
+// 	subsets: ["latin"],
+// });
 
-const geistMono = Geist_Mono({
-	variable: "--font-geist-mono",
-	subsets: ["latin"],
-});
+// const geistMono = Geist_Mono({
+// 	variable: "--font-geist-mono",
+// 	subsets: ["latin"],
+// });
 
 const pirataOne = Pirata_One({
 	variable: "--font-pirata-one",
@@ -34,7 +34,7 @@ export default function RootLayout({
 	return (
 		<html lang="en" suppressHydrationWarning>
 			<body
-				className={`${geistSans.variable} ${geistMono.variable} ${pirataOne.variable} antialiased`}
+				className={`${pirataOne.variable} antialiased`}
 			>
 				<ClerkProvider>
 					<Providers>

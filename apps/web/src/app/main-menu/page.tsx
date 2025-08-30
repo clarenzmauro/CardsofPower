@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function MainMenuPage() {
     // large buttons
@@ -61,7 +60,10 @@ export default function MainMenuPage() {
 									className="h-[12vh] w-auto object-contain hover:scale-110 transition-transform"
 								/>
 							</div>
-							<span className="text-white text-sm group-hover:text-yellow-300 transition-colors">
+							<span 
+								className="text-white text-sm group-hover:text-yellow-300 transition-colors"
+								style={{ fontFamily: 'var(--font-pirata-one)' }}
+							>
 								{item.label}
 							</span>
 						</Link>
