@@ -15,7 +15,7 @@ import { v } from "convex/values";
  * - none
  */
 export const getAll = query({
-    handler: async (ctx) => {
+    handler: async (ctx: any) => {
         const cards = await ctx.db.query("cards").collect();
         
         if (!Array.isArray(cards)) {
@@ -41,7 +41,7 @@ export const getAll = query({
  */
 export const getUserInventory = query({
     args: { userId: v.string() },
-    handler: async (ctx, args) => {
+    handler: async (ctx: any, args: any) => {
         // no userId provided, return empty array
         if (!args.userId) {
             return [];
@@ -49,7 +49,7 @@ export const getUserInventory = query({
 
         const user = await ctx.db
             .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.userId))
+            .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", args.userId))
             .first();
         
         // return empty array for missing users
@@ -85,7 +85,7 @@ export const updateOwnership = mutation({
         ownerId: v.optional(v.string()),
         ownerUsername: v.optional(v.string())
     },
-    handler: async (ctx, args) => {
+    handler: async (ctx: any, args: any) => {
         const cardId = args.cardId as any;
         
         const card = await ctx.db.get(cardId);
