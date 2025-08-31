@@ -246,5 +246,3 @@ export const updateOwnership = mutation({
 //         return { cardId, imageUrl };
 //     },
 // });
-
-
