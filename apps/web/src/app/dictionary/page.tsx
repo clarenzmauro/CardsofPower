@@ -63,7 +63,7 @@ export default function DictionaryPage() {
 
   // cache data with TTL
   const { cachedData: cachedCards, isCacheLoaded: cardsCacheLoaded } =
-    useDataCache(freshCards, { key: "cards_all", ttl: 10 * 60 * 1000 }, [
+    useDataCache(freshCards, { key: "cards_all", ttl: 10 * 60 * 28800 }, [
       freshCards,
     ]);
 

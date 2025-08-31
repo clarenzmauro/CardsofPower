@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Pirata_One } from "next/font/google";
+// import { Geist, Geist_Mono } from "next/font/google";
+import { Pirata_One } from "next/font/google";
 import "../index.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import Providers from "@/components/providers";
@@ -22,8 +23,8 @@ const pirataOne = Pirata_One({
 })
 
 export const metadata: Metadata = {
-	title: "cards-of-power",
-	description: "cards-of-power",
+	title: "Cards of Power",
+	description: "Cards of Power",
 };
 
 export default function RootLayout({
