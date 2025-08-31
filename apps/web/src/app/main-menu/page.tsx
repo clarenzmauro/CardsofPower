@@ -17,6 +17,7 @@ export default function MainMenuPage() {
         { label: "Dictionary", href: "/dictionary", image: "/assets/menu/dictionary.png" },
         { label: "Friends", href: "/friends", image: "/assets/menu/friends.png" },
         { label: "Account", href: "/account", image: "/assets/menu/account.png" },
+		// { label: "Upload Card", href: "/upload", image: "/assets/menu/upload.png" },
     ];
 
     return (
