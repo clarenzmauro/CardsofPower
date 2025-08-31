@@ -1,4 +1,19 @@
-// "use client";
+"use client";
+
+// }
+
+// Temporary placeholder component to make this a valid module
+// Uncomment the code below when ready to use the upload functionality
+export default function UploadPage() {
+    return (
+        <main className="min-h-screen bg-gray-900 p-8">
+            <div className="max-w-4xl mx-auto">
+                <h1 className="text-3xl font-bold text-white mb-4">Upload Page</h1>
+                <p className="text-gray-300">This page is temporarily disabled.</p>
+            </div>
+        </main>
+    );
+}
 
 // import { useState } from "react";
 // import { useMutation } from "convex/react";
