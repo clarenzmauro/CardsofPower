@@ -38,8 +38,8 @@ export default function MainMenuPage() {
 							<Image
 								src={item.image}
 								alt={item.label}
-								width={350}  
-								height={400} 
+								width={250}  
+								height={300} 
 								className="h-full w-auto object-contain hover:translate-y-4 transition-transform"
 							/>
 						</div>
