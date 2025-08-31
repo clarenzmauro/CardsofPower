@@ -17,6 +17,7 @@ export default function MainMenuPage() {
         { label: "Dictionary", href: "/dictionary", image: "/assets/menu/dictionary.png" },
         { label: "Friends", href: "/friends", image: "/assets/menu/friends.png" },
         { label: "Account", href: "/account", image: "/assets/menu/account.png" },
+		// { label: "Upload Card", href: "/upload", image: "/assets/menu/upload.png" },
     ];
 
     return (
@@ -37,8 +38,8 @@ export default function MainMenuPage() {
 							<Image
 								src={item.image}
 								alt={item.label}
-								width={350}  
-								height={400} 
+								width={250}  
+								height={300} 
 								className="h-full w-auto object-contain hover:translate-y-4 transition-transform"
 							/>
 						</div>
