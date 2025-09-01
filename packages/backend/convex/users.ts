@@ -1,6 +1,5 @@
-import { mutation, query, QueryCtx } from "./_generated/server";
-import { UserJSON } from "@clerk/backend";
-import { v, Validator } from "convex/values";
+import { mutation, query, type QueryCtx } from "./_generated/server";
+import { v } from "convex/values";
 
 /**
  * @description
