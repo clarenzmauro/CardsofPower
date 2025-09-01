@@ -208,57 +208,57 @@ export default function Workshop() {
         <Button
           variant="outline"
           size="sm"
-          className="bg-black/60 text-black border-black/40 hover:bg-black/80 transition-colors"
+          className="bg-black/60 text-white border-white/40 hover:bg-black/80 transition-colors"
         >
           ← Back to Home
         </Button>
       </Link>
 
       <div className="relative w-full max-w-4xl z-10">
-        <h1 className="text-2xl lg:text-5xl mb-2 lg:mb-4">
-          Pirate Card Submission
-        </h1>
+        <div className="bg-[rgba(125,75,26,0.85)] backdrop-blur-m rounded-lg p-6 lg:p-8 shadow-2xl border border-[rgba(69,26,3,0.3)]">
+          <h1 className="text-2xl lg:text-5xl mb-2 lg:mb-4 font-[var(--font-pirata-one)] text-black text-center">
+            Pirate Card Submission
+          </h1>
 
-        <p className="text-sm lg:text-xl mb-4 lg:mb-6">
-          Ahoy Devs, I be sendin' ye a card o' great importance, a true treasure
-          crafted with care and ready to sail the seas! Arrr, this ain't no
-          ordinary card—it's one that holds the power to make waves, and I trust
-          ye'll handle it with the utmost skill. Below, ye'll find all the
-          details ye need to bring this mighty card to life and ensure its place
-          among the greatest treasures.
-        </p>
-
-        <form
-          onSubmit={handleSubmit}
-          className="flex gap-6 text-xs lg:text-base"
-        >
+          <p className="text-sm lg:text-xl mb-4 lg:mb-6 font-[var(--font-pirata-one)] text-black text-center">
+            Ahoy Devs, I be sendin' ye a card o' great importance, a true treasure
+            crafted with care and ready to sail the seas! Arrr, this ain't no
+            ordinary card—it's one that holds the power to make waves, and I trust
+            ye'll handle it with the utmost skill. Below, ye'll find all the
+            details ye need to bring this mighty card to life and ensure its place
+            among the greatest treasures.
+          </p>
+          <form
+            onSubmit={handleSubmit}
+            className="flex gap-6 text-xs lg:text-base font-[var(--font-pirata-one)]"
+          >
           {/* LEFT SIDE */}
           <div className="w-1/2 space-y-4 lg:space-y-6">
             <div>
-              <label className="block">Card Name:</label>
+              <label className="block text-black font-[var(--font-pirata-one)]">Card Name:</label>
               <input
                 type="text"
                 name="cardName"
                 value={formData.cardName}
                 onChange={handleInputChange}
                 placeholder="Enter card name"
-                className="w-full bg-transparent border-b-2 border-black outline-none text-black"
+                className="w-full bg-transparent border-b-2 border-black outline-none text-black font-[var(--font-pirata-one)] placeholder:text-black/70"
               />
             </div>
 
             <div>
-              <label className="block">Card Description:</label>
+              <label className="block text-black font-[var(--font-pirata-one)]">Card Description:</label>
               <textarea
                 name="cardDesc"
                 value={formData.cardDesc}
                 onChange={handleInputChange}
                 placeholder="Enter description"
-                className="w-full bg-transparent border-b-2 border-black outline-none resize-none text-black"
+                className="w-full bg-transparent border-b-2 border-black outline-none resize-none text-black font-[var(--font-pirata-one)] placeholder:text-black/70"
               />
             </div>
 
             <div>
-              <label className="block">Card Type:</label>
+              <label className="block text-black font-[var(--font-pirata-one)]">Card Type:</label>
               <select
                 name="cardType"
                 value={formData.cardType}
@@ -275,7 +275,7 @@ export default function Workshop() {
                     defPts: 0,
                   });
                 }}
-                className="w-full bg-transparent border-b-2 border-black outline-none"
+                className="w-full bg-transparent border-b-2 border-black outline-none text-black font-[var(--font-pirata-one)]"
               >
                 <option value=""></option>
                 <option value="monster">Monster</option>
@@ -285,11 +285,11 @@ export default function Workshop() {
             </div>
 
             <div>
-              <label className="block">Image File:</label>
+              <label className="block text-black font-[var(--font-pirata-one)]">Image File:</label>
               <input
                 type="file"
                 onChange={handleFileChange}
-                className="w-full border-none bg-transparent outline-none"
+                className="w-full border-none bg-transparent outline-none text-black font-[var(--font-pirata-one)]"
               />
             </div>
 
@@ -298,7 +298,7 @@ export default function Workshop() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-lg text-white bg-[rgb(69,26,3)]"
+              className="w-full py-3 rounded-lg text-white bg-[rgb(69,26,3)] font-[var(--font-pirata-one)] text-lg hover:bg-[rgb(89,36,13)] transition-colors disabled:opacity-50"
             >
               {loading ? "Creating..." : "Create Card"}
             </button>
@@ -308,7 +308,7 @@ export default function Workshop() {
           {formData.cardType === "monster" && (
             <div className="w-1/2 space-y-4 lg:space-y-6">
               <div>
-                <label className="block">Attack Points:</label>
+                <label className="block text-black font-[var(--font-pirata-one)]">Attack Points:</label>
                 <input
                   type="number"
                   name="atkPts"
@@ -316,12 +316,12 @@ export default function Workshop() {
                   onChange={handleInputChange}
                   max="5000"
                   placeholder="0 - 5000"
-                  className="w-full bg-transparent border-b-2 border-black outline-none text-black"
+                  className="w-full bg-transparent border-b-2 border-black outline-none text-black font-[var(--font-pirata-one)] placeholder:text-black/70"
                 />
               </div>
 
               <div>
-                <label className="block">Defense Points:</label>
+                <label className="block text-black font-[var(--font-pirata-one)]">Defense Points:</label>
                 <input
                   type="number"
                   name="defPts"
@@ -329,12 +329,12 @@ export default function Workshop() {
                   onChange={handleInputChange}
                   max="5000"
                   placeholder="0 - 5000"
-                  className="w-full bg-transparent border-b-2 border-black outline-none"
+                  className="w-full bg-transparent border-b-2 border-black outline-none text-black font-[var(--font-pirata-one)] placeholder:text-black/70"
                 />
               </div>
 
               <div>
-                <label className="block">Card Level:</label>
+                <label className="block text-black font-[var(--font-pirata-one)]">Card Level:</label>
                 <input
                   type="number"
                   name="cardLevel"
@@ -342,17 +342,17 @@ export default function Workshop() {
                   onChange={handleInputChange}
                   max="10"
                   placeholder="0 - 10"
-                  className="w-full bg-transparent border-b-2 border-black outline-none"
+                  className="w-full bg-transparent border-b-2 border-black outline-none text-black font-[var(--font-pirata-one)] placeholder:text-black/70"
                 />
               </div>
 
               <div>
-                <label className="block">Attribute:</label>
+                <label className="block text-black font-[var(--font-pirata-one)]">Attribute:</label>
                 <select
                   name="cardAttribute"
                   value={formData.cardAttribute}
                   onChange={handleInputChange}
-                  className="w-full bg-transparent border-b-2 border-black outline-none"
+                  className="w-full bg-transparent border-b-2 border-black outline-none text-black font-[var(--font-pirata-one)]"
                 >
                   <option value=""></option>
                   <option value="fire">Fire</option>
@@ -366,12 +366,12 @@ export default function Workshop() {
               </div>
 
               <div>
-                <label className="block">Character:</label>
+                <label className="block text-black font-[var(--font-pirata-one)]">Character:</label>
                 <select
                   name="cardCharacter"
                   value={formData.cardCharacter}
                   onChange={handleInputChange}
-                  className="w-full bg-transparent border-b-2 border-black outline-none"
+                  className="w-full bg-transparent border-b-2 border-black outline-none text-black font-[var(--font-pirata-one)]"
                 >
                   <option value=""></option>
                   <option value="normal">Normal</option>
@@ -382,12 +382,12 @@ export default function Workshop() {
               </div>
 
               <div>
-                <label className="block">Class:</label>
+                <label className="block text-black font-[var(--font-pirata-one)]">Class:</label>
                 <select
                   name="cardClass"
                   value={formData.cardClass}
                   onChange={handleInputChange}
-                  className="w-full bg-transparent border-b-2 border-black outline-none"
+                  className="w-full bg-transparent border-b-2 border-black outline-none text-black font-[var(--font-pirata-one)]"
                 >
                   <option value=""></option>
                   <option value="warrior">Warrior</option>
@@ -402,7 +402,8 @@ export default function Workshop() {
               </div>
             </div>
           )}
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );

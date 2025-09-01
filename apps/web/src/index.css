@@ -3,12 +3,13 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* @theme {
+@theme {
+	--font-pirata-one: var(--font-pirata-one);
 	--font-sans:
 		var(--font-pirata-one),
 		"Inter", "Geist", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
 		"Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-} */
+}
 
 html,
 body {
