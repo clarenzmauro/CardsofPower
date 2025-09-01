@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import ShopNavigation from '@/components/shop-navigation';
 
-export default function ShopPage() {
+export default function ListingPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
@@ -24,7 +24,7 @@ export default function ShopPage() {
       {/* Content */}
       <div className="relative z-10 min-h-screen">
         {/* Navigation Component */}
-        <ShopNavigation activeTab="shop" />
+        <ShopNavigation activeTab="listing" />
 
         {/* Search Bar */}
         <div className="flex justify-center px-4 mb-6">
@@ -69,10 +69,10 @@ export default function ShopPage() {
         {/* Main Content Area */}
         <div className="px-8 pb-8">
           <div className="bg-black bg-opacity-30 rounded-lg min-h-96 p-6">
-            {/* This is where the shop content will go */}
+            {/* This is where the listing content will go */}
             <div className="text-white text-center py-20">
-              <h2 className="text-2xl font-bold mb-4">Welcome to the Shop</h2>
-              <p className="text-gray-300">Browse and purchase cards from other players</p>
+              <h2 className="text-2xl font-bold mb-4">My Listings</h2>
+              <p className="text-gray-300">Manage your card listings and sales</p>
             </div>
           </div>
         </div>
