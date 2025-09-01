@@ -131,7 +131,7 @@ export default function AccountPage() {
     >
       <div className="flex w-full h-full">
         {/* LEFT SIDEBAR */}
-        <div className="w-1/4 bg-[rgba(125,75,26,0.9)] backdrop-blur-sm border-r border-[rgba(69,26,3,0.5)] flex flex-col">
+        <div className="w-1/5 bg-[rgba(125,75,26,0.9)] backdrop-blur-sm border-r border-[rgba(69,26,3,0.5)] flex flex-col">
           <div className="p-4 border-b border-[rgba(69,26,3,0.3)]">
             {/* Back button */}
             <Link href="/" className="block mb-4">
@@ -196,7 +196,7 @@ export default function AccountPage() {
         </div>
 
         {/* MAIN CONTENT AREA */}
-        <div className="flex-1 bg-[rgba(125,75,26,0.7)] backdrop-blur-sm overflow-y-auto">
+        <div className="flex-1 bg-[rgba(125,75,26,0.7)] backdrop-blur-s overflow-y-auto">
           {activeTab === "account" && (
             <div className="p-6 space-y-6">
               {/* Profile Section */}
