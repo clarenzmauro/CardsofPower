@@ -7,6 +7,16 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '5mb',
     },
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'knowing-bear-504.convex.cloud',
+        port: '',
+        pathname: '/api/storage/**',
+      },
+    ],
+  },
 };
 
 export default nextConfig;
