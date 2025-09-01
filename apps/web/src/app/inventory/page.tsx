@@ -31,7 +31,7 @@ export default function InventoryPage() {
   const goldCount = 100;
 
   // fetch data from convex
-  const freshUserData = useQuery(api.users.getCurrentUser);
+  const freshUserData = useQuery(api.users.current);
   const freshUserInventory = useQuery(
     api.cards.getUserInventory,
     user?.id ? { userId: user.id } : { userId: "" }

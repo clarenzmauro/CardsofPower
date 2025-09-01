@@ -58,7 +58,7 @@ export default function DictionaryPage() {
     api.cards.getUserInventory,
     user?.id ? { userId: user.id } : { userId: "" }
   );
-  const freshUserData = useQuery(api.users.getCurrentUser);
+  const freshUserData = useQuery(api.users.current);
 
   // cache data with TTL
   const { cachedData: cachedCards, isCacheLoaded: cardsCacheLoaded } =
