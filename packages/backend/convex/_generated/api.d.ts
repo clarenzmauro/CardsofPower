@@ -11,6 +11,7 @@
 import type * as cards from "../cards.js";
 import type * as http from "../http.js";
 import type * as privateData from "../privateData.js";
+import type * as storage from "../storage.js";
 import type * as users from "../users.js";
 
 import type {
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   cards: typeof cards;
   http: typeof http;
   privateData: typeof privateData;
+  storage: typeof storage;
   users: typeof users;
 }>;
 declare const fullApiWithMounts: typeof fullApi;

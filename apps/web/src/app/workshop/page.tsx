@@ -2,13 +2,13 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
 import { useMutation } from "convex/react";
+import { useUser } from "@clerk/nextjs";
 import { api } from "@cards-of-power/backend/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 
 export default function Workshop() {
-  const { userDocId } = useParams<{ userDocId: string }>();
+  const { user } = useUser();
 
   interface CardFormData {
     cardName: string;
@@ -38,7 +38,8 @@ export default function Workshop() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const createCard = useMutation(api.cards.addCompleteCard);
+  const createCard = useMutation(api.cards.addCardWithImage);
+  const generateUploadUrl = useMutation(api.storage.generateUploadUrl);
 
   const validateForm = () => {
     const {
@@ -97,26 +98,55 @@ export default function Workshop() {
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    console.log("Form submitted!");
     e.preventDefault();
     setError("");
+    
+    console.log("Current form data:", formData);
+    console.log("User ID:", user?.id);
+    
     const validationError = validateForm();
     if (validationError) {
+      console.log("Validation error:", validationError);
       setError(validationError);
       return;
     }
 
+    console.log("Validation passed, starting upload...");
     setLoading(true);
     try {
-      const imageUrl = formData.imageFile
-        ? URL.createObjectURL(formData.imageFile)
-        : "/assets/cards/blank.png";
+      let storageId = "";
+      
+      // Upload image to Convex storage if provided
+      if (formData.imageFile) {
+        console.log("Uploading image...", formData.imageFile.name);
+        const uploadUrl = await generateUploadUrl();
+        console.log("Got upload URL:", uploadUrl);
+        
+        const result = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": formData.imageFile.type },
+          body: formData.imageFile,
+        });
+        
+        if (!result.ok) {
+          throw new Error(`Upload failed: ${result.status} ${result.statusText}`);
+        }
+        
+        const uploadResponse = await result.json();
+        console.log("Upload response:", uploadResponse);
+        storageId = uploadResponse.storageId;
+      } else {
+        throw new Error("Image file is required");
+      }
 
-      await createCard({
+      console.log("Creating card with storageId:", storageId);
+      const cardData = {
         // Basic Info
         name: formData.cardName,
         type: formData.cardType,
         description: formData.cardDesc,
-        imageUrl: imageUrl,
+        storageId: storageId,
 
         // Monster Stats
         atkPts:
@@ -136,14 +166,32 @@ export default function Workshop() {
         // Ownership & Market
         isOwned: false,
         isListed: false,
-        currentOwnerId: userDocId,
-        currentOwnerUsername: "",
-      });
+        currentOwnerId: user?.id || "anonymous",
+        currentOwnerUsername: user?.username || "",
+      };
+      
+      console.log("Card data to create:", cardData);
+      const result = await createCard(cardData);
+      console.log("Card created successfully:", result);
 
       alert("Card created successfully");
+      
+      // Reset form after successful creation
+      setFormData({
+        cardName: "",
+        cardDesc: "",
+        cardType: "",
+        atkPts: 0,
+        defPts: 0,
+        cardLevel: 0,
+        cardAttribute: "",
+        cardCharacter: "",
+        cardClass: "",
+        imageFile: null,
+      });
     } catch (error) {
       console.error("Failed to create card: ", error);
-      alert("Failed to create card");
+      setError(`Failed to create card: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
