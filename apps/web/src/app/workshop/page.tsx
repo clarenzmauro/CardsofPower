@@ -8,14 +8,28 @@ import { api } from "@cards-of-power/backend/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 
 export default function Workshop() {
-  const { userDocId } = useParams();
-  const [formData, setFormData] = useState({
+  const { userDocId } = useParams<{ userDocId: string }>();
+
+  interface CardFormData {
+    cardName: string;
+    cardDesc: string;
+    cardType: string;
+    atkPts: number | string;
+    defPts: number | string;
+    cardLevel: number | string;
+    cardAttribute: string;
+    cardCharacter: string;
+    cardClass: string;
+    imageFile: File | null;
+  }
+
+  const [formData, setFormData] = useState<CardFormData>({
     cardName: "",
     cardDesc: "",
     cardType: "",
-    atkPts: "",
-    defPts: "",
-    cardLevel: "",
+    atkPts: 0,
+    defPts: 0,
+    cardLevel: 0,
     cardAttribute: "",
     cardCharacter: "",
     cardClass: "",
@@ -24,37 +38,65 @@ export default function Workshop() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const createCard = useMutation(api.cards.createCard);
+  const createCard = useMutation(api.cards.addCompleteCard);
 
   const validateForm = () => {
-    const { cardName, cardDesc, cardType, atkPts, defPts, cardLevel, cardAttribute, cardCharacter, cardClass } = formData;
+    const {
+      cardName,
+      cardDesc,
+      cardType,
+      atkPts,
+      defPts,
+      cardLevel,
+      cardAttribute,
+      cardCharacter,
+      cardClass,
+    } = formData;
     if (!cardName || !cardDesc || !cardType || !formData.imageFile) {
       return "All fields are required.";
     }
     if (cardType === "monster") {
-      if (!atkPts || !defPts || !cardLevel || !cardAttribute || !cardCharacter || !cardClass) {
+      const atkNum = Number(atkPts);
+      const defNum = Number(defPts);
+      const levelNum = Number(cardLevel);
+
+      if (
+        !atkNum ||
+        !defNum ||
+        !levelNum ||
+        !cardAttribute ||
+        !cardCharacter ||
+        !cardClass
+      ) {
         return "All monster-specific fields are required.";
       }
-      if (atkPts > 5000 || atkPts < 0 || defPts > 5000 || defPts < 0) {
+      if (atkNum > 5000 || atkNum < 0 || defNum > 5000 || defNum < 0) {
         return "ATK and DEF points must not exceed 5000 or be less than 0.";
       }
-      if (cardLevel > 10 || cardLevel < 0) {
+      if (levelNum > 10 || levelNum < 0) {
         return "Card Level must not exceed 10 or be less than 0.";
       }
     }
     return "";
   };
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleFileChange = (e) => {
-    setFormData({ ...formData, imageFile: e.target.files[0] });
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFormData({ ...formData, imageFile: file });
+    }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     const validationError = validateForm();
@@ -65,43 +107,43 @@ export default function Workshop() {
 
     setLoading(true);
     try {
-      // Upload file to Convex storage
-      const uploadUrl = await fetch("/api/storage/uploadUrl").then((res) => res.json());
-      await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": formData.imageFile.type },
-        body: formData.imageFile,
-      });
-      const storageId = uploadUrl.storageId;
+      const imageUrl = formData.imageFile
+        ? URL.createObjectURL(formData.imageFile)
+        : "/assets/cards/blank.png";
 
-      // Send card data to Convex
       await createCard({
-        formData: {
-          ...formData,
-          atkPts: formData.cardType === "monster" ? Number(formData.atkPts) : 0,
-          defPts: formData.cardType === "monster" ? Number(formData.defPts) : 0,
-          cardLevel: formData.cardType === "monster" ? Number(formData.cardLevel) : 0,
-        },
-        imageStorageId: storageId,
-        creatorId: userDocId,
+        // Basic Info
+        name: formData.cardName,
+        type: formData.cardType,
+        description: formData.cardDesc,
+        imageUrl: imageUrl,
+
+        // Monster Stats
+        atkPts:
+          formData.cardType === "monster" ? Number(formData.atkPts) : undefined,
+        defPts:
+          formData.cardType === "monster" ? Number(formData.defPts) : undefined,
+
+        // Monster Properties
+        attribute: formData.cardAttribute || undefined,
+        class: formData.cardClass || undefined,
+        character: formData.cardCharacter || undefined,
+        level:
+          formData.cardType === "monster"
+            ? Number(formData.cardLevel)
+            : undefined,
+
+        // Ownership & Market
+        isOwned: false,
+        isListed: false,
+        currentOwnerId: userDocId,
+        currentOwnerUsername: "",
       });
 
-      alert("Card successfully created!");
-      setFormData({
-        cardName: "",
-        cardDesc: "",
-        cardType: "",
-        atkPts: "",
-        defPts: "",
-        cardLevel: "",
-        cardAttribute: "",
-        cardCharacter: "",
-        cardClass: "",
-        imageFile: null,
-      });
-    } catch (err) {
-      console.error(err);
-      setError("An error occurred while creating the card.");
+      alert("Card created successfully");
+    } catch (error) {
+      console.error("Failed to create card: ", error);
+      alert("Failed to create card");
     } finally {
       setLoading(false);
     }
@@ -113,31 +155,35 @@ export default function Workshop() {
       style={{ backgroundImage: "url('/assets/backgrounds/workshop.png')" }}
       className="h-screen w-screen bg-cover bg-center flex justify-center items-center text-black"
     >
-
-        {/* back button */}
-        <Link href="/" className="fixed top-4 left-4 z-50">
-            <Button
-            variant="outline"
-            size="sm"
-            className="bg-black/60 text-black border-black/40 hover:bg-black/80 transition-colors"
-            >
+      {/* back button */}
+      <Link href="/" className="fixed top-4 left-4 z-50">
+        <Button
+          variant="outline"
+          size="sm"
+          className="bg-black/60 text-black border-black/40 hover:bg-black/80 transition-colors"
+        >
           ← Back to Home
         </Button>
       </Link>
 
-      
       <div className="relative w-full max-w-4xl z-10">
-        <h1 className="text-2xl lg:text-5xl mb-2 lg:mb-4">Pirate Card Submission</h1>
-  
+        <h1 className="text-2xl lg:text-5xl mb-2 lg:mb-4">
+          Pirate Card Submission
+        </h1>
+
         <p className="text-sm lg:text-xl mb-4 lg:mb-6">
-          Ahoy Devs, I be sendin' ye a card o' great importance, a true treasure crafted with care and ready to sail the
-          seas! Arrr, this ain't no ordinary card—it's one that holds the power
-          to make waves, and I trust ye'll handle it with the utmost skill.
-          Below, ye'll find all the details ye need to bring this mighty card
-          to life and ensure its place among the greatest treasures.
+          Ahoy Devs, I be sendin' ye a card o' great importance, a true treasure
+          crafted with care and ready to sail the seas! Arrr, this ain't no
+          ordinary card—it's one that holds the power to make waves, and I trust
+          ye'll handle it with the utmost skill. Below, ye'll find all the
+          details ye need to bring this mighty card to life and ensure its place
+          among the greatest treasures.
         </p>
-  
-        <form onSubmit={handleSubmit} className="flex gap-6 text-xs lg:text-base">
+
+        <form
+          onSubmit={handleSubmit}
+          className="flex gap-6 text-xs lg:text-base"
+        >
           {/* LEFT SIDE */}
           <div className="w-1/2 space-y-4 lg:space-y-6">
             <div>
@@ -151,7 +197,7 @@ export default function Workshop() {
                 className="w-full bg-transparent border-b-2 border-black outline-none text-black"
               />
             </div>
-  
+
             <div>
               <label className="block">Card Description:</label>
               <textarea
@@ -162,7 +208,7 @@ export default function Workshop() {
                 className="w-full bg-transparent border-b-2 border-black outline-none resize-none text-black"
               />
             </div>
-  
+
             <div>
               <label className="block">Card Type:</label>
               <select
@@ -176,9 +222,9 @@ export default function Workshop() {
                     cardAttribute: "",
                     cardClass: "",
                     cardCharacter: "",
-                    cardLevel: "",
-                    atkPts: "",
-                    defPts: "",
+                    cardLevel: 0,
+                    atkPts: 0,
+                    defPts: 0,
                   });
                 }}
                 className="w-full bg-transparent border-b-2 border-black outline-none"
@@ -189,7 +235,7 @@ export default function Workshop() {
                 <option value="trap">Trap</option>
               </select>
             </div>
-  
+
             <div>
               <label className="block">Image File:</label>
               <input
@@ -198,9 +244,9 @@ export default function Workshop() {
                 className="w-full border-none bg-transparent outline-none"
               />
             </div>
-  
+
             {error && <p className="text-red-600">{error}</p>}
-  
+
             <button
               type="submit"
               disabled={loading}
@@ -209,7 +255,7 @@ export default function Workshop() {
               {loading ? "Creating..." : "Create Card"}
             </button>
           </div>
-  
+
           {/* RIGHT SIDE (only for monster) */}
           {formData.cardType === "monster" && (
             <div className="w-1/2 space-y-4 lg:space-y-6">
@@ -225,7 +271,7 @@ export default function Workshop() {
                   className="w-full bg-transparent border-b-2 border-black outline-none text-black"
                 />
               </div>
-  
+
               <div>
                 <label className="block">Defense Points:</label>
                 <input
@@ -238,7 +284,7 @@ export default function Workshop() {
                   className="w-full bg-transparent border-b-2 border-black outline-none"
                 />
               </div>
-  
+
               <div>
                 <label className="block">Card Level:</label>
                 <input
@@ -251,7 +297,7 @@ export default function Workshop() {
                   className="w-full bg-transparent border-b-2 border-black outline-none"
                 />
               </div>
-  
+
               <div>
                 <label className="block">Attribute:</label>
                 <select
@@ -270,7 +316,7 @@ export default function Workshop() {
                   <option value="divine">Divine</option>
                 </select>
               </div>
-  
+
               <div>
                 <label className="block">Character:</label>
                 <select
@@ -286,7 +332,7 @@ export default function Workshop() {
                   <option value="ritual">Ritual</option>
                 </select>
               </div>
-  
+
               <div>
                 <label className="block">Class:</label>
                 <select
@@ -312,5 +358,4 @@ export default function Workshop() {
       </div>
     </div>
   );
-}  
-
+}
