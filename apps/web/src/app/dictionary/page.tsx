@@ -51,7 +51,6 @@ export default function DictionaryPage() {
   const [selectedCharacter, setSelectedCharacter] = useState("");
   const [selectedLevel, setSelectedLevel] = useState("");
   const [selectedCard, setSelectedCard] = useState<CardData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
   // fetch data from convex
   const freshCards = useQuery(api.cards.getAll);
@@ -59,11 +58,11 @@ export default function DictionaryPage() {
     api.cards.getUserInventory,
     user?.id ? { userId: user.id } : { userId: "" }
   );
-  const freshUserData = useQuery(api.users.getCurrentUser);
+  const freshUserData = useQuery(api.users.current);
 
   // cache data with TTL
   const { cachedData: cachedCards, isCacheLoaded: cardsCacheLoaded } =
-    useDataCache(freshCards, { key: "cards_all", ttl: 10 * 60 * 1000 }, [
+    useDataCache(freshCards, { key: "cards_all", ttl: 8 * 60 * 60 * 1000 }, [
       freshCards,
     ]);
 
@@ -153,7 +152,7 @@ export default function DictionaryPage() {
   };
 
   // handle card selection
-  const handleCardClick = (card: any) => {
+  const handleCardClick = (card: CardData) => {
     setSelectedCard(card);
   };
 
@@ -172,32 +171,22 @@ export default function DictionaryPage() {
   };
 
   // manage loading state
-  useEffect(() => {
-    if (cachedCards && cardsCacheLoaded) {
-      setIsLoading(false);
-      return;
-    }
+  const isLoading = useMemo(() => {
+    // check data (cache is prioritized)
+    const hasCardData = cachedCards !== undefined || freshCards !== undefined;
+    const hasInventoryData = cachedUserInventory !== undefined || freshUserInventory !== undefined;
+    const hasUserData = cachedUserData !== undefined || freshUserData !== undefined;
 
-    if (cardsCacheLoaded && inventoryCacheLoaded && userDataCacheLoaded) {
-      const hasFreshCards = freshCards !== undefined;
-      const hasFreshInventory = freshUserInventory !== undefined;
-      const hasFreshUserData = freshUserData !== undefined;
-
-      if (hasFreshCards && hasFreshInventory && hasFreshUserData) {
-        setIsLoading(false);
-      }
-    }
-  }, [
-    freshCards,
-    cachedCards,
-    cardsCacheLoaded,
-    freshUserInventory,
-    cachedUserInventory,
-    inventoryCacheLoaded,
-    freshUserData,
-    cachedUserData,
-    userDataCacheLoaded,
-  ]);
+    // only load if there's missing data
+    return !(hasCardData && hasInventoryData && hasUserData);
+    }, [
+      cachedCards,
+      freshCards,
+      cachedUserInventory,
+      freshUserInventory,
+      cachedUserData,
+      freshUserData,
+    ]);
 
   // clear user caches when user changes
   useEffect(() => {

@@ -19,6 +19,7 @@
 		"@types/node": "^24.3.0",
 		"@types/react": "^19.1.12",
 		"@types/uuid": "^10.0.0",
+		"convex": "^1.26.2",
 		"file-saver": "^2.0.5",
 		"lucide-react": "^0.542.0",
 		"uuid": "^11.1.0"

@@ -53,14 +53,17 @@ export default defineSchema({
 	 .index("by_owner", ["currentOwnerId"]),
 
 	users: defineTable({
-		clerkId: v.string(),
-		username: v.string(),
-		email: v.string(),
+		name: v.optional(v.string()),
+		externalId: v.optional(v.string()),
+		clerkId: v.optional(v.string()),
+		username: v.optional(v.string()),
+		email: v.optional(v.string()),
 		goldCount: v.number(),
 		inventory: v.array(v.string()),
 		currentCardCount: v.number(),
 		highestCardCount: v.number(),
 		profPicUrl: v.string(),
 		dateCreated: v.string()
-	}).index("by_clerk_id", ["clerkId"]),
+	}).index("byExternalId", ["externalId"])
+	 .index("by_clerk_id", ["clerkId"]),
 });

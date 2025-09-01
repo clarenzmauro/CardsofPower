@@ -15,7 +15,7 @@ import { v } from "convex/values";
  * - none
  */
 export const getAll = query({
-    handler: async (ctx) => {
+    handler: async (ctx: any) => {
         const cards = await ctx.db.query("cards").collect();
         
         if (!Array.isArray(cards)) {
@@ -41,7 +41,7 @@ export const getAll = query({
  */
 export const getUserInventory = query({
     args: { userId: v.string() },
-    handler: async (ctx, args) => {
+    handler: async (ctx: any, args: any) => {
         // no userId provided, return empty array
         if (!args.userId) {
             return [];
@@ -49,7 +49,7 @@ export const getUserInventory = query({
 
         const user = await ctx.db
             .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.userId))
+            .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", args.userId))
             .first();
         
         // return empty array for missing users
@@ -85,7 +85,7 @@ export const updateOwnership = mutation({
         ownerId: v.optional(v.string()),
         ownerUsername: v.optional(v.string())
     },
-    handler: async (ctx, args) => {
+    handler: async (ctx: any, args: any) => {
         const cardId = args.cardId as any;
         
         const card = await ctx.db.get(cardId);
@@ -104,147 +104,145 @@ export const updateOwnership = mutation({
     },
 });
 
-// uncomment these if you want to upload cards easily
-// /**
-//  * @description
-//  * Mutation to add a card with all Firebase fields
-//  * 
-//  * @receives data from:
-//  * - client: complete card data object
-//  * 
-//  * @sends data to:
-//  * - cards table: new card document
-//  * 
-//  * @sideEffects:
-//  * - Creates new card record in database
-//  */
-// export const addCompleteCard = mutation({
-//     args: {
-//         // Basic Info
-//         name: v.string(),
-//         type: v.string(),
-//         description: v.optional(v.string()),
-//         imageUrl: v.string(),
+// comment these out if you want to remove uploading cards easily
+/**
+ * @description
+ * Mutation to add a card with all Firebase fields
+ * 
+ * @receives data from:
+ * - client: complete card data object
+ * 
+ * @sends data to:
+ * - cards table: new card document
+ * 
+ * @sideEffects:
+ * - Creates new card record in database
+ */
+export const addCompleteCard = mutation({
+    args: {
+        // Basic Info
+        name: v.string(),
+        type: v.string(),
+        description: v.optional(v.string()),
+        imageUrl: v.string(),
         
-//         // Monster Stats
-//         atkPts: v.optional(v.number()),
-//         defPts: v.optional(v.number()),
-//         inGameAtkPts: v.optional(v.number()),
-//         inGameDefPts: v.optional(v.number()),
+        // Monster Stats
+        atkPts: v.optional(v.number()),
+        defPts: v.optional(v.number()),
+        inGameAtkPts: v.optional(v.number()),
+        inGameDefPts: v.optional(v.number()),
         
-//         // Monster Properties
-//         attribute: v.optional(v.string()),
-//         class: v.optional(v.string()),
-//         character: v.optional(v.string()),
-//         level: v.optional(v.number()),
+        // Monster Properties
+        attribute: v.optional(v.string()),
+        class: v.optional(v.string()),
+        character: v.optional(v.string()),
+        level: v.optional(v.number()),
         
-//         // Ownership & Market
-//         isOwned: v.boolean(),
-//         isListed: v.optional(v.boolean()),
-//         currentOwnerId: v.optional(v.string()),
-//         currentOwnerUsername: v.optional(v.string()),
-//         boughtFor: v.optional(v.number()),
-//         marketValue: v.optional(v.number()),
-//         marketCount: v.optional(v.number()),
-//         roi: v.optional(v.number()),
-//         passCount: v.optional(v.number()),
+        // Ownership & Market
+        isOwned: v.boolean(),
+        isListed: v.optional(v.boolean()),
+        currentOwnerId: v.optional(v.string()),
+        currentOwnerUsername: v.optional(v.string()),
+        boughtFor: v.optional(v.number()),
+        marketValue: v.optional(v.number()),
+        marketCount: v.optional(v.number()),
+        roi: v.optional(v.number()),
+        passCount: v.optional(v.number()),
         
-//         // Statistics
-//         matches: v.optional(v.object({
-//             wins: v.number(),
-//             total: v.number()
-//         })),
-//         cardWin: v.optional(v.object({
-//             global: v.number(),
-//             local: v.number()
-//         })),
-//         cardLose: v.optional(v.object({
-//             global: v.number(),
-//             local: v.number()
-//         })),
-//     },
-//     handler: async (ctx, args) => {
-//         const cardId = await ctx.db.insert("cards", args);
-//         return { cardId };
-//     },
-// });
+        // Statistics
+        matches: v.optional(v.object({
+            wins: v.number(),
+            total: v.number()
+        })),
+        cardWin: v.optional(v.object({
+            global: v.number(),
+            local: v.number()
+        })),
+        cardLose: v.optional(v.object({
+            global: v.number(),
+            local: v.number()
+        })),
+    },
+    handler: async (ctx, args) => {
+        const cardId = await ctx.db.insert("cards", args);
+        return { cardId };
+    },
+});
 
-// /**
-//  * @description
-//  * Mutation to add card with uploaded image
-//  * 
-//  * @receives data from:
-//  * - client: card data + storage ID
-//  * 
-//  * @sends data to:
-//  * - cards table: new card document
-//  * 
-//  * @sideEffects:
-//  * - Creates new card record with stored image URL
-//  */
-// export const addCardWithImage = mutation({
-//     args: {
-//         // Basic Info
-//         name: v.string(),
-//         type: v.string(),
-//         description: v.optional(v.string()),
-//         storageId: v.string(), // Reference to stored image
+/**
+ * @description
+ * Mutation to add card with uploaded image
+ * 
+ * @receives data from:
+ * - client: card data + storage ID
+ * 
+ * @sends data to:
+ * - cards table: new card document
+ * 
+ * @sideEffects:
+ * - Creates new card record with stored image URL
+ */
+export const addCardWithImage = mutation({
+    args: {
+        // Basic Info
+        name: v.string(),
+        type: v.string(),
+        description: v.optional(v.string()),
+        storageId: v.string(), // Reference to stored image
         
-//         // Monster Stats
-//         atkPts: v.optional(v.number()),
-//         defPts: v.optional(v.number()),
-//         inGameAtkPts: v.optional(v.number()),
-//         inGameDefPts: v.optional(v.number()),
+        // Monster Stats
+        atkPts: v.optional(v.number()),
+        defPts: v.optional(v.number()),
+        inGameAtkPts: v.optional(v.number()),
+        inGameDefPts: v.optional(v.number()),
         
-//         // Monster Properties
-//         attribute: v.optional(v.string()),
-//         class: v.optional(v.string()),
-//         character: v.optional(v.string()),
-//         level: v.optional(v.number()),
+        // Monster Properties
+        attribute: v.optional(v.string()),
+        class: v.optional(v.string()),
+        character: v.optional(v.string()),
+        level: v.optional(v.number()),
         
-//         // Ownership & Market
-//         isOwned: v.boolean(),
-//         isListed: v.optional(v.boolean()),
-//         currentOwnerId: v.optional(v.string()),
-//         currentOwnerUsername: v.optional(v.string()),
-//         boughtFor: v.optional(v.number()),
-//         marketValue: v.optional(v.number()),
-//         marketCount: v.optional(v.number()),
-//         roi: v.optional(v.number()),
-//         passCount: v.optional(v.number()),
+        // Ownership & Market
+        isOwned: v.boolean(),
+        isListed: v.optional(v.boolean()),
+        currentOwnerId: v.optional(v.string()),
+        currentOwnerUsername: v.optional(v.string()),
+        boughtFor: v.optional(v.number()),
+        marketValue: v.optional(v.number()),
+        marketCount: v.optional(v.number()),
+        roi: v.optional(v.number()),
+        passCount: v.optional(v.number()),
         
-//         // Statistics
-//         matches: v.optional(v.object({
-//             wins: v.number(),
-//             total: v.number()
-//         })),
-//         cardWin: v.optional(v.object({
-//             global: v.number(),
-//             local: v.number()
-//         })),
-//         cardLose: v.optional(v.object({
-//             global: v.number(),
-//             local: v.number()
-//         })),
-//     },
-//     handler: async (ctx, args) => {
-//         // Get the image URL from storage
-//         const imageUrl = await ctx.storage.getUrl(args.storageId);
+        // Statistics
+        matches: v.optional(v.object({
+            wins: v.number(),
+            total: v.number()
+        })),
+        cardWin: v.optional(v.object({
+            global: v.number(),
+            local: v.number()
+        })),
+        cardLose: v.optional(v.object({
+            global: v.number(),
+            local: v.number()
+        })),
+    },
+    handler: async (ctx, args) => {
+        // Get the image URL from storage
+        const imageUrl = await ctx.storage.getUrl(args.storageId);
         
-//         if (!imageUrl) {
-//             throw new Error("Failed to get image URL from storage");
-//         }
+        if (!imageUrl) {
+            throw new Error("Failed to get image URL from storage");
+        }
         
-//         // Create card with the image URL
-//         const cardData = {
-//             ...args,
-//             imageUrl,
-//             storageId: undefined, // Remove storageId from card data
-//         };
+        // Create card with the image URL
+        const cardData = {
+            ...args,
+            imageUrl,
+            storageId: undefined, // Remove storageId from card data
+        };
         
-//         const cardId = await ctx.db.insert("cards", cardData);
-//         return { cardId, imageUrl };
-//     },
-// });
-
-
+        const cardId = await ctx.db.insert("cards", cardData);
+        return { cardId, imageUrl };
+    },
+});

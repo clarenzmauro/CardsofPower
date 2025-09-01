@@ -2,7 +2,7 @@ import { query } from "./_generated/server";
 
 export const get = query({
 	args: {},
-	handler: async (ctx) => {
+	handler: async (ctx: any) => {
 		const identity = await ctx.auth.getUserIdentity();
 		if (identity === null) {
 			return {
