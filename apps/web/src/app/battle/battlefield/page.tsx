@@ -1,3 +1,12 @@
+/**
+ * Presentational page component that renders a full-screen "Battlefield" view.
+ *
+ * Renders a centered container with a background image (/assets/backgrounds/lobby.png)
+ * and a translucent card containing the page title and a short placeholder message.
+ * Purely presentational — no state, props, or interactivity.
+ *
+ * @returns A JSX element representing the battlefield page layout.
+ */
 export default function BattlefieldPage() {
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-[url('/assets/backgrounds/lobby.png')] bg-cover bg-center p-8">

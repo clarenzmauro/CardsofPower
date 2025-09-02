@@ -10,6 +10,17 @@ interface ShopNavigationProps {
   activeTab: 'shop' | 'trade' | 'listing';
 }
 
+/**
+ * Renders a shop navigation bar with a fixed "Back to Home" button and three tab icons (Shop, Trade, Listing).
+ *
+ * The active tab is visually emphasized; clicking a tab performs client-side navigation:
+ * - `shop` → `/shop`
+ * - `trade` → `/shop/trade`
+ * - `listing` → `/shop/listing`
+ *
+ * @param activeTab - Which tab is currently active; controls the highlighted/scaled tab (`'shop' | 'trade' | 'listing'`).
+ * @returns A React element containing the back button and the centered tab navigation.
+ */
 export default function ShopNavigation({ activeTab }: ShopNavigationProps) {
   const router = useRouter();
 

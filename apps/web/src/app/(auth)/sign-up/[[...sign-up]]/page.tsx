@@ -7,24 +7,21 @@ import { useEffect, useState } from "react";
 import { api } from "@cards-of-power/backend/convex/_generated/api";
 
 /**
- * @description
- * Sign-up page component that integrates Clerk authentication with Convex database mutations.
- * Handles user creation flow and redirects to main menu after successful registration.
- * Also handles users redirected from sign-in who need to complete registration.
+ * Sign-up page that integrates Clerk authentication with a Convex backend.
  *
- * @receives data from:
- * - Clerk: user authentication state and profile data
- * - Convex: upsertFromClerk mutation for database operations
- * - Convex: current user query to check if user already exists
+ * Renders Clerk's SignUp UI and, after Clerk finishes loading, ensures a corresponding
+ * Convex user record exists. If the Convex query shows the user already exists the
+ * component immediately navigates to "/main-menu". Otherwise it attempts to create or
+ * upsert the user record from Clerk profile data and then navigates to "/main-menu".
  *
- * @sends data to:
- * - Convex: user data for database insertion/update
- * - Router: navigation to main menu after completion
+ * Side effects:
+ * - Calls a Convex upsert mutation to create/update the user record when needed.
+ * - Navigates the client to "/main-menu" after detecting or creating the user.
  *
- * @sideEffects:
- * - Creates or updates user record in database via webhook or direct mutation
- * - Redirects user to main menu after account creation
- * - Handles automatic account creation for authenticated users without database records
+ * The component guards against repeated creation attempts and waits for the Convex
+ * current-user query to resolve before acting.
+ *
+ * @returns The sign-up page JSX element.
  */
 
 export default function SignUpPage() {

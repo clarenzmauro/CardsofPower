@@ -3,6 +3,16 @@
 import React, { useState } from 'react';
 import ShopNavigation from '@/components/shop-navigation';
 
+/**
+ * Client-side React component that renders the shop's Trade page UI.
+ *
+ * Renders a full-screen layout with a background image and dark overlay, includes the ShopNavigation (activeTab="trade"),
+ * and a centered search bar with controlled inputs for name, minimum price, and maximum price. The main content area
+ * shows a "Trade Center" placeholder. The search inputs update internal component state but no filtering or submission
+ * logic is implemented here.
+ *
+ * @returns The Trade page React element.
+ */
 export default function TradePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [minPrice, setMinPrice] = useState('');

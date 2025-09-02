@@ -3,6 +3,16 @@
 import React, { useState } from 'react';
 import ShopNavigation from '@/components/shop-navigation';
 
+/**
+ * Client-side React component that renders the shop listings page UI.
+ *
+ * Renders a full-viewport layout with a background image and overlay, top navigation (ShopNavigation with
+ * activeTab="listing"), a centered search bar (name, min price, max price) and a placeholder "My Listings"
+ * panel. Manages local state for `searchQuery`, `minPrice`, and `maxPrice` but does not perform filtering
+ * or data fetching.
+ *
+ * @returns JSX element containing the listing page layout.
+ */
 export default function ListingPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [minPrice, setMinPrice] = useState('');

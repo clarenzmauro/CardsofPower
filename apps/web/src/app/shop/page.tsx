@@ -3,6 +3,16 @@
 import React, { useState } from 'react';
 import ShopNavigation from '@/components/shop-navigation';
 
+/**
+ * Client-side React component that renders the shop page UI.
+ *
+ * Renders a full-height background image with a dark overlay, the ShopNavigation (activeTab="shop"),
+ * a centered translucent search bar (controlled inputs for name, minPrice, and maxPrice), and a
+ * main content card with a welcome message. All inputs are controlled local state; no search,
+ * filtering, submission, or data fetching logic is implemented.
+ *
+ * @returns The shop page JSX element.
+ */
 export default function ShopPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [minPrice, setMinPrice] = useState('');

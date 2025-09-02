@@ -7,6 +7,25 @@ import { useUser } from "@clerk/nextjs";
 import { api } from "@cards-of-power/backend/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 
+/**
+ * A client-side React component that renders a card submission form and handles creating a card record with an uploaded image.
+ *
+ * Renders inputs for card metadata and — when "monster" is selected — monster-specific fields (ATK, DEF, level, attribute, character, class).
+ * Validates required fields (including an image file) and range constraints for monster stats. On submit it:
+ *  - uploads the selected image to storage via api.storage.generateUploadUrl,
+ *  - reads the returned `storageId`,
+ *  - constructs a card payload (including owner info from Clerk's `useUser()`),
+ *  - calls api.cards.addCardWithImage to create the card,
+ *  - shows a success alert and resets the form on success, or sets an error message on failure.
+ *
+ * Side effects:
+ *  - network requests for image upload and card creation,
+ *  - uses Clerk user context for ownership fields,
+ *  - updates component-local loading and error state,
+ *  - displays an alert on success.
+ *
+ * @returns The Workshop form UI as a JSX element.
+ */
 export default function Workshop() {
   const { user } = useUser();
 

@@ -6,19 +6,17 @@ import { useEffect } from "react";
 import { api } from "@cards-of-power/backend/convex/_generated/api";
 
 /**
- * @description
- * custom page for the sign-in component of clerk with user existence check
+ * Sign-in page that verifies whether an authenticated Clerk user exists in the app database and routes accordingly.
  *
- * @receives data from:
- * - Clerk: user authentication state and profile data
- * - Convex: current user query to check database existence
+ * On mount, waits for Clerk to load and an authenticated user to be available, then queries the backend for the current user.
+ * - If the backend indicates the user exists, navigates to "/main-menu".
+ * - If the backend indicates the user does not exist, navigates to "/sign-up".
  *
- * @sends data to:
- * - Router: navigation to sign-up or main-menu based on user existence
+ * While Clerk is loading or the backend existence check is pending for an authenticated user, renders a full-screen
+ * "Checking your account..." loading view to avoid flashing the sign-in UI. Once verification completes (or if no
+ * authenticated user is present), renders Clerk's SignIn component with custom appearance and routing configuration.
  *
- * @sideEffects:
- * - Redirects unregistered users to sign-up page
- * - Redirects registered users to main menu
+ * Side effects: performs client-side redirects via Next.js router to "/main-menu" or "/sign-up" based on the lookup result.
  */
 
 export default function SignInPage() {

@@ -38,6 +38,25 @@ interface Message {
   timestamp: string;
 }
 
+/**
+ * Pirate-themed two-pane messaging UI component with Friends, Mail, and Club tabs.
+ *
+ * Renders a left sidebar for navigation and lists (friends, system mail, club placeholder)
+ * and a right pane that shows the selected conversation or a prompt when none is selected.
+ * Manages local UI state: `activeTab` ("friends" | "mail" | "club"), `selectedConversation`
+ * (id or null), `searchQuery` (filters the friends list, case-insensitive), and `newMessage`
+ * (composer input). Friend and message data are mocked locally; `filteredFriends` derives
+ * the visible friend list from `searchQuery`. `handleSendMessage` validates non-empty input
+ * and clears `newMessage` (no persistence in this mock). `getSelectedFriend` returns the
+ * Friend matching `selectedConversation`.
+ *
+ * The right pane adapts to `activeTab`:
+ * - friends: shows a chat-style message list with sender-aligned bubbles and a composer.
+ * - mail: shows a static system mail view.
+ * - club: shows a club placeholder and a composer for club conversations.
+ *
+ * @returns The component's rendered JSX element.
+ */
 export default function FriendsPage() {
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");

@@ -60,21 +60,16 @@ interface TimeSeriesPoint {
 }
 
 /**
- * @description
- * Brief description of function purpose and functionality.
+ * Account page React component that displays user profile, battlefield stats, and economy charts.
  *
- * @receives data from:
- * - account.ts; getUserAccount: user document and computed stats
- * - account.ts; getTopCardsGlobal: array of top cards
- * - account.ts; getLeaderboards: leaderboard lists
- * - account.ts; getUserRanks: user rank positions
- * - account.ts; getEconomyStats: time-series gold and card counts
+ * Renders a three-tab UI ("Account", "Battlefield", "Economy") and initializes with built-in mock
+ * data while it loads real data from backend queries. The component issues client-side Convex
+ * queries (getUserAccount, getTopCardsGlobal, getLeaderboards, getUserRanks, getEconomyStats),
+ * maps their results into local React state (user stats, top cards, leaderboards, ranks, and
+ * time-series points) and derives simple metrics (win rate and percentage deltas) for display.
  *
- * @sends data to:
- * - account page; UI rendering: user stats, leaderboards, top cards, economy charts
- *
- * @sideEffects:
- * - none (client-side read-only mapping of backend query results)
+ * Mapping of query results is guarded (checks for presence/array types) and wrapped in try/catch;
+ * on mapping failures the component retains the initial mock state.
  */
 export default function AccountPage() {
   const [activeTab, setActiveTab] = useState<

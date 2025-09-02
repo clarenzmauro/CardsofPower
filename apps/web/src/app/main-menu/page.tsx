@@ -3,6 +3,15 @@
 import Link from "next/link";
 import Image from "next/image";
 
+/**
+ * Renders the application's main menu page with a background image, a dark overlay, and two rows of navigation tiles.
+ *
+ * The top row displays three large "banner" buttons (Workshop, Battlefield, Shop) that link to their routes and show large images.
+ * The bottom row displays smaller circular-like link buttons (Inventory, Dictionary, Friends, Account) with icons and labels.
+ * Navigation uses Next.js Link and images use Next.js Image; layout and hover effects are driven by Tailwind CSS classes.
+ *
+ * @returns A React element containing the main menu layout.
+ */
 export default function MainMenuPage() {
     // large buttons
     const bannerItems = [

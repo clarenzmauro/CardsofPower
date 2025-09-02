@@ -2,6 +2,22 @@
 
 import { useState } from "react";
 
+/**
+ * Client-side React page that renders a two-panel UI for creating or joining battle rooms.
+ *
+ * The left panel lets the user create a new room (creation logic is a TODO and currently logs to console).
+ * The right panel toggles between an idle view and a searchable list of available rooms:
+ * - Idle: shows a description and a "Find Rooms" button that enables search mode.
+ * - Search: shows a scrollable list of hard-coded `availableRooms` with "Join" buttons (joining logic is a TODO and currently logs to console) and a "Cancel Searching" button to exit search mode.
+ *
+ * Local state:
+ * - `isSearchingRooms` (boolean): controls which join-panel view is shown.
+ * - `availableRooms` (readonly array): static mock data for room entries.
+ *
+ * This component is a client-only page (uses "use client") and does not perform any network requests.
+ *
+ * @returns The page's JSX element.
+ */
 export default function BattlePage() {
   const [isSearchingRooms, setIsSearchingRooms] = useState(false);
   const [availableRooms] = useState([
