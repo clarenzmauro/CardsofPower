@@ -1,13 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-
-interface Card {
-  id: string;
-  name: string;
-  image?: string;
-  type: 'monster' | 'spell' | 'trap';
-}
+import type { Card } from './types';
+import { CardDisplay, GraveyardPile, PlayerSection, EnemySection } from './components';
 
 export default function BattlefieldPage() {
   const [playerHand, setPlayerHand] = useState<Card[]>([
@@ -125,57 +120,16 @@ export default function BattlefieldPage() {
 
         {/* Center - Game Field */}
         <div className="flex-1 flex flex-col justify-center">
-          {/* Enemy Hand - Full Width Rectangle */}
-          <div className="mb-6">
-            <div className="w-full h-32 bg-stone-900/40 rounded-lg backdrop-blur-sm border border-stone-600/50 flex items-center justify-center overflow-x-auto overflow-y-hidden p-4">
-              <div className="flex gap-3">
-                {enemyHand.map((card) => (
-                  <HandCard key={card.id} card={card} isHidden={true} />
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Enemy Field */}
-          <div className="flex justify-center mb-8">
-            <div className="flex gap-3">
-              {enemyField.map((card, index) => (
-                <CardSlot 
-                  key={`enemy-${index}`} 
-                  card={card} 
-                  onClick={() => setSelectedCard(card)}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Player Field */}
-          <div className="flex justify-center mb-8">
-            <div className="flex gap-3">
-              {playerField.map((card, index) => (
-                <CardSlot 
-                  key={`player-${index}`} 
-                  card={card} 
-                  onClick={() => setSelectedCard(card)}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Player Hand - Full Width Rectangle */}
-          <div>
-            <div className="w-full h-32 bg-stone-900/40 rounded-lg backdrop-blur-sm border border-stone-600/50 flex items-center justify-center overflow-x-auto overflow-y-hidden p-4">
-              <div className="flex gap-3">
-                {playerHand.map((card) => (
-                  <HandCard 
-                    key={card.id} 
-                    card={card} 
-                    onClick={() => setSelectedCard(card)}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
+          <EnemySection 
+            hand={enemyHand}
+            field={enemyField}
+            onCardSelect={setSelectedCard}
+          />
+          <PlayerSection 
+            hand={playerHand}
+            field={playerField}
+            onCardSelect={setSelectedCard}
+          />
         </div>
 
         {/* Right Side - Graveyards */}
