@@ -59,9 +59,16 @@ export default defineSchema({
 		username: v.optional(v.string()),
 		email: v.optional(v.string()),
 		goldCount: v.number(),
+		highestGoldCount: v.number(),
 		inventory: v.array(v.string()),
 		currentCardCount: v.number(),
 		highestCardCount: v.number(),
+		gamesPlayed: v.number(),
+		gamesWon: v.number(),
+		gamesLost: v.number(),
+		cardsCreated: v.number(),
+		cardsBought: v.number(),
+		cardsTraded: v.number(),
 		profPicUrl: v.string(),
 		dateCreated: v.string()
 	}).index("byExternalId", ["externalId"])

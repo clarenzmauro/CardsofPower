@@ -165,28 +165,24 @@ export default function AccountPage() {
   useEffect(() => {
     if (!accountQ) return;
     try {
-      setUserStats((prev) => ({
-        ...prev,
-        username: String(accountQ.username ?? prev.username),
-        dateCreated: String(accountQ.dateCreated ?? prev.dateCreated),
-        gamesPlayed: Number(accountQ.gamesPlayed ?? prev.gamesPlayed ?? 0),
-        gamesWon: Number(accountQ.gamesWon ?? prev.gamesWon ?? 0),
-        gamesLost: Number(accountQ.gamesLost ?? prev.gamesLost ?? 0),
-        currentCardCount: Number(
-          accountQ.currentCardCount ?? prev.currentCardCount ?? 0
-        ),
-        highestCardCount: Number(
-          accountQ.highestCardCount ?? prev.highestCardCount ?? 1
-        ),
-        goldCount: Number(prev.goldCount ?? 0),
-        highestGoldCount: Number(
-          accountQ.highestGoldCount ?? prev.highestGoldCount ?? 1
-        ),
-        cardsCreated: Number(accountQ.cardsCreated ?? prev.cardsCreated ?? 0),
-        cardsBought: Number(accountQ.cardsBought ?? prev.cardsBought ?? 0),
-        cardsTraded: Number(accountQ.cardsTraded ?? prev.cardsTraded ?? 0),
-        cardsListed: Number(accountQ.cardsListed ?? prev.cardsListed ?? 0),
-      }));
+      setUserStats({
+        username: String(accountQ.username ?? "Player"),
+        dateCreated: String(accountQ.dateCreated ?? ""),
+        level: Number(accountQ.level ?? 1),
+        experience: Number(accountQ.experience ?? 0),
+        maxExperience: Number(accountQ.maxExperience ?? 1000),
+        gamesPlayed: Number(accountQ.gamesPlayed ?? 0),
+        gamesWon: Number(accountQ.gamesWon ?? 0),
+        gamesLost: Number(accountQ.gamesLost ?? 0),
+        currentCardCount: Number(accountQ.currentCardCount ?? 0),
+        highestCardCount: Number(accountQ.highestCardCount ?? 0),
+        goldCount: Number(accountQ.goldCount ?? 0),
+        highestGoldCount: Number(accountQ.highestGoldCount ?? 0),
+        cardsCreated: Number(accountQ.cardsCreated ?? 0),
+        cardsBought: Number(accountQ.cardsBought ?? 0),
+        cardsTraded: Number(accountQ.cardsTraded ?? 0),
+        cardsListed: Number(accountQ.cardsListed ?? 0),
+      });
       if (Array.isArray(accountQ.topCards)) {
         setTopCards(accountQ.topCards as TopCard[]);
       }
@@ -209,17 +205,26 @@ export default function AccountPage() {
   useEffect(() => {
     if (!leaderboardsQ) return;
     try {
-      setLeaderboards((prev) => ({
+      setLeaderboards({
         strategist: Array.isArray(leaderboardsQ.strategist)
-          ? leaderboardsQ.strategist
-          : prev.strategist,
+          ? leaderboardsQ.strategist.map(item => ({
+              username: item.username,
+              winRate: Number(item.winRate ?? 0)
+            }))
+          : [],
         kingMidas: Array.isArray(leaderboardsQ.kingMidas)
-          ? leaderboardsQ.kingMidas
-          : prev.kingMidas,
+          ? leaderboardsQ.kingMidas.map(item => ({
+              username: item.username,
+              goldCount: Number(item.goldCount ?? 0)
+            }))
+          : [],
         cardMaster: Array.isArray(leaderboardsQ.cardMaster)
-          ? leaderboardsQ.cardMaster
-          : prev.cardMaster,
-      }));
+          ? leaderboardsQ.cardMaster.map(item => ({
+              username: item.username,
+              cardCount: Number(item.cardCount ?? 0)
+            }))
+          : [],
+      });
     } catch (e) {
       console.warn("Mapping getLeaderboards failed", e);
     }
@@ -229,7 +234,14 @@ export default function AccountPage() {
   useEffect(() => {
     if (!userRanksQ) return;
     try {
-      setUserRanks((prev) => ({ ...prev, ...(userRanksQ as any) }));
+      setUserRanks({
+        strategist: Number(userRanksQ.strategist ?? 0),
+        kingMidas: Number(userRanksQ.kingMidas ?? 0),
+        cardMaster: Number(userRanksQ.cardMaster ?? 0),
+        artisan: Number(userRanksQ.artisan ?? 0),
+        shopRaider: Number(userRanksQ.shopRaider ?? 0),
+        friendly: Number(userRanksQ.friendly ?? 0),
+      });
     } catch (e) {
       console.warn("Mapping getUserRanks failed", e);
     }
@@ -260,10 +272,8 @@ export default function AccountPage() {
     }
   }, [economyQ]);
 
-  const winRate =
-    userStats.gamesPlayed > 0
-      ? (userStats.gamesWon / userStats.gamesPlayed) * 100
-      : 0;
+  // winRate is now calculated in the backend from user games
+  const winRate = accountQ ? (accountQ.winRate ?? 0) : 0;
   const goldPercentage =
     ((userStats.goldCount - userStats.highestGoldCount) /
       (userStats.highestGoldCount || 1)) *

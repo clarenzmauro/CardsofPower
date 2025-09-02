@@ -51,9 +51,16 @@ export const upsertFromClerk = mutation({
             username: data.username || data.first_name || "Player",
             email: data.email || "",
             goldCount: 300,
+            highestGoldCount: 300,
             inventory: [],
             currentCardCount: 0,
             highestCardCount: 0,
+            gamesPlayed: 0,
+            gamesWon: 0,
+            gamesLost: 0,
+            cardsCreated: 0,
+            cardsBought: 0,
+            cardsTraded: 0,
             profPicUrl: "prof_pic1.jpg",
             dateCreated: new Date().toISOString()
         };
