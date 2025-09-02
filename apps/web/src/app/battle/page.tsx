@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function BattlePage() {
+  const router = useRouter();
   const [isSearchingRooms, setIsSearchingRooms] = useState(false);
   const [availableRooms] = useState([
     { id: 1, name: "Pirate's Cove", players: "2/4" },
@@ -13,6 +15,7 @@ export default function BattlePage() {
   const handleCreateRoom = () => {
     // TODO: Implement room creation logic
     console.log("Creating room...");
+    router.push("/battle/battlefield");
   };
 
   const handleFindRooms = () => {
