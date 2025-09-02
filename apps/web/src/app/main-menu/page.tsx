@@ -7,7 +7,7 @@ export default function MainMenuPage() {
     // large buttons
     const bannerItems = [
         { label: "Workshop", href: "/workshop", image: "/assets/menu/workshop.png" },
-        { label: "Battlefield", href: "/battlefield", image: "/assets/menu/battle.png" },
+        { label: "Battlefield", href: "/battle", image: "/assets/menu/battle.png" },
         { label: "Shop", href: "/shop", image: "/assets/menu/shop.png" },
     ];
     
