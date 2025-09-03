@@ -15,10 +15,46 @@ import { v } from "convex/values";
  * - none
  */
 export const current = query({
-    args: {},
-    handler: async (ctx) => {
-        return await getCurrentUser(ctx);
-    },
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.subject) throw new Error("current user: unauthenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) throw new Error("current: user not found");
+
+    // Runtime assertions
+    if (typeof user.goldCount !== "number" || user.goldCount < 0)
+      throw new Error("current: invalid goldCount");
+    if (typeof user.currentCardCount !== "number" || user.currentCardCount < 0)
+      throw new Error("current: invalid currentCardCount");
+
+    // Return all relevant fields for the client
+    return {
+      _id: user._id,
+      name: user.name ?? "",
+      clerkId: user.clerkId ?? "",
+      username: user.username ?? "",
+      email: user.email ?? "",
+      goldCount: user.goldCount,
+      highestGoldCount: user.highestGoldCount,
+      inventory: Array.isArray(user.inventory) ? user.inventory : [],
+      currentCardCount: user.currentCardCount,
+      highestCardCount: user.highestCardCount,
+      gamesPlayed: user.gamesPlayed,
+      gamesWon: user.gamesWon,
+      gamesLost: user.gamesLost,
+      cardsCreated: user.cardsCreated,
+      cardsBought: user.cardsBought,
+      cardsTraded: user.cardsTraded,
+      profPicUrl: user.profPicUrl ?? "",
+      dateCreated: user.dateCreated ?? "",
+    };
+  },
 });
 
 /**
@@ -51,9 +87,16 @@ export const upsertFromClerk = mutation({
             username: data.username || data.first_name || "Player",
             email: data.email || "",
             goldCount: 300,
+            highestGoldCount: 300,
             inventory: [],
             currentCardCount: 0,
             highestCardCount: 0,
+            gamesPlayed: 0,
+            gamesWon: 0,
+            gamesLost: 0,
+            cardsCreated: 0,
+            cardsBought: 0,
+            cardsTraded: 0,
             profPicUrl: "prof_pic1.jpg",
             dateCreated: new Date().toISOString()
         };

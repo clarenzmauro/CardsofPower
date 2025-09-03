@@ -64,33 +64,42 @@ export const getUserAccount = query({
         imageUrl: card.imageUrl,
       }));
 
+    // Calculate level system based on gold count
+    const basePerLevel = 1000;
+    const wealth = Math.floor(user.goldCount / basePerLevel) + 1;
+    const currentLevelBase = (wealth - 1) * basePerLevel;
+    const experience = user.goldCount - currentLevelBase;
+    const maxExperience = basePerLevel;
+
     return {
       // basic user info
       username: user.username || "Player",
       dateCreated: user.dateCreated,
 
       // wealth
-      wealth: Math.floor(user.goldCount / 1000) + 1,
-      highestGoldCount: user.goldCount,
-
-      // game stats (placeholder)
-      gamesPlayed: 0,
-      gamesWon: 0,
-      gamesLost: 0,
+      wealth,
+      goldCount: user.goldCount,
+      highestGoldCount: user.highestGoldCount,
+      level: wealth,
+      experience,
+      maxExperience,
+      gamesPlayed: user.gamesPlayed,
+      gamesWon: user.gamesWon,
+      gamesLost: user.gamesLost,
 
       // card stats
       currentCardCount: user.currentCardCount,
       highestCardCount: user.highestCardCount,
-      cardsCreated,
-      cardsBought: 0,
-      cardsTraded: 0,
+      cardsCreated: user.cardsCreated,
+      cardsBought: user.cardsBought,
+      cardsTraded: user.cardsTraded,
       cardsListed,
 
       // top cards
       topCards,
 
       // win rate
-      winRate,
+      winRate: user.gamesPlayed > 0 ? (user.gamesWon / user.gamesPlayed) * 100 : 0,
     };
   },
 });
@@ -201,8 +210,8 @@ export const getUserRanks = query({
       const wins = u.gamesWon ?? 0;
       return games > 0 ? (wins / games) * 100 : 0;
     });
-    const kingMidas = rankBy((u: any) => u.goldCount ?? 0);
-    const cardMaster = rankBy((u: any) => u.currentCardCount ?? 0);
+    const kingMidas = rankBy((u: any) => u.highestGoldCount ?? 0);
+    const cardMaster = rankBy((u: any) => u.highestCardCount ?? 0); 
     const artisan = rankBy((u: any) => u.cardsCreated ?? 0);
     const shopRaider = rankBy((u: any) => u.cardsBought ?? 0);
     const friendly = rankBy((u: any) =>
@@ -336,7 +345,7 @@ export const getEconomyStats = query({
           .map((s: any) => ({
             ts: s.ts,
             gold: Number(s.goldCount ?? 0),
-            cards: Number(s.cardCount ?? 0),
+            cards: Number(s.currentCardCount ?? 0),
           }))
           .sort((a: any, b: any) => a.ts.localeCompare(b.ts));
 
@@ -473,17 +482,84 @@ export const updateUserStats = mutation({
     return { success: true, user: updated };
   },
 });
-
 /**
  * @description
- * compute user's level progress
+ * Update user game statistics and track highest values
  *
  * @receives data from:
- * - getUserAccount: user identity and wealth
+ * - game results, card transactions
  *
  * @sends data to:
- * - account page
+ * - users table: updates statistics and historical highs
+ *
+ * @sideEffects:
+ * - Updates user record with new statistics
  */
+export const updateUserGameStats = mutation({
+  args: {
+    gamesPlayed: v.optional(v.number()),
+    gamesWon: v.optional(v.number()),
+    gamesLost: v.optional(v.number()),
+    cardsBought: v.optional(v.number()),
+    cardsTraded: v.optional(v.number()),
+    cardsCreated: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.subject) throw new Error("updateUserGameStats: unauthenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!user) throw new Error("updateUserGameStats: user not found");
+
+    const patch: Record<string, any> = {};
+
+    // update game stats
+    if (args.gamesPlayed !== undefined) {
+      patch.gamesPlayed = Number(user.gamesPlayed ?? 0) + args.gamesPlayed;
+    }
+    if (args.gamesWon !== undefined) {
+      patch.gamesWon = Number(user.gamesWon ?? 0) + args.gamesWon;
+    }
+    if (args.gamesLost !== undefined) {
+      patch.gamesLost = Number(user.gamesLost ?? 0) + args.gamesLost;
+    }
+
+    // update card txn stats
+    if (args.cardsBought !== undefined) {
+      patch.cardsBought = Number(user.cardsBought ?? 0) + args.cardsBought;
+    }
+    if (args.cardsTraded !== undefined) {
+      patch.cardsTraded = Number(user.cardsTraded ?? 0) + args.cardsTraded;
+    }
+    if (args.cardsCreated !== undefined) {
+      patch.cardsCreated = Number(user.cardsCreated ?? 0) + args.cardsCreated;
+    }
+
+    // udate historical highs
+    const currentGold = Number(user.goldCount ?? 0);
+    const currentHighestGold = Number(user.highestGoldCount ?? 0);
+    if (currentGold > currentHighestGold) {
+      patch.highestGoldCount = currentGold;
+    }
+
+    const currentCards = Number(user.currentCardCount ?? 0);
+    const currentHighestCards = Number(user.highestCardCount ?? 0);
+    if (currentCards > currentHighestCards) {
+      patch.highestCardCount = currentCards;
+    }
+
+    patch.lastUpdatedAt = new Date().toISOString();
+
+    await ctx.db.patch(user._id, patch);
+
+    const updated = await ctx.db.get(user._id);
+    return { success: true, user: updated };
+  },
+});
+
 export const getLevelProgress = query({
   handler: async (ctx: any) => {
     const identity = await ctx.auth.getUserIdentity();
