@@ -42,10 +42,7 @@ export const getAll = query({
 export const getUserInventory = query({
     args: { userId: v.string() },
     handler: async (ctx: any, args: any) => {
-        // no userId provided, return empty array
-        if (!args.userId) {
-            return [];
-        }
+        if (!args.userId) return [];
 
         const user = await ctx.db
             .query("users")
@@ -60,8 +57,22 @@ export const getUserInventory = query({
         if (!Array.isArray(user.inventory)) {
             throw new Error("getUserInventory: inventory must be an array");
         }
-        
-        return user.inventory;
+
+        // Defensive: limit to 100 cards to avoid runaway fetches
+        const inventoryIds = user.inventory.slice(0, 100);
+
+        // Fetch all card documents in parallel
+        const cardPromises = inventoryIds.map((cardId: string) => ctx.db.get(cardId));
+        const cards = await Promise.all(cardPromises);
+
+        // Filter out nulls (missing cards)
+        const validCards = cards.filter((c: any) => c !== null);
+
+        // Assert at least two runtime checks
+        if (!Array.isArray(validCards)) throw new Error("getUserInventory: result is not array");
+        if (validCards.length > 0 && !validCards[0]._id) throw new Error("getUserInventory: card missing _id");
+
+        return validCards;
     },
 });
 

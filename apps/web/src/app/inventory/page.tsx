@@ -11,17 +11,30 @@ import { useDataCache } from "@/hooks/useCachedQuery";
 
 type CardData = {
   _id: string;
-  cardName: string;
+  name: string;
   type: string;
+  description?: string;
+  imageUrl: string;
+  atkPts?: number;
+  defPts?: number;
+  inGameAtkPts?: number;
+  inGameDefPts?: number;
   attribute?: string;
   class?: string;
   character?: string;
   level?: number;
-  marketValue?: number;
+  isOwned: boolean;
+  isListed?: boolean;
+  currentOwnerId?: string;
+  currentOwnerUsername?: string;
   boughtFor?: number;
-  imageUrl: string;
-  cardWin?: { local: number };
-  cardMatch?: { local: number };
+  marketValue?: number;
+  marketCount?: number;
+  roi?: number;
+  passCount?: number;
+  matches?: { wins: number; total: number };
+  cardWin?: { global: number; local: number };
+  cardLose?: { global: number; local: number };
 };
 
 export default function InventoryPage() {
@@ -29,7 +42,6 @@ export default function InventoryPage() {
   const [selectedCard, setSelectedCard] = useState<CardData | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const gold = "/assets/icons/gold.png";
-  const goldCount = 100;
 
   // fetch data from convex
   const freshUserData = useQuery(api.users.current);
@@ -51,13 +63,14 @@ export default function InventoryPage() {
   );
 
   const userData = cachedUserData || freshUserData;
+  const goldCount = userData?.goldCount ?? 0;
   const inventoryCards: CardData[] = cachedUserInventory || freshUserInventory || [];
 
   // filter based on search
   const filteredCards = useMemo(() => {
     if (!searchQuery) return inventoryCards;
     return inventoryCards.filter((card) =>
-      card.cardName.toLowerCase().startsWith(searchQuery.toLowerCase())
+      card.name.toLowerCase().startsWith(searchQuery.toLowerCase())
     );
   }, [searchQuery, inventoryCards]);
 
@@ -65,7 +78,7 @@ export default function InventoryPage() {
   const winRate = useMemo(() => {
     if (!selectedCard) return "N/A";
     const wins = selectedCard.cardWin?.local || 0;
-    const total = selectedCard.cardMatch?.local || 0;
+    const total = selectedCard.matches?.total || 0;
     if (!total) return "0%";
     return ((wins / total) * 100).toFixed(2) + "%";
   }, [selectedCard]);
@@ -75,7 +88,7 @@ export default function InventoryPage() {
         setSearchQuery(event.target.value);
     };
 
-    const handleCardClick = (card: any) => {
+    const handleCardClick = (card: CardData) => {
         setSelectedCard(card);
     };
     
@@ -148,7 +161,7 @@ export default function InventoryPage() {
               <img
                 key={card._id}
                 src={card.imageUrl}
-                alt={card.cardName || "Card Image"}
+                alt={card.name || "Card Image"}
                 onClick={() => handleCardClick(card)}
                 className="w-[18%] object-contain cursor-pointer hover:scale-105 transition-transform"
               />
@@ -156,31 +169,64 @@ export default function InventoryPage() {
           </div>
         </div>
   
-        {/* Last Selected Card */}
-        <div className="w-[30%] sm:ms-2 lg:ms-4">
-          {selectedCard ? (
-            <>
-              <img
-                className="mx-auto w-4/5 sm:my-2 lg:my-4"
-                src={selectedCard.imageUrl}
-                alt={selectedCard.cardName}
-              />
-  
-              <div className="flex justify-between mx-auto sm:w-4/5 lg:w-full sm:text-sm lg:text-2xl">
-                <div>
-                  <p>Matches: {selectedCard.cardMatch?.local || 0}</p>
-                  <p>Win Rate: {winRate}</p>
+        {/* selected card details */}
+        <div className="xl:w-80 flex-shrink-0 mb-8 ml-10">
+          <div className="bg-black/40 backdrop-blur-sm rounded-xl p-6 border border-white/20 sticky top-4 max-h-[70vh]">
+            {selectedCard ? (
+              <>
+                <h3 className="text-xl font-semibold mb-4 text-center">
+                  {selectedCard.name}
+                </h3>
+                <img
+                  src={selectedCard.imageUrl}
+                  alt={selectedCard.name}
+                  className="mx-auto w-full object-contain rounded-lg shadow-xl mb-4"
+                />
+                <div className="space-y-3 text-sm lg:text-base">
+                  <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
+                    <span className="font-medium">Type:</span>
+                    <span className="capitalize">{selectedCard.type}</span>
+                  </div>
+                  {selectedCard.attribute && (
+                    <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
+                      <span className="font-medium">Attribute:</span>
+                      <span className="capitalize">{selectedCard.attribute}</span>
+                    </div>
+                  )}
+                  {selectedCard.level && (
+                    <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
+                      <span className="font-medium">Level:</span>
+                      <span>{selectedCard.level}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
+                    <span className="font-medium">Matches:</span>
+                    <span>{selectedCard.matches?.total || 0}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
+                    <span className="font-medium">Win Rate:</span>
+                    <span className="font-bold">{winRate}</span>
+                  </div>
+                  {selectedCard.marketValue && (
+                    <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
+                      <span className="font-medium">Value:</span>
+                      <span>{selectedCard.marketValue}</span>
+                    </div>
+                  )}
+                  {selectedCard.boughtFor !== undefined && (
+                    <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
+                      <span className="font-medium">ROI:</span>
+                      <span className="font-bold">{formattedROI}</span>
+                    </div>
+                  )}
                 </div>
-  
-                <div>
-                  <p>Value: {selectedCard?.marketValue || 0}</p>
-                  <p className="text-start">ROI: {formattedROI}</p>
-                </div>
+              </>
+            ) : (
+              <div className="text-center py-16">
+                <p className="text-lg opacity-80">Please select a card</p>
               </div>
-            </>
-          ) : (
-            <p className="text-2xl text-center">Please select a card</p>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </main>
