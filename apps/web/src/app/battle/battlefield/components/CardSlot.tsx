@@ -11,14 +11,18 @@ interface CardSlotProps {
 
 export const CardSlot: React.FC<CardSlotProps> = ({ card, onClick, className = "", dropHandlers, isDragOver = false }) => (
   <div 
-    className={`w-28 h-40 bg-stone-400/30 border-2 border-stone-600/50 rounded-lg backdrop-blur-sm flex flex-col items-center justify-center cursor-pointer hover:bg-stone-400/40 transition-colors overflow-hidden ${className} ${isDragOver ? 'border-blue-400 bg-blue-400/20' : ''}`}
+    className={`w-28 h-40 bg-stone-400/30 border-2 border-stone-600/50 rounded-lg backdrop-blur-sm flex flex-col items-center justify-center cursor-pointer hover:bg-stone-400/40 transition-all duration-300 ease-in-out overflow-hidden ${className} ${
+      isDragOver 
+        ? 'border-blue-400 bg-blue-400/20 scale-105 shadow-lg shadow-blue-400/30' 
+        : ''
+    }`}
     onClick={onClick}
     {...dropHandlers}
   >
     {card ? (
       <>
         {card.image ? (
-          <div className="w-full h-full relative">
+          <div className="w-full h-full relative animate-in fade-in-50 slide-in-from-bottom-4 duration-500">
             <img 
               src={card.image} 
               alt={card.name} 

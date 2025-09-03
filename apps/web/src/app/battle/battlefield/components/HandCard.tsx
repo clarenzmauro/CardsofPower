@@ -11,7 +11,11 @@ interface HandCardProps {
 
 export const HandCard: React.FC<HandCardProps> = ({ card, onClick, isHidden = false, dragHandlers, isDragging = false }) => (
   <div 
-    className={`w-20 h-28 bg-stone-500/40 border border-stone-600/60 rounded-md backdrop-blur-sm flex items-center justify-center cursor-pointer hover:bg-stone-500/50 transition-colors mx-1 overflow-hidden ${isDragging ? 'opacity-50 scale-95' : ''}`}
+    className={`w-20 h-28 bg-stone-500/40 border border-stone-600/60 rounded-md backdrop-blur-sm flex items-center justify-center cursor-pointer hover:bg-stone-500/50 transition-all duration-300 ease-in-out mx-1 overflow-hidden ${
+      isDragging 
+        ? 'opacity-50 scale-95 rotate-3 shadow-lg' 
+        : 'hover:scale-105 hover:shadow-md'
+    }`}
     onClick={onClick}
     {...dragHandlers}
   >

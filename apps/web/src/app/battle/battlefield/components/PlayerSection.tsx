@@ -9,7 +9,7 @@ interface PlayerSectionProps {
   onCardSelect: (card: Card | null) => void;
   getDragHandlers?: (card: Card, index: number) => React.HTMLAttributes<HTMLDivElement>;
   getDropHandlers?: (slotIndex: number, isEmpty: boolean) => React.HTMLAttributes<HTMLDivElement>;
-  dragState?: { isDragging: boolean; draggedCard: Card | null; draggedFromIndex: number | null };
+  dragState?: { isDragging: boolean; draggedCard: Card | null; draggedFromIndex: number | null; dragOverSlot: number | null };
 }
 
 export const PlayerSection: React.FC<PlayerSectionProps> = ({ 
@@ -30,7 +30,7 @@ export const PlayerSection: React.FC<PlayerSectionProps> = ({
             card={card} 
             onClick={() => onCardSelect(card)}
             dropHandlers={getDropHandlers ? getDropHandlers(index, !card) : undefined}
-            isDragOver={dragState?.isDragging && !card}
+            isDragOver={dragState?.dragOverSlot === index}
           />
         ))}
       </div>

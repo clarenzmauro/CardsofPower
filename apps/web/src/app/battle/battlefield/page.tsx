@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import type { Card } from './types';
-import { CardDisplay, GraveyardPile, PlayerSection, EnemySection } from './components';
+import { CardDisplay, GraveyardPile, PlayerSection, EnemySection, FloatingCard } from './components';
 import { useDragAndDrop } from './hooks/useDragAndDrop';
 
 export default function BattlefieldPage() {
@@ -29,7 +29,7 @@ export default function BattlefieldPage() {
   const [dragDropEnabled, setDragDropEnabled] = useState<boolean>(true);
 
   // Drag and drop functionality
-  const { dragState, getDragHandlers, getDropHandlers, logSlotContents } = useDragAndDrop({
+  const { dragState, getDragHandlers, getDropHandlers, logSlotContents, updateMousePosition } = useDragAndDrop({
     enabled: dragDropEnabled,
     onCardMove: (card: Card, fromIndex: number, toSlotIndex: number) => {
       // Move card from hand to field
@@ -46,6 +46,23 @@ export default function BattlefieldPage() {
   useEffect(() => {
     logSlotContents(playerField);
   }, [playerField, logSlotContents]);
+
+  // Global drag tracking for better cursor following
+  useEffect(() => {
+    const handleGlobalDragOver = (e: DragEvent) => {
+      if (dragState.isDragging) {
+        e.preventDefault();
+        updateMousePosition(e.clientX, e.clientY);
+      }
+    };
+
+    if (dragState.isDragging) {
+      document.addEventListener('dragover', handleGlobalDragOver, { passive: false });
+      return () => {
+        document.removeEventListener('dragover', handleGlobalDragOver);
+      };
+    }
+  }, [dragState.isDragging]);
 
 
   return (
@@ -96,6 +113,15 @@ export default function BattlefieldPage() {
           <GraveyardPile cards={playerGraveyard} label="" />
         </div>
       </div>
+
+      {/* Floating Card Preview */}
+      {dragState.isDragging && dragState.draggedCard && (
+        <FloatingCard
+          card={dragState.draggedCard}
+          position={dragState.mousePosition}
+          isVisible={dragState.isDragging}
+        />
+      )}
     </div>
   );
 }
