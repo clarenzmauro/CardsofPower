@@ -88,7 +88,7 @@ export const upsertFromClerk = mutation({
             email: data.email || "",
             goldCount: 300,
             highestGoldCount: 300,
-            inventory: [],
+            inventory: v.array(v.id("cards")),
             currentCardCount: 0,
             highestCardCount: 0,
             gamesPlayed: 0,
@@ -102,10 +102,19 @@ export const upsertFromClerk = mutation({
         };
 
         const user = await userByExternalId(ctx, data.clerkId);
+
+        // Defensive: inventory must be an array of strings (card IDs)
+        if (!Array.isArray(userAttributes.inventory)) {
+            throw new Error("upsertFromClerk: inventory must be an array");
+        }
+        if (userAttributes.inventory.some(id => typeof id !== "string")) {
+            throw new Error("upsertFromClerk: all inventory items must be strings");
+        }
+
         if (user === null) {
-            return await ctx.db.insert("users", userAttributes);
+            return await ctx.db.insert("users", { ...userAttributes, inventory: [] });
         } else {
-            await ctx.db.patch(user._id, userAttributes);
+            await ctx.db.patch(user._id, { ...userAttributes, inventory: user.inventory ?? [] });
             return user._id;
         }
     },
@@ -207,3 +216,48 @@ async function userByExternalId(ctx: QueryCtx, clerkId: string) {
 
     return user;
 }
+
+/**
+ * @description
+ * Mutation to add a card ID to a user's inventory.
+ *
+ * @receives data from:
+ * - client: userId (Clerk ID) and cardId (Convex ID)
+ *
+ * @sends data to:
+ * - users table: updated user document with new card in inventory
+ *
+ * @sideEffects:
+ * - Adds cardId to user's inventory array
+ * - Increments currentCardCount and cardsCreated for the user
+ */
+export const addCardToInventory = mutation({
+    args: {
+      userId: v.string(),
+      cardId: v.id("cards"),
+    },
+    handler: async (ctx, { userId, cardId }) => {
+      const user = await userByExternalId(ctx, userId);
+  
+      if (!user) {
+        throw new Error("addCardToInventory: User not found");
+      }
+  
+      // Ensure inventory is an array before pushing
+      const currentInventory = Array.isArray(user.inventory) ? user.inventory : [];
+  
+      // Ensure the card is not already in the inventory (defensive check)
+      if (currentInventory.includes(cardId)) {
+        console.warn(`Card ${cardId} already in user ${userId}'s inventory.`);
+        return user._id; // Return user ID even if card already exists
+      }
+  
+      await ctx.db.patch(user._id, {
+        inventory: [...currentInventory, cardId],
+        currentCardCount: user.currentCardCount + 1,
+        cardsCreated: user.cardsCreated + 1,
+      });
+  
+      return user._id;
+    },
+  });

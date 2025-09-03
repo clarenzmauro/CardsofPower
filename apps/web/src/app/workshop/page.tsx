@@ -11,28 +11,51 @@ export default function Workshop() {
   const { user } = useUser();
 
   interface CardFormData {
-    cardName: string;
-    cardDesc: string;
-    cardType: string;
-    atkPts: number | string;
-    defPts: number | string;
-    cardLevel: number | string;
-    cardAttribute: string;
-    cardCharacter: string;
-    cardClass: string;
+    name: string;
+    type: string;
+    description: string;
+    storageId?: string;
+    atkPts?: number;
+    defPts?: number;
+    inGameAtkPts?: number;
+    inGameDefPts?: number;
+    attribute: string;
+    class: string;
+    character: string;
+    level?: number;
+    isOwned: boolean;
+    isListed?: boolean;
+    currentOwnerId?: string;
+    currentOwnerUsername?: string;
+    boughtFor?: number | undefined;
+    marketValue?: number | undefined;
+    marketCount?: number | undefined;
+    roi?: number | undefined;
+    passCount?: number | undefined;
     imageFile: File | null;
   }
 
   const [formData, setFormData] = useState<CardFormData>({
-    cardName: "",
-    cardDesc: "",
-    cardType: "",
+    name: "",
+    type: "",
+    description: "",
     atkPts: 0,
     defPts: 0,
-    cardLevel: 0,
-    cardAttribute: "",
-    cardCharacter: "",
-    cardClass: "",
+    inGameAtkPts: 0,
+    inGameDefPts: 0,
+    attribute: "",
+    class: "",
+    character: "",
+    level: 1,
+    isOwned: true,
+    isListed: false,
+    currentOwnerId: "",
+    currentOwnerUsername: "",
+    boughtFor: 0,
+    marketValue: 0,
+    marketCount: 0,
+    roi: 0,
+    passCount: 0,
     imageFile: null,
   });
   const [loading, setLoading] = useState(false);
@@ -40,44 +63,52 @@ export default function Workshop() {
 
   const createCard = useMutation(api.cards.addCardWithImage);
   const generateUploadUrl = useMutation(api.storage.generateUploadUrl);
+  const addCardToUserInventory = useMutation(api.users.addCardToInventory);
 
   const validateForm = () => {
     const {
-      cardName,
-      cardDesc,
-      cardType,
+      name,
+      description,
+      type,
       atkPts,
       defPts,
-      cardLevel,
-      cardAttribute,
-      cardCharacter,
-      cardClass,
+      level,
+      imageFile,
     } = formData;
-    if (!cardName || !cardDesc || !cardType || !formData.imageFile) {
+
+    if (!name || !description || !type || !imageFile) {
       return "All fields are required.";
     }
-    if (cardType === "monster") {
-      const atkNum = Number(atkPts);
-      const defNum = Number(defPts);
-      const levelNum = Number(cardLevel);
 
+    if (type === "monster") {
       if (
-        !atkNum ||
-        !defNum ||
-        !levelNum ||
-        !cardAttribute ||
-        !cardCharacter ||
-        !cardClass
+        atkPts === undefined ||
+        defPts === undefined ||
+        level === undefined ||
+        !formData.attribute || 
+        !formData.character || 
+        !formData.class
       ) {
         return "All monster-specific fields are required.";
       }
-      if (atkNum > 5000 || atkNum < 0 || defNum > 5000 || defNum < 0) {
+      if (atkPts > 5000 || atkPts < 0 || defPts > 5000 || defPts < 0) {
         return "ATK and DEF points must not exceed 5000 or be less than 0.";
       }
-      if (levelNum > 10 || levelNum < 0) {
+      if (level > 10 || level < 0) {
         return "Card Level must not exceed 10 or be less than 0.";
       }
     }
+
+    // Runtime assertion: imageFile must be a File object
+    if (imageFile && !(imageFile instanceof File)) {
+      return "Invalid image file.";
+    }
+
+    // Defensive: name and description should be strings
+    if (typeof name !== "string" || typeof description !== "string") {
+      return "Name and description must be text.";
+    }
+
     return "";
   };
 
@@ -98,30 +129,22 @@ export default function Workshop() {
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    console.log("Form submitted!");
     e.preventDefault();
     setError("");
-    
-    console.log("Current form data:", formData);
-    console.log("User ID:", user?.id);
-    
+
     const validationError = validateForm();
     if (validationError) {
-      console.log("Validation error:", validationError);
       setError(validationError);
       return;
     }
 
-    console.log("Validation passed, starting upload...");
     setLoading(true);
     try {
       let storageId = "";
       
       // Upload image to Convex storage if provided
       if (formData.imageFile) {
-        console.log("Uploading image...", formData.imageFile.name);
         const uploadUrl = await generateUploadUrl();
-        console.log("Got upload URL:", uploadUrl);
         
         const result = await fetch(uploadUrl, {
           method: "POST",
@@ -134,60 +157,57 @@ export default function Workshop() {
         }
         
         const uploadResponse = await result.json();
-        console.log("Upload response:", uploadResponse);
         storageId = uploadResponse.storageId;
-      } else {
-        throw new Error("Image file is required");
       }
 
-      console.log("Creating card with storageId:", storageId);
       const cardData = {
         // Basic Info
-        name: formData.cardName,
-        type: formData.cardType,
-        description: formData.cardDesc,
+        name: formData.name,
+        type: formData.type,
+        description: formData.description,
         storageId: storageId,
 
         // Monster Stats
-        atkPts:
-          formData.cardType === "monster" ? Number(formData.atkPts) : undefined,
-        defPts:
-          formData.cardType === "monster" ? Number(formData.defPts) : undefined,
+        atkPts: formData.type === "monster" ? formData.atkPts : undefined,
+        defPts: formData.type === "monster" ? formData.defPts : undefined,
 
         // Monster Properties
-        attribute: formData.cardAttribute || undefined,
-        class: formData.cardClass || undefined,
-        character: formData.cardCharacter || undefined,
-        level:
-          formData.cardType === "monster"
-            ? Number(formData.cardLevel)
-            : undefined,
+        attribute: formData.attribute || undefined,
+        class: formData.class || undefined,
+        character: formData.character || undefined,
+        level: formData.type === "monster" ? Number(formData.level) : undefined,
 
         // Ownership & Market
-        isOwned: false,
+        isOwned: true,
         isListed: false,
-        currentOwnerId: user?.id || "anonymous",
+        currentOwnerId: user?.id,
         currentOwnerUsername: user?.username || "",
       };
-      
-      console.log("Card data to create:", cardData);
-      const result = await createCard(cardData);
-      console.log("Card created successfully:", result);
 
-      alert("Card created successfully");
+      const result = await createCard(cardData);
+
+      if (user?.id && result?.cardId) {
+        await addCardToUserInventory({
+          userId: user.id,
+          cardId: result.cardId,
+        });
+      }
+
+      alert("Card created successfully, check your inventory!");
       
       // Reset form after successful creation
       setFormData({
-        cardName: "",
-        cardDesc: "",
-        cardType: "",
+        name: "",
+        description: "",
+        type: "",
         atkPts: 0,
         defPts: 0,
-        cardLevel: 0,
-        cardAttribute: "",
-        cardCharacter: "",
-        cardClass: "",
+        level: 1,
+        attribute: "",
+        character: "",
+        class: "",
         imageFile: null,
+        isOwned: true,
       });
     } catch (error) {
       console.error("Failed to create card: ", error);
@@ -238,8 +258,8 @@ export default function Workshop() {
               <label className="block text-black font-[var(--font-pirata-one)]">Card Name:</label>
               <input
                 type="text"
-                name="cardName"
-                value={formData.cardName}
+                name="name"
+                value={formData.name}
                 onChange={handleInputChange}
                 placeholder="Enter card name"
                 className="w-full bg-transparent border-b-2 border-black outline-none text-black font-[var(--font-pirata-one)] placeholder:text-black/70"
@@ -249,8 +269,8 @@ export default function Workshop() {
             <div>
               <label className="block text-black font-[var(--font-pirata-one)]">Card Description:</label>
               <textarea
-                name="cardDesc"
-                value={formData.cardDesc}
+                name="description"
+                value={formData.description}
                 onChange={handleInputChange}
                 placeholder="Enter description"
                 className="w-full bg-transparent border-b-2 border-black outline-none resize-none text-black font-[var(--font-pirata-one)] placeholder:text-black/70"
@@ -260,17 +280,17 @@ export default function Workshop() {
             <div>
               <label className="block text-black font-[var(--font-pirata-one)]">Card Type:</label>
               <select
-                name="cardType"
-                value={formData.cardType}
+                name="type"
+                value={formData.type}
                 onChange={(e) => {
                   const value = e.target.value;
                   setFormData({
                     ...formData,
-                    cardType: value,
-                    cardAttribute: "",
-                    cardClass: "",
-                    cardCharacter: "",
-                    cardLevel: 0,
+                    type: value,
+                    attribute: "",
+                    class: "",
+                    character: "",
+                    level: 0,
                     atkPts: 0,
                     defPts: 0,
                   });
@@ -305,7 +325,7 @@ export default function Workshop() {
           </div>
 
           {/* RIGHT SIDE (only for monster) */}
-          {formData.cardType === "monster" && (
+          {formData.type === "monster" && (
             <div className="w-1/2 space-y-4 lg:space-y-6">
               <div>
                 <label className="block text-black font-[var(--font-pirata-one)]">Attack Points:</label>
@@ -337,8 +357,8 @@ export default function Workshop() {
                 <label className="block text-black font-[var(--font-pirata-one)]">Card Level:</label>
                 <input
                   type="number"
-                  name="cardLevel"
-                  value={formData.cardLevel}
+                  name="level"
+                  value={formData.level}
                   onChange={handleInputChange}
                   max="10"
                   placeholder="0 - 10"
@@ -349,8 +369,8 @@ export default function Workshop() {
               <div>
                 <label className="block text-black font-[var(--font-pirata-one)]">Attribute:</label>
                 <select
-                  name="cardAttribute"
-                  value={formData.cardAttribute}
+                  name="attribute"
+                  value={formData.attribute}
                   onChange={handleInputChange}
                   className="w-full bg-transparent border-b-2 border-black outline-none text-black font-[var(--font-pirata-one)]"
                 >
@@ -368,8 +388,8 @@ export default function Workshop() {
               <div>
                 <label className="block text-black font-[var(--font-pirata-one)]">Character:</label>
                 <select
-                  name="cardCharacter"
-                  value={formData.cardCharacter}
+                  name="character"
+                  value={formData.character}
                   onChange={handleInputChange}
                   className="w-full bg-transparent border-b-2 border-black outline-none text-black font-[var(--font-pirata-one)]"
                 >
@@ -384,8 +404,8 @@ export default function Workshop() {
               <div>
                 <label className="block text-black font-[var(--font-pirata-one)]">Class:</label>
                 <select
-                  name="cardClass"
-                  value={formData.cardClass}
+                  name="class"
+                  value={formData.class}
                   onChange={handleInputChange}
                   className="w-full bg-transparent border-b-2 border-black outline-none text-black font-[var(--font-pirata-one)]"
                 >

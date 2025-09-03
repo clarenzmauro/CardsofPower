@@ -12,6 +12,7 @@ import { useDataCache, cacheManager } from "@/hooks/useCachedQuery";
 type CardData = {
   _id: string;
   name: string;
+  description: string;
   type: string;
   attribute?: string;
   class?: string;
@@ -472,6 +473,12 @@ export default function DictionaryPage() {
                         !isCardOwned(selectedCard._id) ? "grayscale" : ""
                       }`}
                     />
+
+                    {selectedCard.description && (
+                      <div className="mb-3 p-2 bg-white/10 rounded-lg text-center text-sm lg:text-base break-words">
+                        <span className="ml-1">{selectedCard.description}</span>
+                      </div>
+                    )}
 
                     <div className="space-y-3 text-sm lg:text-base">
                       <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
