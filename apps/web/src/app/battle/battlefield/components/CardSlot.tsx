@@ -7,13 +7,27 @@ interface CardSlotProps {
   className?: string;
   dropHandlers?: React.HTMLAttributes<HTMLDivElement>;
   isDragOver?: boolean;
+  isSelected?: boolean;
+  onGraveyardClick?: () => void;
 }
 
-export const CardSlot: React.FC<CardSlotProps> = ({ card, onClick, className = "", dropHandlers, isDragOver = false }) => (
+export const CardSlot: React.FC<CardSlotProps> = ({ 
+  card, 
+  onClick, 
+  className = "", 
+  dropHandlers, 
+  isDragOver = false, 
+  isSelected = false, 
+  onGraveyardClick 
+}) => (
   <div 
-    className={`w-28 h-40 bg-stone-400/30 border-2 border-stone-600/50 rounded-lg backdrop-blur-sm flex flex-col items-center justify-center cursor-pointer hover:bg-stone-400/40 transition-all duration-300 ease-in-out overflow-hidden ${className} ${
+    className={`w-28 h-40 bg-stone-400/30 border-2 border-stone-600/50 rounded-lg backdrop-blur-sm flex flex-col items-center justify-center cursor-pointer hover:bg-stone-400/40 transition-all duration-300 ease-in-out overflow-hidden relative ${className} ${
       isDragOver 
         ? 'border-blue-400 bg-blue-400/20 scale-105 shadow-lg shadow-blue-400/30' 
+        : ''
+    } ${
+      isSelected 
+        ? 'border-yellow-400 bg-yellow-400/20 shadow-lg shadow-yellow-400/30' 
         : ''
     }`}
     onClick={onClick}
@@ -31,6 +45,20 @@ export const CardSlot: React.FC<CardSlotProps> = ({ card, onClick, className = "
             <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-1 text-center">
               <div className="font-semibold truncate">{card.name}</div>
             </div>
+            {/* Graveyard Button */}
+            {isSelected && onGraveyardClick && (
+              <div className="absolute top-2 right-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onGraveyardClick();
+                  }}
+                  className="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded shadow-lg transition-colors"
+                >
+                  Graveyard
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-sm text-white text-center p-2">

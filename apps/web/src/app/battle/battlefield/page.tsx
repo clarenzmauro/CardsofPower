@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import type { Card } from './types';
-import { CardDisplay, GraveyardPile, PlayerSection, EnemySection, FloatingCard } from './components';
+import { CardDisplay, GraveyardPile, PlayerSection, EnemySection, FloatingCard, AnimatingCard } from './components';
 import { useDragAndDrop } from './hooks/useDragAndDrop';
+import { useGraveyard } from './hooks/useGraveyard';
 
 export default function BattlefieldPage() {
   const [playerHand, setPlayerHand] = useState<Card[]>([
@@ -27,6 +28,7 @@ export default function BattlefieldPage() {
   const [enemyGraveyard, setEnemyGraveyard] = useState<Card[]>([]);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [dragDropEnabled, setDragDropEnabled] = useState<boolean>(true);
+  const [graveyardEnabled, setGraveyardEnabled] = useState<boolean>(true);
 
   // Drag and drop functionality
   const { dragState, getDragHandlers, getDropHandlers, logSlotContents, updateMousePosition } = useDragAndDrop({
@@ -42,10 +44,48 @@ export default function BattlefieldPage() {
     },
   });
 
+  // Graveyard functionality
+  const { animationState, sendToGraveyard, logGraveyardContents } = useGraveyard({
+    enabled: graveyardEnabled,
+    onCardToGraveyard: (card: Card, fromSlotIndex: number) => {
+      // Remove card from field and add to graveyard (FILO - First In, Last Out)
+      setPlayerField(prev => {
+        const newField = [...prev];
+        newField[fromSlotIndex] = null;
+        return newField;
+      });
+      setPlayerGraveyard(prev => [...prev, card]); // Add to end of array (last out)
+      setSelectedCard(null); // Deselect card
+    },
+  });
+
   // Log slot contents whenever field changes
   useEffect(() => {
     logSlotContents(playerField);
-  }, [playerField, logSlotContents]);
+    logGraveyardContents(playerGraveyard);
+  }, [playerField, playerGraveyard, logSlotContents, logGraveyardContents]);
+
+  // Handle graveyard action
+  const handleGraveyardCard = (slotIndex: number) => {
+    const card = playerField[slotIndex];
+    if (!card) return;
+
+    // Get positions for animation
+    const slotElement = document.querySelector(`[data-slot-index="${slotIndex}"]`);
+    const graveyardElement = document.querySelector('[data-graveyard="player"]');
+    
+    if (slotElement && graveyardElement) {
+      const slotRect = slotElement.getBoundingClientRect();
+      const graveyardRect = graveyardElement.getBoundingClientRect();
+      
+      sendToGraveyard(
+        card,
+        slotIndex,
+        { x: slotRect.left + slotRect.width / 2, y: slotRect.top + slotRect.height / 2 },
+        { x: graveyardRect.left + graveyardRect.width / 2, y: graveyardRect.top + graveyardRect.height / 2 }
+      );
+    }
+  };
 
   // Global drag tracking for better cursor following
   useEffect(() => {
@@ -71,7 +111,7 @@ export default function BattlefieldPage() {
       style={{ backgroundImage: 'url(/assets/backgrounds/battlefield.png)' }}
     >
       {/* Top Controls */}
-      <div className="flex justify-end p-4">
+      <div className="flex justify-end gap-4 p-4">
         <button
           onClick={() => setDragDropEnabled(!dragDropEnabled)}
           className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
@@ -81,6 +121,16 @@ export default function BattlefieldPage() {
           }`}
         >
           Drag & Drop: {dragDropEnabled ? 'ON' : 'OFF'}
+        </button>
+        <button
+          onClick={() => setGraveyardEnabled(!graveyardEnabled)}
+          className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+            graveyardEnabled 
+              ? 'bg-purple-600 hover:bg-purple-700 text-white' 
+              : 'bg-gray-600 hover:bg-gray-700 text-white'
+          }`}
+        >
+          Graveyard: {graveyardEnabled ? 'ON' : 'OFF'}
         </button>
       </div>
 
@@ -104,13 +154,17 @@ export default function BattlefieldPage() {
             getDragHandlers={getDragHandlers}
             getDropHandlers={getDropHandlers}
             dragState={dragState}
+            selectedCard={selectedCard}
+            onGraveyardCard={handleGraveyardCard}
           />
         </div>
 
         {/* Right Side - Graveyards */}
         <div className="w-32 flex flex-col justify-center gap-8 pl-4 pr-4">
           <GraveyardPile cards={enemyGraveyard} label="" />
-          <GraveyardPile cards={playerGraveyard} label="" />
+          <div data-graveyard="player">
+            <GraveyardPile cards={playerGraveyard} label="" />
+          </div>
         </div>
       </div>
 
@@ -120,6 +174,16 @@ export default function BattlefieldPage() {
           card={dragState.draggedCard}
           position={dragState.mousePosition}
           isVisible={dragState.isDragging}
+        />
+      )}
+
+      {/* Animating Card to Graveyard */}
+      {animationState.isAnimating && animationState.animatingCard && (
+        <AnimatingCard
+          card={animationState.animatingCard}
+          startPosition={animationState.startPosition}
+          endPosition={animationState.endPosition}
+          isVisible={animationState.isAnimating}
         />
       )}
     </div>
