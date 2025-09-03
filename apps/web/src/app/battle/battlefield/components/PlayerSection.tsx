@@ -7,9 +7,19 @@ interface PlayerSectionProps {
   hand: Card[];
   field: (Card | null)[];
   onCardSelect: (card: Card | null) => void;
+  getDragHandlers?: (card: Card, index: number) => React.HTMLAttributes<HTMLDivElement>;
+  getDropHandlers?: (slotIndex: number, isEmpty: boolean) => React.HTMLAttributes<HTMLDivElement>;
+  dragState?: { isDragging: boolean; draggedCard: Card | null; draggedFromIndex: number | null };
 }
 
-export const PlayerSection: React.FC<PlayerSectionProps> = ({ hand, field, onCardSelect }) => (
+export const PlayerSection: React.FC<PlayerSectionProps> = ({ 
+  hand, 
+  field, 
+  onCardSelect, 
+  getDragHandlers, 
+  getDropHandlers, 
+  dragState 
+}) => (
   <>
     {/* Player Field */}
     <div className="flex justify-center mb-8">
@@ -19,6 +29,8 @@ export const PlayerSection: React.FC<PlayerSectionProps> = ({ hand, field, onCar
             key={`player-${index}`} 
             card={card} 
             onClick={() => onCardSelect(card)}
+            dropHandlers={getDropHandlers ? getDropHandlers(index, !card) : undefined}
+            isDragOver={dragState?.isDragging && !card}
           />
         ))}
       </div>
@@ -28,11 +40,13 @@ export const PlayerSection: React.FC<PlayerSectionProps> = ({ hand, field, onCar
     <div>
       <div className="w-full h-32 bg-stone-900/40 rounded-lg backdrop-blur-sm border border-stone-600/50 flex items-center justify-center overflow-x-auto overflow-y-hidden p-4">
         <div className="flex gap-3">
-          {hand.map((card) => (
+          {hand.map((card, index) => (
             <HandCard 
               key={card.id} 
               card={card} 
               onClick={() => onCardSelect(card)}
+              dragHandlers={getDragHandlers ? getDragHandlers(card, index) : undefined}
+              isDragging={dragState?.draggedCard?.id === card.id}
             />
           ))}
         </div>

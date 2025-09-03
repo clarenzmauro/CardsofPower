@@ -8,7 +8,7 @@ interface CardDisplayProps {
 export const CardDisplay: React.FC<CardDisplayProps> = ({ card }) => (
   <div className="flex items-center justify-center w-full h-full">
     <div className="flex flex-col items-center">
-      <div className="text-white text-xl mb-6">Selected Card</div>
+      <div className="text-white text-xl mb-4">Selected Card</div>
       <div className="w-64 h-96 bg-stone-400/30 border-2 border-stone-600/50 rounded-lg backdrop-blur-sm overflow-hidden">
         {card ? (
           <>

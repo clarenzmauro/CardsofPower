@@ -5,12 +5,15 @@ interface HandCardProps {
   card: Card;
   onClick?: () => void;
   isHidden?: boolean;
+  dragHandlers?: React.HTMLAttributes<HTMLDivElement>;
+  isDragging?: boolean;
 }
 
-export const HandCard: React.FC<HandCardProps> = ({ card, onClick, isHidden = false }) => (
+export const HandCard: React.FC<HandCardProps> = ({ card, onClick, isHidden = false, dragHandlers, isDragging = false }) => (
   <div 
-    className="w-20 h-28 bg-stone-500/40 border border-stone-600/60 rounded-md backdrop-blur-sm flex items-center justify-center cursor-pointer hover:bg-stone-500/50 transition-colors mx-1 overflow-hidden"
+    className={`w-20 h-28 bg-stone-500/40 border border-stone-600/60 rounded-md backdrop-blur-sm flex items-center justify-center cursor-pointer hover:bg-stone-500/50 transition-colors mx-1 overflow-hidden ${isDragging ? 'opacity-50 scale-95' : ''}`}
     onClick={onClick}
+    {...dragHandlers}
   >
     {isHidden ? (
       <div className="w-full h-full bg-stone-600/60 flex items-center justify-center">

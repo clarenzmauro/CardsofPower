@@ -5,12 +5,15 @@ interface CardSlotProps {
   card: Card | null;
   onClick?: () => void;
   className?: string;
+  dropHandlers?: React.HTMLAttributes<HTMLDivElement>;
+  isDragOver?: boolean;
 }
 
-export const CardSlot: React.FC<CardSlotProps> = ({ card, onClick, className = "" }) => (
+export const CardSlot: React.FC<CardSlotProps> = ({ card, onClick, className = "", dropHandlers, isDragOver = false }) => (
   <div 
-    className={`w-28 h-40 bg-stone-400/30 border-2 border-stone-600/50 rounded-lg backdrop-blur-sm flex flex-col items-center justify-center cursor-pointer hover:bg-stone-400/40 transition-colors overflow-hidden ${className}`}
+    className={`w-28 h-40 bg-stone-400/30 border-2 border-stone-600/50 rounded-lg backdrop-blur-sm flex flex-col items-center justify-center cursor-pointer hover:bg-stone-400/40 transition-colors overflow-hidden ${className} ${isDragOver ? 'border-blue-400 bg-blue-400/20' : ''}`}
     onClick={onClick}
+    {...dropHandlers}
   >
     {card ? (
       <>

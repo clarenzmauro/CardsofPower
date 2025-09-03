@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Card } from './types';
 import { CardDisplay, GraveyardPile, PlayerSection, EnemySection } from './components';
+import { useDragAndDrop } from './hooks/useDragAndDrop';
 
 export default function BattlefieldPage() {
   const [playerHand, setPlayerHand] = useState<Card[]>([
@@ -25,6 +26,26 @@ export default function BattlefieldPage() {
   const [playerGraveyard, setPlayerGraveyard] = useState<Card[]>([]);
   const [enemyGraveyard, setEnemyGraveyard] = useState<Card[]>([]);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+  const [dragDropEnabled, setDragDropEnabled] = useState<boolean>(true);
+
+  // Drag and drop functionality
+  const { dragState, getDragHandlers, getDropHandlers, logSlotContents } = useDragAndDrop({
+    enabled: dragDropEnabled,
+    onCardMove: (card: Card, fromIndex: number, toSlotIndex: number) => {
+      // Move card from hand to field
+      setPlayerHand(prev => prev.filter((_, index) => index !== fromIndex));
+      setPlayerField(prev => {
+        const newField = [...prev];
+        newField[toSlotIndex] = card;
+        return newField;
+      });
+    },
+  });
+
+  // Log slot contents whenever field changes
+  useEffect(() => {
+    logSlotContents(playerField);
+  }, [playerField, logSlotContents]);
 
 
   return (
@@ -32,6 +53,20 @@ export default function BattlefieldPage() {
       className="h-screen bg-cover bg-center bg-no-repeat flex flex-col"
       style={{ backgroundImage: 'url(/assets/backgrounds/battlefield.png)' }}
     >
+      {/* Top Controls */}
+      <div className="flex justify-end p-4">
+        <button
+          onClick={() => setDragDropEnabled(!dragDropEnabled)}
+          className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+            dragDropEnabled 
+              ? 'bg-green-600 hover:bg-green-700 text-white' 
+              : 'bg-red-600 hover:bg-red-700 text-white'
+          }`}
+        >
+          Drag & Drop: {dragDropEnabled ? 'ON' : 'OFF'}
+        </button>
+      </div>
+
       <div className="flex-1 flex bg-black/20 p-4">
         {/* Left Side - Large Card Display */}
         <div className="w-80 flex items-center justify-center pr-4">
@@ -49,6 +84,9 @@ export default function BattlefieldPage() {
             hand={playerHand}
             field={playerField}
             onCardSelect={setSelectedCard}
+            getDragHandlers={getDragHandlers}
+            getDropHandlers={getDropHandlers}
+            dragState={dragState}
           />
         </div>
 
