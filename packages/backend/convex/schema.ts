@@ -79,9 +79,13 @@ export default defineSchema({
     cardsTraded: v.number(),
     profPicUrl: v.string(),
     dateCreated: v.string(),
+    isOnline: v.optional(v.boolean()),
   })
     .index("byExternalId", ["externalId"])
-    .index("by_clerk_id", ["clerkId"]),
+    .index("by_clerk_id", ["clerkId"])
+    .searchIndex("by_username", {
+      searchField: "username",
+    }),
 
   friends: defineTable({
     userOneId: v.id("users"),
@@ -94,6 +98,7 @@ export default defineSchema({
     lastMessageId: v.optional(v.id("messages")),
     lastMessageTimestamp: v.optional(v.string()),
     createdAt: v.string(),
+    isOnline: v.optional(v.boolean()),
   })
     .index("by_userOneId_userTwoId", ["userOneId", "userTwoId"])
     .index("by_userTwoId_userOneId", ["userTwoId", "userOneId"])

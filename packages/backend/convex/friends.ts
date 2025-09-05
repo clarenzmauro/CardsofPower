@@ -1,7 +1,6 @@
 
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
 
 /**
  * @description
@@ -72,6 +71,12 @@ export const getFriendsList = query({
     // Map friend userId to user details
     const userMap = Object.fromEntries(friendUsers.map(u => [String(u._id), u]));
 
+    // For each friend, update isOnline based on the latest user data
+    // Defensive: ensure friendUsers have isOnline property
+    friendUsers.forEach(u => {
+      if (!("isOnline" in u)) throw new Error("getFriendsList: user missing isOnline");
+    });
+
     // Compose result
     const result = allFriends.map(f => {
       const friendId = String(f.userOneId) === String(user._id) ? f.userTwoId : f.userOneId;
@@ -84,6 +89,7 @@ export const getFriendsList = query({
         lastMessageTimestamp: f.lastMessageTimestamp ?? "",
         status: f.status,
         createdAt: f.createdAt,
+        isOnline: !!friendUser?.isOnline,
       };
     });
 
@@ -334,6 +340,10 @@ export const sendMessage = mutation({
 
     if (!friendship) throw new Error("sendMessage: friendship not found");
 
+    if (friendship.status !== "accepted") {
+        throw new Error("sendMessage: friendship not accepted");
+    }
+
     const now = new Date().toISOString();
 
     const messageId = await ctx.db.insert("messages", {
@@ -474,4 +484,167 @@ export const unfollowUser = mutation({
 
     return { unfollowed: true };
   },
+});
+
+export const searchUsers = query({
+  args: {
+    search: v.string(),
+  },
+  handler: async (ctx, { search }) => {
+    if (typeof search !== "string" || search.length > 100) {
+      throw new Error("searchUsers: invalid search string");
+    }
+
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.subject) throw new Error("searchUsers: unauthenticated");
+
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!currentUser) throw new Error("searchUsers: current user not found");
+
+    const users = await ctx.db
+      .query("users")
+      .withSearchIndex("by_username", (q) => q.search("username", search))
+      .collect();
+
+    if (!Array.isArray(users)) {
+      throw new Error("searchUsers: users not array");
+    }
+
+    // Filter out the current user from the search results
+    const filteredUsers = users.filter(user => user._id !== currentUser._id);
+
+    // Limit results for safety
+    if (filteredUsers.length > 100) {
+      throw new Error("searchUsers: too many results");
+    }
+
+    return filteredUsers.map((user) => ({
+      id: user._id,
+      name: user.name ?? user.username ?? "Unknown",
+      username: user.username ?? "",
+      avatar: user.profPicUrl ?? null,
+    }));
+  },
+});
+
+export const sendFriendRequest = mutation({
+    args: {
+        friendId: v.id("users"),
+    },
+    handler: async (ctx, { friendId }) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Not authenticated");
+
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+            .unique();
+        if (!user) throw new Error("User not found");
+
+        if (user._id === friendId) {
+            throw new Error("Cannot send a friend request to yourself");
+        }
+
+        const existingFriendship = await ctx.db
+            .query("friends")
+            .withIndex("by_userOneId_userTwoId", (q) =>
+                q.eq("userOneId", user._id).eq("userTwoId", friendId)
+            )
+            .first();
+
+        const existingReverseFriendship = await ctx.db
+            .query("friends")
+            .withIndex("by_userOneId_userTwoId", (q) =>
+                q.eq("userOneId", friendId).eq("userTwoId", user._id)
+            )
+            .first();
+
+        if (existingFriendship || existingReverseFriendship) {
+            throw new Error("Friend request already sent or you are already friends");
+        }
+
+        const now = new Date().toISOString();
+        await ctx.db.insert("friends", {
+            userOneId: user._id,
+            userTwoId: friendId,
+            status: "pending",
+            createdAt: now,
+        });
+
+        return { success: true };
+    },
+});
+
+export const getPendingFriendRequests = query({
+    args: {},
+    handler: async (ctx) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Not authenticated");
+
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+            .unique();
+        if (!user) throw new Error("User not found");
+
+        const pendingRequests = await ctx.db
+            .query("friends")
+            .withIndex("by_userTwoId_status_timestamp", (q) =>
+                q.eq("userTwoId", user._id).eq("status", "pending")
+            )
+            .collect();
+
+        const requesters = await Promise.all(
+            pendingRequests.map((req) => ctx.db.get(req.userOneId))
+        );
+
+        return pendingRequests.map((req, i) => {
+            const requester = requesters[i];
+            return {
+                ...req,
+                requester: {
+                    id: requester?._id,
+                    name: requester?.name ?? requester?.username ?? "Unknown",
+                    username: requester?.username ?? "",
+                    avatar: requester?.profPicUrl ?? null,
+                },
+            };
+        });
+    },
+});
+
+export const acceptFriendRequest = mutation({
+    args: {
+        friendshipId: v.id("friends"),
+    },
+    handler: async (ctx, { friendshipId }) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Not authenticated");
+
+        const friendship = await ctx.db.get(friendshipId);
+        if (!friendship) throw new Error("Friendship not found");
+
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+            .unique();
+        if (!user) throw new Error("User not found");
+
+        if (friendship.userTwoId !== user._id) {
+            throw new Error("You are not the recipient of this friend request");
+        }
+
+        if (friendship.status !== "pending") {
+            throw new Error("This friend request is not pending");
+        }
+
+        await ctx.db.patch(friendshipId, {
+            status: "accepted",
+        });
+
+        return { success: true };
+    },
 });

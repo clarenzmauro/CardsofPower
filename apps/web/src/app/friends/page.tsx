@@ -4,15 +4,16 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
-  Mail, 
-  Users, 
-  Search, 
-  Send, 
+import {
+  Mail,
+  Users,
+  Search,
+  Send,
   MoreVertical,
   UserX,
   Flag,
-  LogOut
+  LogOut,
+  UserPlus,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -20,95 +21,58 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-interface Friend {
-  id: string;
-  name: string;
-  avatar?: string;
-  lastMessage?: string;
-  timestamp?: string;
-  isOnline?: boolean;
-}
-
-interface Message {
-  id: string;
-  senderId: string;
-  senderName: string;
-  content: string;
-  timestamp: string;
-}
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../../../../packages/backend/convex/_generated/api";
+import { type Id } from "../../../../../packages/backend/convex/_generated/dataModel";
 
 export default function FriendsPage() {
-  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
+  const [selectedConversation, setSelectedConversation] = useState<
+    string | null
+  >(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [newMessage, setNewMessage] = useState("");
-  const [activeTab, setActiveTab] = useState<"friends" | "mail" | "club">("friends");
+  const [activeTab, setActiveTab] = useState<
+    "friends" | "mail" | "search" | "requests"
+  >("friends");
 
-  // Mock data
-  const friends: Friend[] = [
-    {
-      id: "1",
-      name: "Captain Blackbeard",
-      lastMessage: "Ready for the next battle!",
-      timestamp: "2m ago",
-      isOnline: true
-    },
-    {
-      id: "2", 
-      name: "Admiral Storm",
-      lastMessage: "Great duel yesterday",
-      timestamp: "1h ago",
-      isOnline: false
-    },
-    {
-      id: "3",
-      name: "Pirate Jenny",
-      lastMessage: "Check out my new deck!",
-      timestamp: "3h ago",
-      isOnline: true
+  const friends = useQuery(api.friends.getFriendsList) ?? [];
+  const messages =
+    useQuery(
+      api.friends.displayConversation,
+      selectedConversation
+        ? { friendId: selectedConversation as Id<"users"> }
+        : "skip"
+    ) ?? [];
+  const systemMails = useQuery(api.mails.getSystemEmails) ?? [];
+  const searchResults = useQuery(
+    api.friends.searchUsers,
+    searchQuery ? { search: searchQuery } : "skip"
+  );
+  const sendFriendRequest = useMutation(api.friends.sendFriendRequest);
+  const pendingRequests = useQuery(api.friends.getPendingFriendRequests);
+  const acceptFriendRequest = useMutation(api.friends.acceptFriendRequest);
+
+  const handleSendFriendRequest = async (friendId: Id<"users">) => {
+    try {
+      await sendFriendRequest({ friendId });
+      // Optionally, provide feedback to the user, e.g., a toast notification
+    } catch (error) {
+      console.error("Failed to send friend request:", error);
+      // Optionally, handle the error in the UI
     }
-  ];
+  };
 
-  const messages: Message[] = [
-    {
-      id: "1",
-      senderId: "1",
-      senderName: "Captain Blackbeard",
-      content: "Ahoy! Ready for another epic card battle?",
-      timestamp: "10:30 AM"
-    },
-    {
-      id: "2",
-      senderId: "me",
-      senderName: "You",
-      content: "Aye! My deck is stronger than ever!",
-      timestamp: "10:32 AM"
-    },
-    {
-      id: "3",
-      senderId: "1",
-      senderName: "Captain Blackbeard",
-      content: "Ready for the next battle!",
-      timestamp: "10:35 AM"
+  const handleAcceptFriendRequest = async (friendshipId: Id<"friends">) => {
+    try {
+      await acceptFriendRequest({ friendshipId });
+      // Optionally, provide feedback to the user
+    } catch (error) {
+      console.error("Failed to accept friend request:", error);
+      // Optionally, handle the error in the UI
     }
-  ];
+  };
 
-  const systemMails = [
-    {
-      id: "mail1",
-      subject: "Welcome to Cards of Power!",
-      preview: "Your pirate adventure begins...",
-      timestamp: "1d ago"
-    },
-    {
-      id: "mail2", 
-      subject: "Daily Rewards Available",
-      preview: "Claim your treasure chest...",
-      timestamp: "6h ago"
-    }
-  ];
-
-  const filteredFriends = friends.filter(friend =>
+  const filteredFriends = friends.filter((friend) =>
     friend.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -120,17 +84,17 @@ export default function FriendsPage() {
   };
 
   const getSelectedFriend = () => {
-    return friends.find(f => f.id === selectedConversation);
+    return friends.find((f) => f.id === selectedConversation);
   };
 
   return (
-    <div 
+    <div
       style={{ backgroundImage: "url('/assets/backgrounds/friend.png')" }}
       className="h-screen w-screen bg-cover bg-center flex text-black"
     >
       <div className="flex w-full h-full">
         {/* LEFT SIDEBAR */}
-        <div className="w-1/3 bg-[rgba(125,75,26,0.9)] backdrop-blur-sm border-r border-[rgba(69,26,3,0.5)] flex flex-col">
+        <div className="w-1/3 min-w-[410px] bg-[rgba(125,75,26,0.9)] backdrop-blur-sm border-r border-[rgba(69,26,3,0.5)] flex flex-col">
           <div className="p-4 border-b border-[rgba(69,26,3,0.3)]">
             {/* Back button */}
             <Link href="/" className="block mb-4">
@@ -145,7 +109,7 @@ export default function FriendsPage() {
             <h1 className="text-xl font-[var(--font-pirata-one)] text-black mb-4">
               Pirate Communications
             </h1>
-            
+
             {/* Tab buttons */}
             <div className="flex gap-2 mb-4">
               <Button
@@ -153,50 +117,70 @@ export default function FriendsPage() {
                 size="sm"
                 onClick={() => setActiveTab("friends")}
                 className={`flex items-center gap-2 ${
-                  activeTab === "friends" 
-                    ? "bg-[rgb(69,26,3)] text-white" 
+                  activeTab === "friends"
+                    ? "bg-[rgb(69,26,3)] text-white"
                     : "bg-transparent border-black text-black hover:bg-black/10"
                 }`}
               >
                 <Users size={16} />
                 Friends
               </Button>
-              
+
               <Button
                 variant={activeTab === "mail" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setActiveTab("mail")}
                 className={`flex items-center gap-2 ${
-                  activeTab === "mail" 
-                    ? "bg-[rgb(69,26,3)] text-white" 
+                  activeTab === "mail"
+                    ? "bg-[rgb(69,26,3)] text-white"
                     : "bg-transparent border-black text-black hover:bg-black/10"
                 }`}
               >
                 <Mail size={16} />
                 Mail
               </Button>
-              
+
               <Button
-                variant={activeTab === "club" ? "default" : "outline"}
+                variant={activeTab === "search" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setActiveTab("club")}
+                onClick={() => setActiveTab("search")}
                 className={`flex items-center gap-2 ${
-                  activeTab === "club" 
-                    ? "bg-[rgb(69,26,3)] text-white" 
+                  activeTab === "search"
+                    ? "bg-[rgb(69,26,3)] text-white"
+                    : "bg-transparent border-black text-black hover:bg-black/10"
+                }`}
+              >
+                <Search size={16} />
+                Search
+              </Button>
+              <Button
+                variant={activeTab === "requests" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setActiveTab("requests")}
+                className={`flex items-center gap-2 ${
+                  activeTab === "requests"
+                    ? "bg-[rgb(69,26,3)] text-white"
                     : "bg-transparent border-black text-black hover:bg-black/10"
                 }`}
               >
                 <Users size={16} />
-                Club
+                Requests
               </Button>
             </div>
 
             {/* Search bar */}
-            {activeTab === "friends" && (
+            {(activeTab === "friends" || activeTab === "search") && (
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-black/60" size={16} />
+                <Search
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-black/60"
+                  size={16}
+                />
                 <Input
-                  placeholder="Search friends..."
+                  placeholder={
+                    activeTab === "search"
+                      ? "Search for users..."
+                      : "Search friends..."
+                  }
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 bg-transparent border-black text-black placeholder:text-black/60 font-[var(--font-pirata-one)]"
@@ -211,9 +195,9 @@ export default function FriendsPage() {
               <div className="p-2">
                 {systemMails.map((mail) => (
                   <div
-                    key={mail.id}
+                    key={mail._id}
                     className="p-3 mb-2 bg-[rgba(69,26,3,0.2)] rounded-lg cursor-pointer hover:bg-[rgba(69,26,3,0.3)] transition-colors"
-                    onClick={() => setSelectedConversation(mail.id)}
+                    onClick={() => setSelectedConversation(mail._id)}
                   >
                     <div className="font-[var(--font-pirata-one)] text-black font-semibold text-sm">
                       {mail.subject}
@@ -222,19 +206,64 @@ export default function FriendsPage() {
                       {mail.preview}
                     </div>
                     <div className="text-black/50 text-xs mt-1">
-                      {mail.timestamp}
+                      {mail.sentAt}
                     </div>
                   </div>
                 ))}
               </div>
             )}
 
-            {activeTab === "club" && (
-              <div className="p-4 text-center">
-                <Users size={48} className="mx-auto text-black/50 mb-2" />
-                <p className="text-black/70 font-[var(--font-pirata-one)]">
-                  Club feature coming soon!
-                </p>
+            {activeTab === "search" && (
+              <div className="p-2">
+                {searchResults?.map((user) => (
+                  <div
+                    key={user.id}
+                    className="p-3 mb-2 bg-[rgba(69,26,3,0.2)] rounded-lg flex items-center justify-between"
+                  >
+                    <div>
+                      <div className="font-[var(--font-pirata-one)] text-black text-sm">
+                        {user.name}
+                      </div>
+                      <div className="text-black/70 text-xs mt-1">
+                        @{user.username}
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => handleSendFriendRequest(user.id)}
+                      className="bg-[rgb(69,26,3)] text-white hover:bg-black/10"
+                    >
+                      Add Friend
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === "requests" && (
+              <div className="p-2">
+                {pendingRequests?.map((request) => (
+                  <div
+                    key={request._id}
+                    className="p-3 mb-2 bg-[rgba(69,26,3,0.2)] rounded-lg flex items-center justify-between"
+                  >
+                    <div>
+                      <div className="font-[var(--font-pirata-one)] text-black text-sm">
+                        {request.requester.name}
+                      </div>
+                      <div className="text-black/70 text-xs mt-1">
+                        @{request.requester.username}
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => handleAcceptFriendRequest(request._id)}
+                      className="bg-green-600 text-white hover:bg-green-700"
+                    >
+                      Accept
+                    </Button>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -262,15 +291,15 @@ export default function FriendsPage() {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-[var(--font-pirata-one)] text-black font-semibold text-sm">
+                        <div className="font-[var(--font-pirata-one)] text-black text-sm">
                           {friend.name}
                         </div>
                         <div className="text-black/70 text-xs truncate">
-                          {friend.lastMessage}
+                          {friend.lastMessageId}
                         </div>
                       </div>
                       <div className="text-black/50 text-xs">
-                        {friend.timestamp}
+                        {friend.lastMessageTimestamp}
                       </div>
                     </div>
                   </div>
@@ -295,30 +324,23 @@ export default function FriendsPage() {
                         </span>
                       </div>
                       <div>
-                        <h2 className="font-[var(--font-pirata-one)] text-black font-semibold">
+                        <h2 className="font-[var(--font-pirata-one)] text-black">
                           {getSelectedFriend()?.name}
                         </h2>
                         <p className="text-black/60 text-xs">
-                          {getSelectedFriend()?.isOnline ? "Online" : "Last seen 1h ago"}
+                          {getSelectedFriend()?.isOnline
+                            ? "Online"
+                            : "Last seen 1h ago"}
                         </p>
                       </div>
                     </>
                   )}
-                  
+
                   {activeTab === "mail" && (
                     <div className="flex items-center gap-3">
                       <Mail className="text-black" size={24} />
-                      <h2 className="font-[var(--font-pirata-one)] text-black font-semibold">
+                      <h2 className="font-[var(--font-pirata-one)] text-black">
                         System Mail
-                      </h2>
-                    </div>
-                  )}
-
-                  {activeTab === "club" && (
-                    <div className="flex items-center gap-3">
-                      <Users className="text-black" size={24} />
-                      <h2 className="font-[var(--font-pirata-one)] text-black font-semibold">
-                        Pirate Club
                       </h2>
                     </div>
                   )}
@@ -327,27 +349,24 @@ export default function FriendsPage() {
                 {/* Three dot menu */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="text-black hover:bg-black/10">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-black hover:bg-black/10"
+                    >
                       <MoreVertical size={16} />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="bg-[rgba(125,75,26,0.95)] border-[rgba(69,26,3,0.5)]">
+                    {activeTab === "friends" && (
+                      <DropdownMenuItem className="text-black hover:bg-black/10 cursor-pointer">
+                        <UserPlus size={14} className="mr-2" />
+                        Add Friend
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem className="text-black hover:bg-black/10 cursor-pointer">
                       <Flag size={14} className="mr-2" />
                       Report
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="text-black hover:bg-black/10 cursor-pointer">
-                      {activeTab === "club" ? (
-                        <>
-                          <LogOut size={14} className="mr-2" />
-                          Leave
-                        </>
-                      ) : (
-                        <>
-                          <UserX size={14} className="mr-2" />
-                          Unfollow
-                        </>
-                      )}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -355,76 +374,74 @@ export default function FriendsPage() {
 
               {/* Messages Area */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {activeTab === "friends" && messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.senderId === "me" ? "justify-end" : "justify-start"}`}
-                  >
+                {activeTab === "friends" &&
+                  messages.map((message) => (
                     <div
-                      className={`max-w-[70%] p-3 rounded-lg ${
-                        message.senderId === "me"
-                          ? "bg-[rgb(69,26,3)] text-white"
-                          : "bg-[rgba(255,255,255,0.8)] text-black"
-                      }`}
+                      key={message.id}
+                      className={`flex ${message.senderId === "me" ? "justify-end" : "justify-start"}`}
                     >
-                      <p className="font-[var(--font-pirata-one)] text-sm">
-                        {message.content}
-                      </p>
-                      <p className={`text-xs mt-1 ${
-                        message.senderId === "me" ? "text-white/70" : "text-black/60"
-                      }`}>
-                        {message.timestamp}
-                      </p>
+                      <div
+                        className={`max-w-[70%] p-3 rounded-lg ${
+                          message.senderId === "me"
+                            ? "bg-[rgb(69,26,3)] text-white"
+                            : "bg-[rgba(255,255,255,0.8)] text-black"
+                        }`}
+                      >
+                        <p className="text-sm">{message.content}</p>
+                        <p
+                          className={`text-xs mt-1 ${
+                            message.senderId === "me"
+                              ? "text-white/70"
+                              : "text-black/60"
+                          }`}
+                        >
+                          {message.timestamp}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
 
                 {activeTab === "mail" && (
                   <div className="bg-[rgba(255,255,255,0.9)] rounded-lg p-6">
                     <h3 className="font-[var(--font-pirata-one)] text-black text-lg mb-4">
                       Welcome to Cards of Power!
                     </h3>
-                    <p className="font-[var(--font-pirata-one)] text-black/80 mb-4">
-                      Ahoy, brave pirate! Welcome aboard the most legendary card game on the seven seas. 
-                      Your journey to become the ultimate pirate captain starts now!
+                    <p className="text-black/80 mb-4">
+                      Ahoy, brave pirate! Welcome aboard the most legendary card
+                      game on the seven seas. Your journey to become the
+                      ultimate pirate captain starts now!
                     </p>
-                    <p className="font-[var(--font-pirata-one)] text-black/80 mb-4">
+                    <p className="text-black/80 mb-4">
                       Here's what awaits you:
                     </p>
-                    <ul className="font-[var(--font-pirata-one)] text-black/80 space-y-2 ml-4">
+                    <ul className="text-black/80 space-y-2 ml-4">
                       <li>• Build your legendary deck in the Workshop</li>
                       <li>• Battle other pirates on the Battlefield</li>
                       <li>• Discover rare treasures in the Shop</li>
                       <li>• Connect with fellow pirates</li>
                     </ul>
-                    <p className="font-[var(--font-pirata-one)] text-black/80 mt-4">
-                      May the winds be at your back and your cards be ever in your favor!
+                    <p className="text-black/80 mt-4">
+                      May the winds be at your back and your cards be ever in
+                      your favor!
                     </p>
-                    <p className="font-[var(--font-pirata-one)] text-black/60 text-sm mt-4">
+                    <p className="text-black/60 text-sm mt-4">
                       - The Cards of Power Dev Team
-                    </p>
-                  </div>
-                )}
-
-                {activeTab === "club" && (
-                  <div className="text-center py-8">
-                    <Users size={64} className="mx-auto text-black/30 mb-4" />
-                    <p className="font-[var(--font-pirata-one)] text-black/60">
-                      Club conversations will appear here
                     </p>
                   </div>
                 )}
               </div>
 
-              {/* Message Input (only for friends and club) */}
-              {(activeTab === "friends" || activeTab === "club") && (
+              {/* Message Input (only for friends) */}
+              {(activeTab === "friends") && (
                 <div className="p-4 border-t border-[rgba(69,26,3,0.3)]">
                   <div className="flex gap-2">
                     <Input
                       placeholder="Type your message..."
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+                      onKeyPress={(e) =>
+                        e.key === "Enter" && handleSendMessage()
+                      }
                       className="flex-1 bg-[rgba(255,255,255,0.8)] border-black text-black placeholder:text-black/60 font-[var(--font-pirata-one)]"
                     />
                     <Button
