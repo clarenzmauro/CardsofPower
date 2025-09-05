@@ -170,18 +170,24 @@ export default function InventoryPage() {
         </div>
   
         {/* selected card details */}
-        <div className="xl:w-80 flex-shrink-0 mb-8 ml-10">
-          <div className="bg-black/40 backdrop-blur-sm rounded-xl p-6 border border-white/20 sticky top-4 max-h-[70vh]">
+        <div className="w-full max-w-xs sm:max-w-sm md:max-w-md xl:w-80 flex-shrink-0 mb-8 ml-0 sm:ml-6 md:ml-10">
+          <div className="bg-black/40 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/20 sticky top-4 max-h-[80vh] min-h-[320px] flex flex-col overflow-y-auto">
             {selectedCard ? (
               <>
-                <h3 className="text-xl font-semibold mb-4 text-center">
+                <h3 className="text-xl font-semibold mb-4 text-center break-words">
                   {selectedCard.name}
                 </h3>
                 <img
                   src={selectedCard.imageUrl}
                   alt={selectedCard.name}
-                  className="mx-auto w-full object-contain rounded-lg shadow-xl mb-4"
+                  className="mx-auto w-full max-h-[20%] h-[20%] object-contain rounded-lg shadow-xl mb-4"
+                  style={{ minHeight: "64px" }}
                 />
+                {selectedCard.description && (
+                  <div className="mb-3 p-2 bg-white/10 rounded-lg text-center text-sm lg:text-base break-words">
+                    <span className="ml-1">{selectedCard.description}</span>
+                  </div>
+                )}
                 <div className="space-y-3 text-sm lg:text-base">
                   <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
                     <span className="font-medium">Type:</span>
@@ -201,13 +207,13 @@ export default function InventoryPage() {
                   )}
                   <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
                     <span className="font-medium">Matches:</span>
-                    <span>{selectedCard.matches?.total || 0}</span>
+                    <span>{selectedCard.matches?.total ?? 0}</span>
                   </div>
                   <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
                     <span className="font-medium">Win Rate:</span>
                     <span className="font-bold">{winRate}</span>
                   </div>
-                  {selectedCard.marketValue && (
+                  {selectedCard.marketValue !== undefined && (
                     <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
                       <span className="font-medium">Value:</span>
                       <span>{selectedCard.marketValue}</span>
