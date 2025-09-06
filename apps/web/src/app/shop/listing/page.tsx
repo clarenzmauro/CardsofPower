@@ -3,10 +3,39 @@
 import React, { useState } from 'react';
 import ShopNavigation from '@/components/shop-navigation';
 
+import { useQuery, useMutation } from 'convex/react';
+import { api } from "@backend/convex/_generated/api";
+import { useUser } from '@clerk/nextjs';
+import { type Id } from "@backend/convex/_generated/dataModel";
+
 export default function ListingPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
+
+  const cards = useQuery(api.cards.getShopCards, {
+    searchQuery,
+    minPrice: minPrice ? Number(minPrice) : undefined,
+    maxPrice: maxPrice ? Number(maxPrice) : undefined,
+    currentUserId: useUser().user?.id ?? '',
+  }) ?? [];
+  const isLoading = !cards;
+
+  const { user } = useUser();
+  const myListings = useQuery(api.cards.getMyListings, { 
+    currentUserId: user?.id ?? ''
+  }) ?? [];
+  const unlistCard = useMutation(api.cards.unlistCard);
+  const [isListingModalOpen, setIsListingModalOpen] = useState(false);
+
+  const handleUnlist = async (cardId: string) => {
+    if (!user?.id) return;
+    try {
+      await unlistCard({ cardId: cardId as Id<"cards">, ownerId: user.id });
+    } catch (error) {
+      console.error('Unlist error:', error);
+    }
+  };
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -69,11 +98,42 @@ export default function ListingPage() {
         {/* Main Content Area */}
         <div className="px-8 pb-8">
           <div className="bg-black bg-opacity-30 rounded-lg min-h-96 p-6">
-            {/* This is where the listing content will go */}
-            <div className="text-white text-center py-20">
-              <h2 className="text-2xl font-bold mb-4">My Listings</h2>
-              <p className="text-gray-300">Manage your card listings and sales</p>
-            </div>
+            {isLoading ? (
+              <div className="text-white text-center py-20">Loading...</div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-white">My Listings</h2>
+                  <button
+                    onClick={() => setIsListingModalOpen(true)}
+                    className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded"
+                  >
+                    List New Card
+                  </button>
+                </div>
+
+                {myListings.length === 0 ? (
+                  <div className="text-white text-center py-20">
+                    <p>You have no listed cards</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {myListings.map((card) => (
+                      <div key={card._id} className="bg-white bg-opacity-10 rounded-lg p-4">
+                        <div className="text-white mb-2">{card.name}</div>
+                        <div className="text-yellow-400 mb-2">{card.marketValue} gold</div>
+                        <button
+                          onClick={() => unlistCard({ cardId: card._id, ownerId: user?.id ?? '' })}
+                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm w-full"
+                        >
+                          Unlist
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -3,10 +3,41 @@
 import React, { useState } from 'react';
 import ShopNavigation from '@/components/shop-navigation';
 
+import { useQuery, useMutation } from 'convex/react';
+import { api } from "@backend/convex/_generated/api";
+import { useUser } from '@clerk/nextjs';
+import { type Id } from "@backend/convex/_generated/dataModel";
+
 export default function ShopPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
+
+  const cards = useQuery(api.cards.getShopCards, {
+    searchQuery,
+    minPrice: minPrice ? Number(minPrice) : undefined,
+    maxPrice: maxPrice ? Number(maxPrice) : undefined,
+    currentUserId: useUser().user?.id ?? '',
+  }) ?? [];
+  const isLoading = !cards;
+
+  // for main area
+  const { user } = useUser();
+  const purchaseCard = useMutation(api.cards.purchaseCard);
+  const shopListings = cards ?? [];
+
+  const handlePurchase = async (cardId: Id<"cards">) => {
+    if (!user?.id) return;
+    try {
+      const result = await purchaseCard({ 
+        cardId, 
+        buyerId: user.id 
+      });
+      if (!result?.success) throw new Error('Purchase failed');
+    } catch (error) {
+      console.error('Purchase error:', error);
+    }
+  };
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -69,11 +100,25 @@ export default function ShopPage() {
         {/* Main Content Area */}
         <div className="px-8 pb-8">
           <div className="bg-black bg-opacity-30 rounded-lg min-h-96 p-6">
-            {/* This is where the shop content will go */}
-            <div className="text-white text-center py-20">
-              <h2 className="text-2xl font-bold mb-4">Welcome to the Shop</h2>
-              <p className="text-gray-300">Browse and purchase cards from other players</p>
-            </div>
+            {isLoading ? (
+              <div className="text-white text-center py-20">Loading...</div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {shopListings.map((card) => (
+                  <div key={card._id} className="bg-white bg-opacity-10 rounded-lg p-4">
+                    <div className="text-white mb-2">{card.name}</div>
+                    <div className="text-yellow-400 mb-2">{card.marketValue} gold</div>
+                    <button
+                      onClick={() => purchaseCard({ cardId: card._id, buyerId: user?.id ?? '' })}
+                      className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm"
+                      disabled={!user}
+                    >
+                      Buy
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

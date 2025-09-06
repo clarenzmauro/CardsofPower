@@ -24,6 +24,7 @@ export default defineSchema({
     // Ownership & Market
     isOwned: v.boolean(),
     isListed: v.optional(v.boolean()),
+    isForTrade: v.optional(v.boolean()),
     currentOwnerId: v.optional(v.string()),
     currentOwnerUsername: v.optional(v.string()),
     boughtFor: v.optional(v.number()),
@@ -57,7 +58,9 @@ export default defineSchema({
     .index("by_class", ["class"])
     .index("by_character", ["character"])
     .index("by_level", ["level"])
-    .index("by_owner", ["currentOwnerId"]),
+    .index("by_owner", ["currentOwnerId"])
+    .index("by_is_listed_market_value", ["isListed", "marketValue"])
+    .index("by_is_for_trade_market_value", ["isForTrade", "marketValue"]),
 
   users: defineTable({
     name: v.optional(v.string()),
@@ -76,6 +79,7 @@ export default defineSchema({
     gamesLost: v.number(),
     cardsCreated: v.number(),
     cardsBought: v.number(),
+    cardsSold: v.optional(v.number()),
     cardsTraded: v.number(),
     profPicUrl: v.string(),
     dateCreated: v.string(),
@@ -133,4 +137,20 @@ export default defineSchema({
     isSystem: v.optional(v.boolean()),
     isRead: v.optional(v.boolean()),
   }).index("by_conversationId_timestamp", ["conversationId", "timestamp"]),
+  trades: defineTable({
+    offerorId: v.id("users"),
+    offerorCardId: v.id("cards"),
+    receiverId: v.id("users"),
+    receiverCardId: v.id("cards"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("accepted"),
+      v.literal("rejected")
+    ),
+    createdAt: v.string(),
+  })
+    .index("by_offeror_status", ["offerorId", "status"])
+    .index("by_receiver_status", ["receiverId", "status"])
+    .index("by_offeror_receiver", ["offerorId", "receiverId"])
+    .index("by_createdAt", ["createdAt"]),
 });
