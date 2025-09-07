@@ -461,20 +461,37 @@ export const listCardForTrade = mutation({
   },
 });
 
+const userByExternalId = async (ctx: any, externalId: string) => {
+  if (!externalId) throw new Error("userByExternalId: Missing externalId");
+  
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", externalId))
+    .first();
+
+  if (!user) return null;
+  if (!user._id) throw new Error("userByExternalId: Invalid user document");
+  
+  return user;
+};
+
 export const purchaseCard = mutation({
   args: {
     cardId: v.id("cards"),
-    buyerId: v.string(),
   },
-  handler: async (ctx, { cardId, buyerId }) => {
+  handler: async (ctx, { cardId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("purchaseCard: Not authenticated");
+    const buyerId = identity.subject;
+
     const card = await ctx.db.get(cardId);
     if (!card) throw new Error("purchaseCard: Card not found");
     if (!card.isListed) throw new Error("purchaseCard: Card not listed");
     if (card.currentOwnerId === buyerId) throw new Error("purchaseCard: Cannot buy your own card");
 
     const [buyer, seller] = await Promise.all([
-      ctx.db.query("users").withIndex("by_clerk_id", q => q.eq("clerkId", buyerId)).unique(),
-      ctx.db.query("users").withIndex("by_clerk_id", q => q.eq("clerkId", card.currentOwnerId)).unique()
+      userByExternalId(ctx, buyerId),
+      userByExternalId(ctx, card.currentOwnerId ?? "")
     ]);
 
     if (!buyer || !seller) throw new Error("purchaseCard: User not found");
@@ -496,7 +513,7 @@ export const purchaseCard = mutation({
       ctx.db.patch(seller._id, {
         goldCount: seller.goldCount + price,
         highestGoldCount: Math.max(seller.highestGoldCount, seller.goldCount + price),
-        inventory: sellerInventory.filter(id => id !== cardId),
+        inventory: sellerInventory.filter((id: string) => id !== cardId),
         currentCardCount: seller.currentCardCount - 1,
         cardsSold: (seller.cardsSold ?? 0) + 1,
       }),

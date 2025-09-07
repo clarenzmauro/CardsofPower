@@ -53,6 +53,8 @@ export default function ShopNavigation({ activeTab }: ShopNavigationProps) {
               width={270}
               height={120}
               className="drop-shadow-lg"
+              style={{ width: 'auto', height: 'auto' }}
+              priority={activeTab === 'shop'}
             />
           </button>
 
@@ -69,6 +71,8 @@ export default function ShopNavigation({ activeTab }: ShopNavigationProps) {
               width={270}
               height={120}
               className="drop-shadow-lg"
+              style={{ width: 'auto', height: 'auto' }}
+              priority={activeTab === 'trade'}
             />
           </button>
 
@@ -85,6 +89,8 @@ export default function ShopNavigation({ activeTab }: ShopNavigationProps) {
               width={270}
               height={120}
               className="drop-shadow-lg"
+              style={{ width: 'auto', height: 'auto' }}
+              priority={activeTab === 'listing'}
             />
           </button>
         </div>
