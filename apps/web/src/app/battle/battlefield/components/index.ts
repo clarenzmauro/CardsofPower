@@ -6,3 +6,5 @@ export { PlayerSection } from './PlayerSection';
 export { EnemySection } from './EnemySection';
 export { FloatingCard } from './FloatingCard';
 export { AnimatingCard } from './AnimatingCard';
+export { HealthBar } from './HealthBar';
+export { Timer } from './Timer';
