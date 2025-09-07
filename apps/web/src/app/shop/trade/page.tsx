@@ -136,7 +136,7 @@ export default function TradePage() {
 
         {/* Search Bar */}
         <div className="flex justify-center px-4 mb-6">
-          <div className="bg-white bg-opacity-80 rounded-md shadow-md p-2 w-full max-w-lg">
+          <div className="bg-black/40 backdrop-blur-sm rounded-xl p-2 w-full max-w-lg border border-white/20">
             <div className="flex space-x-2">
               {/* Search by name */}
               <div className="flex-1">
@@ -145,7 +145,7 @@ export default function TradePage() {
                   placeholder="Search by name..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-transparent text-gray-700"
+                  className="w-full px-3 py-1.5 text-sm bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
                 />
               </div>
 
@@ -161,7 +161,7 @@ export default function TradePage() {
                       setMinPrice(val);
                     }
                   }}
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-transparent text-gray-700"
+                  className="w-full px-2 py-1.5 text-sm bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
                 />
               </div>
 
@@ -177,7 +177,7 @@ export default function TradePage() {
                       setMaxPrice(val);
                     }
                   }}
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-transparent text-gray-700"
+                  className="w-full px-2 py-1.5 text-sm bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
                 />
               </div>
             </div>
