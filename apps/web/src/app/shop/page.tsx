@@ -7,35 +7,45 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@backend/convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
 import { type Id } from "@backend/convex/_generated/dataModel";
+import { toast } from "sonner";
 
 export default function ShopPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
+  const [buying, setBuying] = useState<Record<Id<"cards">, boolean>>({})
 
-  const cards =
-    useQuery(api.cards.getShopCards, {
-      searchQuery,
-      minPrice: minPrice ? Number(minPrice) : undefined,
-      maxPrice: maxPrice ? Number(maxPrice) : undefined,
-      currentUserId: useUser().user?.id ?? "",
-    }) ?? [];
-  const isLoading = !cards;
-
-  // for main area
   const { user } = useUser();
+  const cards = useQuery(api.cards.getListings, {
+    scope: "shop",
+    searchQuery,
+    minPrice: minPrice ? Number(minPrice) : undefined,
+    maxPrice: maxPrice ? Number(maxPrice) : undefined,
+    currentUserId: user?.id ?? "",
+  });
+  const isLoading = !cards;
   const purchaseCard = useMutation(api.cards.purchaseCard);
   const shopListings = cards ?? [];
 
   const handlePurchase = async (cardId: Id<"cards">) => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      toast.error("You must be signed in to buy cards.");
+      return;
+    }
+    setBuying((prev) => ({ ...prev, [cardId]: true }));
     try {
-      const result = await purchaseCard({
-        cardId,
-      });
+      const result = await purchaseCard({ cardId });
       if (!result?.success) throw new Error("Purchase failed");
-    } catch (error) {
-      console.error("Purchase error:", error);
+      toast.success("Purchase successful");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Purchase failed";
+      if (message.toLowerCase().includes("insufficient")) {
+        toast.error("Insufficient gold to buy this card.");
+      } else {
+        toast.error(message);
+      }
+    } finally {
+      setBuying((prev) => ({ ...prev, [cardId]: false }));
     }
   };
 
@@ -75,7 +85,12 @@ export default function ShopPage() {
                   type="text"
                   placeholder="Min"
                   value={minPrice}
-                  onChange={(e) => setMinPrice(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '' || /^\d+$/.test(value)) {
+                      setMinPrice(value);
+                    }
+                  }}
                   className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-transparent text-gray-700"
                 />
               </div>
@@ -86,7 +101,12 @@ export default function ShopPage() {
                   type="text"
                   placeholder="Max"
                   value={maxPrice}
-                  onChange={(e) => setMaxPrice(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '' || /^\d+$/.test(value)) {
+                      setMaxPrice(value);
+                    }
+                  }}
                   className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-transparent text-gray-700"
                 />
               </div>
@@ -99,6 +119,8 @@ export default function ShopPage() {
           <div className="bg-black/40 backdrop-blur-sm rounded-xl p-6 border border-white/20 min-h-96">
             {isLoading ? (
               <div className="text-white text-center py-20">Loading...</div>
+            ) : shopListings.length === 0 ? (
+              <div className="text-white text-center py-20">No results found</div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {shopListings.map((card) => (
@@ -129,15 +151,11 @@ export default function ShopPage() {
                     </div>
                     <div className="mt-auto">
                       <button
-                        onClick={() =>
-                          purchaseCard({
-                            cardId: card._id,
-                          })
-                        }
+                        onClick={() => handlePurchase(card._id)}
                         className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm w-full"
-                        disabled={!user}
+                        disabled={!user || !!buying[card._id]}
                       >
-                        Buy
+                        {buying[card._id] ? "Buying..." : "Buy"}
                       </button>
                     </div>
                   </div>

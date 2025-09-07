@@ -1,6 +1,13 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
+const ListingsScope = v.union(
+    v.literal("shop"),
+    v.literal("trade"),
+    v.literal("mine"),
+    v.literal("my-trade"),
+);
+
 /**
  * @description
  * Query to fetch all cards for the dictionary
@@ -16,13 +23,7 @@ import { v } from "convex/values";
  */
 export const getAll = query({
     handler: async (ctx: any) => {
-        const cards = await ctx.db.query("cards").collect();
-        
-        if (!Array.isArray(cards)) {
-            throw new Error("getAll: cards must be an array");
-        }
-        
-        return cards;
+        return await ctx.db.query("cards").collect().slice(0, 100);
     },
 });
 
@@ -41,38 +42,28 @@ export const getAll = query({
  */
 export const getUserInventory = query({
     args: { userId: v.string() },
-    handler: async (ctx: any, args: any) => {
+    handler: async (ctx, args) => {
         if (!args.userId) return [];
 
         const user = await ctx.db
             .query("users")
-            .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", args.userId))
+            .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.userId))
             .first();
-        
-        // return empty array for missing users
-        if (!user) {
-            return [];
-        }
-        
+        if (!user) return [];
+
         if (!Array.isArray(user.inventory)) {
             throw new Error("getUserInventory: inventory must be an array");
         }
 
-        // Defensive: limit to 100 cards to avoid runaway fetches
-        const inventoryIds = user.inventory.slice(0, 100);
+        const cards = await ctx.db
+            .query("cards")
+            .withIndex("by_owner", (q) => q.eq("currentOwnerId", args.userId))
+            .collect();
 
-        // Fetch all card documents in parallel
-        const cardPromises = inventoryIds.map((cardId: string) => ctx.db.get(cardId));
-        const cards = await Promise.all(cardPromises);
+        if (!Array.isArray(cards)) throw new Error("getUserInventory: cards must be array");
+        if (cards.length > 0 && !cards[0]._id) throw new Error("getUserInventory: card missing _id");
 
-        // Filter out nulls (missing cards)
-        const validCards = cards.filter((c: any) => c !== null);
-
-        // Assert at least two runtime checks
-        if (!Array.isArray(validCards)) throw new Error("getUserInventory: result is not array");
-        if (validCards.length > 0 && !validCards[0]._id) throw new Error("getUserInventory: card missing _id");
-
-        return validCards;
+        return cards;
     },
 });
 
@@ -258,203 +249,125 @@ export const addCardWithImage = mutation({
     },
 });
 
-export const getShopCards = query({
+const filterCards = (cards: any[], args: any, currentUserId: string) => {
+    let filteredCards = cards;
+
+    if (args.minPrice !== undefined) {
+        filteredCards = filteredCards.filter(
+            (card) => card.marketValue !== undefined && card.marketValue >= args.minPrice
+        );
+    }
+
+    if (args.maxPrice !== undefined) {
+        filteredCards = filteredCards.filter(
+            (card) => card.marketValue !== undefined && card.marketValue <= args.maxPrice
+        );
+    }
+
+    if (args.searchQuery) {
+        const query = args.searchQuery.toLowerCase();
+        filteredCards = filteredCards.filter((card) =>
+            card.name.toLowerCase().includes(query)
+        );
+    }
+
+    return filteredCards.slice(0, 100); // Safety limit
+};
+
+export const getListings = query({
   args: {
+    scope: ListingsScope,
     searchQuery: v.optional(v.string()),
     minPrice: v.optional(v.number()),
     maxPrice: v.optional(v.number()),
     currentUserId: v.string(),
   },
   handler: async (ctx, args) => {
-    // Get all listed cards first (limit 100 for safety)
-    let cards = await ctx.db
-      .query("cards")
-      .withIndex("by_is_listed_market_value", (q) =>
-        q.eq("isListed", true)
-      )
-      .collect();
+    let cards: any[] = [];
 
-    if (!Array.isArray(cards)) {
-      throw new Error("getShopCards: cards must be an array");
+    if (args.scope === "shop") {
+      cards = await ctx.db
+        .query("cards")
+        .withIndex("by_is_listed_market_value", (q) =>
+          q
+            .eq("isListed", true)
+            .gte("marketValue", args.minPrice ?? 0)
+            .lte("marketValue", args.maxPrice ?? Number.MAX_SAFE_INTEGER)
+        )
+        .collect();
+      cards = cards.filter((card) => card.currentOwnerId !== args.currentUserId);
+    } else if (args.scope === "trade") {
+      cards = await ctx.db
+        .query("cards")
+        .withIndex("by_is_for_trade_market_value", (q) =>
+          q
+            .eq("isForTrade", true)
+            .gte("marketValue", args.minPrice ?? 0)
+            .lte("marketValue", args.maxPrice ?? Number.MAX_SAFE_INTEGER)
+        )
+        .collect();
+      cards = cards.filter((card) => card.currentOwnerId !== args.currentUserId);
+    } else if (args.scope === "mine") {
+      cards = await ctx.db
+        .query("cards")
+        .withIndex("by_owner", (q) =>
+          q.eq("currentOwnerId", args.currentUserId)
+        )
+        .collect();
+      cards = cards.filter((card) => card.isListed);
+    } else if (args.scope === "my-trade") {
+      cards = await ctx.db
+        .query("cards")
+        .withIndex("by_owner", (q) =>
+          q.eq("currentOwnerId", args.currentUserId)
+        )
+        .collect();
+      cards = cards.filter((card) => card.isForTrade === true);
     }
 
-    // Apply price filters if provided
-    if (args.minPrice !== undefined) {
-      cards = cards.filter((card) => 
-        card.marketValue !== undefined && card.marketValue >= args.minPrice!
-      );
-    }
-    if (args.maxPrice !== undefined) {
-      cards = cards.filter((card) =>
-        card.marketValue !== undefined && card.marketValue <= args.maxPrice!
-      );
-    }
+    if (!Array.isArray(cards)) throw new Error("getListings: cards must be an array");
 
-    // Filter out user's own cards
-    cards = cards.filter((card) => 
-      card.currentOwnerId !== args.currentUserId
-    );
-
-    // Apply search filter if provided
-    if (args.searchQuery) {
-      const query = args.searchQuery.toLowerCase();
-      cards = cards.filter((card) =>
-        card.name.toLowerCase().includes(query)
-      );
-    }
-
-    return cards.slice(0, 100); // Safety limit
+    return filterCards(cards, args, args.currentUserId);
   },
 });
 
-export const getMyListings = query({
-  args: {
-    searchQuery: v.optional(v.string()),
-    minPrice: v.optional(v.number()),
-    maxPrice: v.optional(v.number()),
-    currentUserId: v.string(),
-  },
-  handler: async (ctx, args) => {
-    let cards = await ctx.db
-      .query("cards")
-      .withIndex("by_owner", (q) =>
-        q.eq("currentOwnerId", args.currentUserId)
-      )
-      .collect();
-
-    if (!Array.isArray(cards)) {
-      throw new Error("getMyListings: cards must be an array");
-    }
-
-    cards = cards.filter((card) => card.isListed);
-
-    if (args.minPrice !== undefined) {
-      cards = cards.filter((card) => 
-        card.marketValue !== undefined && card.marketValue >= args.minPrice!
-      );
-    }
-    if (args.maxPrice !== undefined) {
-      cards = cards.filter((card) =>
-        card.marketValue !== undefined && card.marketValue <= args.maxPrice!
-      );
-    }
-
-    if (args.searchQuery) {
-      const query = args.searchQuery.toLowerCase();
-      cards = cards.filter((card) =>
-        card.name.toLowerCase().includes(query)
-      );
-    }
-
-    return cards.slice(0, 100);
-  },
-});
-
-export const getTradeListings = query({
-  args: {
-    searchQuery: v.optional(v.string()),
-    minPrice: v.optional(v.number()),
-    maxPrice: v.optional(v.number()),
-    currentUserId: v.string(),
-  },
-  handler: async (ctx, args) => {
-    let cards = await ctx.db
-      .query("cards")
-      .withIndex("by_is_for_trade_market_value", (q) =>
-        q.eq("isForTrade", true)
-      )
-      .collect();
-
-    if (!Array.isArray(cards)) {
-      throw new Error("getTradeListings: cards must be an array");
-    }
-
-    cards = cards.filter((card) => card.currentOwnerId !== args.currentUserId);
-
-    if (args.minPrice !== undefined) {
-      cards = cards.filter((card) =>
-        card.marketValue !== undefined && card.marketValue >= args.minPrice!
-      );
-    }
-    if (args.maxPrice !== undefined) {
-      cards = cards.filter((card) =>
-        card.marketValue !== undefined && card.marketValue <= args.maxPrice!
-      );
-    }
-
-    if (args.searchQuery) {
-      const query = args.searchQuery.toLowerCase();
-      cards = cards.filter((card) =>
-        card.name.toLowerCase().includes(query)
-      );
-    }
-
-    return cards.slice(0, 100); // Safety limit
-  },
-});
-
-export const listCardForSale = mutation({
+export const setListingStatus = mutation({
   args: {
     cardId: v.id("cards"),
-    price: v.number(),
+    mode: v.union(v.literal("sale"), v.literal("trade"), v.literal("unlist")),
+    price: v.optional(v.number()),
     ownerId: v.string(),
   },
-  handler: async (ctx, { cardId, price, ownerId }) => {
+  handler: async (ctx, { cardId, mode, price, ownerId }) => {
     const card = await ctx.db.get(cardId);
-    if (!card) throw new Error("listCardForSale: Card not found");
+    if (!card) throw new Error("setListingStatus: Card not found");
     if (card.currentOwnerId !== ownerId) {
-      throw new Error("listCardForSale: Not card owner");
+      throw new Error("setListingStatus: Not card owner");
     }
-    if (price <= 0) throw new Error("listCardForSale: Invalid price");
 
-    await ctx.db.patch(cardId, {
-      isListed: true,
-      marketValue: price,
-      isForTrade: false,
-    });
+    let isListed = false;
+    let isForTrade = false;
+    let marketValue: number | undefined;
 
-    return { success: true };
-  },
-});
-
-export const unlistCard = mutation({
-  args: {
-    cardId: v.id("cards"),
-    ownerId: v.string(),
-  },
-  handler: async (ctx, { cardId, ownerId }) => {
-    const card = await ctx.db.get(cardId);
-    if (!card) throw new Error("unlistCard: Card not found");
-    if (card.currentOwnerId !== ownerId) {
-      throw new Error("unlistCard: Not card owner");
+    if (mode === "sale") {
+      if (price === undefined || price <= 0) throw new Error("setListingStatus: Invalid price for sale");
+      isListed = true;
+      marketValue = price;
+      isForTrade = false;
+    } else if (mode === "trade") {
+      isForTrade = true;
+      isListed = false;
+      marketValue = undefined;
+    } else if (mode === "unlist") {
+      isListed = false;
+      marketValue = undefined;
+      isForTrade = false;
     }
 
     await ctx.db.patch(cardId, {
-      isListed: false,
-      marketValue: undefined,
-      isForTrade: false,
-    });
-
-    return { success: true };
-  },
-});
-
-export const listCardForTrade = mutation({
-  args: {
-    cardId: v.id("cards"),
-    ownerId: v.string(),
-  },
-  handler: async (ctx, { cardId, ownerId }) => {
-    const card = await ctx.db.get(cardId);
-    if (!card) throw new Error("listCardForTrade: Card not found");
-    if (card.currentOwnerId !== ownerId) {
-      throw new Error("listCardForTrade: Not card owner");
-    }
-
-    await ctx.db.patch(cardId, {
-      isForTrade: true,
-      isListed: false,
-      marketValue: undefined,
+      isListed,
+      marketValue,
+      isForTrade,
     });
 
     return { success: true };

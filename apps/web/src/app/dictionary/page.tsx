@@ -67,10 +67,7 @@ export default function DictionaryPage() {
       freshCards,
     ]);
 
-  const {
-    cachedData: cachedUserInventory,
-    isCacheLoaded: inventoryCacheLoaded,
-  } = useDataCache(
+  const { cachedData: cachedUserInventory } = useDataCache(
     freshUserInventory,
     { key: `user_inventory_${user?.id || "anonymous"}`, ttl: 5 * 60 * 1000 },
     [freshUserInventory, user?.id]
@@ -98,7 +95,8 @@ export default function DictionaryPage() {
 
   // calculate ROI with color formatting
   const formattedROI = useMemo(() => {
-    if (!selectedCard?.marketValue || !selectedCard?.boughtFor) return <span>0</span>;
+    if (!selectedCard?.marketValue || !selectedCard?.boughtFor)
+      return <span>0</span>;
     const roi = selectedCard.marketValue - selectedCard.boughtFor;
     if (roi > 0) {
       return <span className="text-green-500">+{roi}</span>;
@@ -114,7 +112,7 @@ export default function DictionaryPage() {
     if (!cards) return [];
 
     return cards
-      .filter((card) => {
+      .filter((card: CardData) => {
         const matchesSearch = card.name
           .toLowerCase()
           .includes(searchQuery.toLowerCase());
@@ -136,7 +134,7 @@ export default function DictionaryPage() {
           matchesLevel
         );
       })
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a: CardData, b: CardData) => a.name.localeCompare(b.name));
   }, [
     cards,
     searchQuery,
@@ -149,7 +147,7 @@ export default function DictionaryPage() {
 
   // isOwned by user?
   const isCardOwned = (cardId: string) => {
-    return userInventory?.includes(cardId) || false;
+    return userInventory?.some((card) => card._id === cardId) || false;
   };
 
   // handle card selection
@@ -175,19 +173,21 @@ export default function DictionaryPage() {
   const isLoading = useMemo(() => {
     // check data (cache is prioritized)
     const hasCardData = cachedCards !== undefined || freshCards !== undefined;
-    const hasInventoryData = cachedUserInventory !== undefined || freshUserInventory !== undefined;
-    const hasUserData = cachedUserData !== undefined || freshUserData !== undefined;
+    const hasInventoryData =
+      cachedUserInventory !== undefined || freshUserInventory !== undefined;
+    const hasUserData =
+      cachedUserData !== undefined || freshUserData !== undefined;
 
     // only load if there's missing data
     return !(hasCardData && hasInventoryData && hasUserData);
-    }, [
-      cachedCards,
-      freshCards,
-      cachedUserInventory,
-      freshUserInventory,
-      cachedUserData,
-      freshUserData,
-    ]);
+  }, [
+    cachedCards,
+    freshCards,
+    cachedUserInventory,
+    freshUserInventory,
+    cachedUserData,
+    freshUserData,
+  ]);
 
   // clear user caches when user changes
   useEffect(() => {
@@ -405,8 +405,8 @@ export default function DictionaryPage() {
                 <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-white/30 scrollbar-track-transparent max-h-[60vh]">
                   <div className="flex flex-wrap gap-3 justify-start">
                     {filteredCards
-                      .filter((card) => isCardOwned(card._id))
-                      .map((card) => (
+                      .filter((card: CardData) => isCardOwned(card._id))
+                      .map((card: CardData) => (
                         <div
                           key={card._id}
                           className="group cursor-pointer transition-all duration-200 hover:scale-110 hover:z-10"
@@ -426,8 +426,8 @@ export default function DictionaryPage() {
                       ))}
 
                     {filteredCards
-                      .filter((card) => !isCardOwned(card._id))
-                      .map((card) => (
+                      .filter((card: CardData) => !isCardOwned(card._id))
+                      .map((card: CardData) => (
                         <div
                           key={card._id}
                           className="group cursor-pointer transition-all duration-200 hover:scale-110 hover:z-10"
