@@ -140,7 +140,7 @@ export const upsertFromClerk = mutation({
       cardsBought: 0,
       cardsSold: 0,
       cardsTraded: 0,
-      profPicUrl: "prof_pic1.jpg",
+      profPicUrl: "assets/profile/prof_pic1.jpg",
       dateCreated: new Date().toISOString(),
       friendIds: [],
     };
@@ -386,6 +386,29 @@ export const removeCardFromInventory = mutation({
       currentCardCount: Math.max(0, user.currentCardCount - 1),
     });
 
+    return { success: true };
+  },
+});
+
+export const updateProfPicUrl = mutation({
+  args: {
+    userId: v.string(),
+    profPicUrl: v.string(),
+  },
+  handler: async (ctx, { userId, profPicUrl }) => {
+    // Basic runtime validations
+    if (typeof profPicUrl !== "string" || profPicUrl.length === 0) {
+      throw new Error("updateProfPicUrl: profPicUrl must be a non-empty string");
+    }
+    // Enforce path under assets/profile/
+    if (!profPicUrl.startsWith("assets/profile/")) {
+      throw new Error("updateProfPicUrl: profPicUrl must start with assets/profile/");
+    }
+
+    const user = await userByExternalId(ctx, userId);
+    if (!user) throw new Error("updateProfPicUrl: User not found");
+
+    await ctx.db.patch(user._id, { profPicUrl });
     return { success: true };
   },
 });
