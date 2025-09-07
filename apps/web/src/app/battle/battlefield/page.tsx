@@ -1,12 +1,21 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { Card, Player } from './types';
 import { CardDisplay, GraveyardPile, PlayerSection, EnemySection, FloatingCard, AnimatingCard, HealthBar, Timer } from './components';
 import { useDragAndDrop } from './hooks/useDragAndDrop';
 import { useGraveyard } from './hooks/useGraveyard';
+import { useSearchParams } from 'next/navigation';
+import { type Id } from '@cards-of-power/backend/convex/_generated/dataModel';
+import { useBattle } from './hooks/useBattle';
 
 export default function BattlefieldPage() {
+  const searchParams = useSearchParams();
+  const battleIdParam = searchParams.get('battleId');
+
+  const battleId = (battleIdParam ?? '') as Id<'battles'>;
+  const battle = battleIdParam ? useBattle(battleId) : null;
+
   const [playerHand, setPlayerHand] = useState<Card[]>([
     { id: '1', name: 'Blaze Knight', type: 'monster', image: '/assets/cards/Fire/BlazeKnight.png' },
     { id: '2', name: 'Phoenix Hatchling', type: 'monster', image: '/assets/cards/Fire/PhoenixHatchling.png' },
@@ -46,6 +55,27 @@ export default function BattlefieldPage() {
   // Timer state
   const [timeRemaining, setTimeRemaining] = useState<number>(30);
   const [maxTime] = useState<number>(30);
+
+  // First turn modal state
+  const [showFirstTurnModal, setShowFirstTurnModal] = useState<boolean>(true);
+  const hasAnnouncedRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (!battle) return;
+    if (hasAnnouncedRef.current) return;
+    // Announce only once when battle data is available
+    if (battle.player && battle.enemy && typeof battle.isMyTurn === 'boolean') {
+      hasAnnouncedRef.current = true;
+      setShowFirstTurnModal(true);
+    }
+  }, [battle?.player, battle?.enemy, battle?.isMyTurn]);
+
+  // Auto-dismiss modal when the game has started (opponent's view)
+  useEffect(() => {
+    if (battle?.hasStarted) {
+      setShowFirstTurnModal(false);
+    }
+  }, [battle?.hasStarted]);
 
   // Drag and drop functionality
   const { dragState, getDragHandlers, getDropHandlers, logSlotContents, updateMousePosition } = useDragAndDrop({
@@ -122,13 +152,28 @@ export default function BattlefieldPage() {
   }, [dragState.isDragging]);
 
 
+  const turnCountdown = battle?.hasStarted ? (battle?.turnCountdown ?? timeRemaining) : (battle?.timer?.turnDurationSec ?? maxTime);
+  const turnMax = battle?.timer?.turnDurationSec ?? maxTime;
+  const isMyTurn = battle?.isMyTurn ?? false;
+  const playerName = battle?.player?.name ?? 'You';
+  const enemyName = battle?.enemy?.name ?? 'Opponent';
+  const isWaiting = !battle || battle.status !== 'active' || !battle.hasStarted || battle.isPaused || !battle.enemy || battle.enemy.name === 'Waiting...';
+
   return (
     <div 
       className="h-screen bg-cover bg-center bg-no-repeat flex flex-col relative"
       style={{ backgroundImage: 'url(/assets/backgrounds/battlefield.png)' }}
     >
       {/* Timer at top middle */}
-      <Timer timeRemaining={timeRemaining} maxTime={maxTime} />
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20">
+        {isWaiting ? (
+          <div className="px-3 py-1 rounded text-sm font-semibold bg-stone-700/80 text-stone-100">
+            Waiting for opponent...
+          </div>
+        ) : (
+          <Timer timeRemaining={turnCountdown} maxTime={turnMax} />
+        )}
+      </div>
 
       <div className="flex-1 flex bg-black/20 p-4">
         {/* Left Side - Card Display with Health Bars */}
@@ -188,6 +233,37 @@ export default function BattlefieldPage() {
           endPosition={animationState.endPosition}
           isVisible={animationState.isAnimating}
         />
+      )}
+
+      {/* First Turn Modal */}
+      {(showFirstTurnModal || battle?.isPaused) && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60">
+          <div className="bg-stone-800 border border-stone-600 rounded-lg p-6 w-[320px] text-center shadow-xl">
+            {showFirstTurnModal ? (
+              <>
+                <div className="text-stone-200 text-lg mb-2">First turn</div>
+                <div className="text-stone-100 text-2xl font-bold mb-4">
+                  {isMyTurn ? 'You' : enemyName} go first
+                </div>
+                {isMyTurn ? (
+                  <button
+                    onClick={() => { battle?.beginBattle?.(); setShowFirstTurnModal(false); }}
+                    className="px-4 py-2 rounded bg-amber-700 hover:bg-amber-800 text-white font-semibold"
+                  >
+                    Begin
+                  </button>
+                ) : (
+                  <div className="text-stone-300 text-sm">Waiting for {enemyName} to begin…</div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="text-stone-200 text-lg mb-2">Game paused</div>
+                <div className="text-stone-100 text-sm">Waiting for opponent to reconnect…</div>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

@@ -9,12 +9,12 @@ import { type Id } from "@backend/convex/_generated/dataModel";
 export default function BattlePage() {
   const router = useRouter();
   const [isSearchingRooms, setIsSearchingRooms] = useState(false);
-  const availableRooms = useQuery(api.battle.listOpenBattles) ?? [];
+  const availableRooms = useQuery(api.battle.listJoinableBattles) ?? [];
   const createBattle = useMutation(api.battle.createBattle);
   const joinBattle = useMutation(api.battle.joinBattle);
 
   const handleCreateRoom = async () => {
-    const battleId = await createBattle({ turnDurationSec: 5 }); // change this back to 60 for prod
+    const battleId = await createBattle({ turnDurationSec: 30 });
     if (!battleId) throw new Error("Failed to create battle");
     router.push(`/battle/battlefield?battleId=${battleId}`);
   };
@@ -27,8 +27,10 @@ export default function BattlePage() {
     setIsSearchingRooms(false);
   };
 
-  const handleJoinRoom = async (battleId: string) => {
-    await joinBattle({ battleId: battleId as Id<"battles"> });
+  const handleJoinRoom = async (battleId: string, mode: 'waiting' | 'rejoin') => {
+    if (mode === 'waiting') {
+      await joinBattle({ battleId: battleId as Id<'battles'> });
+    }
     router.push(`/battle/battlefield?battleId=${battleId}`);
   };
 
@@ -93,12 +95,15 @@ export default function BattlePage() {
                         <div className="text-left">
                           <div className="text-stone-100 font-semibold">{room.playerA.name}</div>
                           <div className="text-stone-300 text-sm">Created: {new Date(room.createdAt).toLocaleTimeString()}</div>
+                          {room.mode === 'rejoin' && (
+                            <div className="text-emerald-300 text-xs mt-1">You can rejoin this battle</div>
+                          )}
                         </div>
                         <button 
-                          onClick={() => handleJoinRoom(room.id)}
-                          className="bg-amber-700 hover:bg-amber-800 text-white px-4 py-2 rounded text-sm transition-colors"
+                          onClick={() => handleJoinRoom(room.id, room.mode)}
+                          className={`px-4 py-2 rounded text-sm transition-colors ${room.mode === 'rejoin' ? 'bg-emerald-700 hover:bg-emerald-800' : 'bg-amber-700 hover:bg-amber-800'} text-white`}
                         >
-                          Join
+                          {room.mode === 'rejoin' ? 'Rejoin' : 'Join'}
                         </button>
                       </div>
                     ))}
