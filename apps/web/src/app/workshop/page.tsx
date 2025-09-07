@@ -117,8 +117,22 @@ export default function Workshop() {
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
     >
   ) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    const target = e.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+    const { name, value } = target;
+    const numericNames = [
+      "atkPts",
+      "defPts",
+      "level",
+      "inGameAtkPts",
+      "inGameDefPts",
+      "boughtFor",
+      "marketValue",
+      "marketCount",
+      "roi",
+      "passCount",
+    ];
+    const parsedValue = numericNames.includes(name) ? Number(value) : value;
+    setFormData({ ...formData, [name]: parsedValue as any });
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -146,18 +160,21 @@ export default function Workshop() {
       if (formData.imageFile) {
         const uploadUrl = await generateUploadUrl();
         
-        const result = await fetch(uploadUrl, {
+        const uploadResult = await fetch(uploadUrl, {
           method: "POST",
           headers: { "Content-Type": formData.imageFile.type },
           body: formData.imageFile,
         });
         
-        if (!result.ok) {
-          throw new Error(`Upload failed: ${result.status} ${result.statusText}`);
+        if (!uploadResult.ok) {
+          throw new Error(`Upload failed: ${uploadResult.status} ${uploadResult.statusText}`);
         }
         
-        const uploadResponse = await result.json();
+        const uploadResponse = await uploadResult.json();
         storageId = uploadResponse.storageId;
+        if (!storageId || typeof storageId !== "string") {
+          throw new Error("Upload did not return a storageId.");
+        }
       }
 
       const cardData = {
@@ -168,8 +185,8 @@ export default function Workshop() {
         storageId: storageId,
 
         // Monster Stats
-        atkPts: formData.type === "monster" ? formData.atkPts : undefined,
-        defPts: formData.type === "monster" ? formData.defPts : undefined,
+        atkPts: formData.type === "monster" ? Number(formData.atkPts) : undefined,
+        defPts: formData.type === "monster" ? Number(formData.defPts) : undefined,
 
         // Monster Properties
         attribute: formData.attribute || undefined,
@@ -184,12 +201,12 @@ export default function Workshop() {
         currentOwnerUsername: user?.username || "",
       };
 
-      const result = await createCard(cardData);
+      const createResult = await createCard(cardData);
 
-      if (user?.id && result?.cardId) {
+      if (user?.id && createResult?.cardId) {
         await addCardToUserInventory({
           userId: user.id,
-          cardId: result.cardId,
+          cardId: createResult.cardId,
         });
       }
 
@@ -308,6 +325,7 @@ export default function Workshop() {
               <label className="block text-black font-[var(--font-pirata-one)]">Image File:</label>
               <input
                 type="file"
+                accept="image/*"
                 onChange={handleFileChange}
                 className="w-full border-none bg-transparent outline-none text-black font-[var(--font-pirata-one)]"
               />
