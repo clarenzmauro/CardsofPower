@@ -10,7 +10,7 @@ export function HealthBar({ player, isEnemy = false }: HealthBarProps) {
   const healthPercentage = (player.hp / player.maxHp) * 100;
   
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex flex-col items-right gap-2">
       {/* Player Name */}
       <span className="text-white font-bold text-lg">{player.name}</span>
       
