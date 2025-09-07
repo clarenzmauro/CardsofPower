@@ -2,20 +2,21 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@backend/convex/_generated/api";
+import { type Id } from "@backend/convex/_generated/dataModel";
 
 export default function BattlePage() {
   const router = useRouter();
   const [isSearchingRooms, setIsSearchingRooms] = useState(false);
-  const [availableRooms] = useState([
-    { id: 1, name: "Pirate's Cove", players: "2/4" },
-    { id: 2, name: "Storm's End", players: "1/2" },
-    { id: 3, name: "Blackwater Bay", players: "3/4" },
-  ]);
+  const availableRooms = useQuery(api.battle.listOpenBattles) ?? [];
+  const createBattle = useMutation(api.battle.createBattle);
+  const joinBattle = useMutation(api.battle.joinBattle);
 
-  const handleCreateRoom = () => {
-    // TODO: Implement room creation logic
-    console.log("Creating room...");
-    router.push("/battle/battlefield");
+  const handleCreateRoom = async () => {
+    const battleId = await createBattle({ turnDurationSec: 5 }); // change this back to 60 for prod
+    if (!battleId) throw new Error("Failed to create battle");
+    router.push(`/battle/battlefield?battleId=${battleId}`);
   };
 
   const handleFindRooms = () => {
@@ -26,9 +27,9 @@ export default function BattlePage() {
     setIsSearchingRooms(false);
   };
 
-  const handleJoinRoom = (roomId: number) => {
-    // TODO: Implement room joining logic
-    console.log(`Joining room ${roomId}...`);
+  const handleJoinRoom = async (battleId: string) => {
+    await joinBattle({ battleId: battleId as Id<"battles"> });
+    router.push(`/battle/battlefield?battleId=${battleId}`);
   };
 
   return (
@@ -90,8 +91,8 @@ export default function BattlePage() {
                         className="bg-stone-700/60 border border-stone-500 rounded-lg p-3 flex justify-between items-center"
                       >
                         <div className="text-left">
-                          <div className="text-stone-100 font-semibold">{room.name}</div>
-                          <div className="text-stone-300 text-sm">Players: {room.players}</div>
+                          <div className="text-stone-100 font-semibold">{room.playerA.name}</div>
+                          <div className="text-stone-300 text-sm">Created: {new Date(room.createdAt).toLocaleTimeString()}</div>
                         </div>
                         <button 
                           onClick={() => handleJoinRoom(room.id)}
