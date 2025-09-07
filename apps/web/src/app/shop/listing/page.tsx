@@ -133,6 +133,7 @@ export default function ListingPage() {
                         <div className="text-white font-bold mb-1">{card.name}</div>
                         <div className="text-sm text-white/80 space-y-1 mb-2">
                           <div>Description: {card.description ?? 'No description available'}</div>
+                          <div className="text-white font-bold mb-1">Card Stats</div>
                           <div>Type: {card.type ?? 'N/A'}</div>
                           <div>Attribute: {card.attribute ?? 'N/A'}</div>
                           <div>Level: {card.level ?? 'N/A'}</div>
