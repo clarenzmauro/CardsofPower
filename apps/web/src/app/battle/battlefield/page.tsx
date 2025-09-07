@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import type { Card, Player } from './types';
 import { CardDisplay, GraveyardPile, PlayerSection, EnemySection, FloatingCard, AnimatingCard, HealthBar, Timer } from './components';
 import { useDragAndDrop } from './hooks/useDragAndDrop';
@@ -9,7 +9,7 @@ import { useSearchParams } from 'next/navigation';
 import { type Id } from '@cards-of-power/backend/convex/_generated/dataModel';
 import { useBattle } from './hooks/useBattle';
 
-export default function BattlefieldPage() {
+function BattlefieldContent() {
   const searchParams = useSearchParams();
   const battleIdParam = searchParams.get('battleId');
 
@@ -270,5 +270,13 @@ export default function BattlefieldPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function BattlefieldPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen bg-stone-900 text-stone-100">Loading battle...</div>}>
+      <BattlefieldContent />
+    </Suspense>
   );
 }
