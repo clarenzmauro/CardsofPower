@@ -23,7 +23,7 @@ const ListingsScope = v.union(
  */
 export const getAll = query({
     handler: async (ctx: any) => {
-        return await ctx.db.query("cards").collect().slice(0, 100);
+        return (await ctx.db.query("cards").collect()).slice(0, 100);
     },
 });
 
