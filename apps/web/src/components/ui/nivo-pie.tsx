@@ -47,7 +47,7 @@ export function NivoSimplePie({ data, height = 260 }: NivoSimplePieProps) {
           labels: { text: { fill: chartColors.label } },
         }}
         role="img"
-        ariaLabel="pie chart"
+        arcLabel="pie chart"
       />
     </div>
   );
