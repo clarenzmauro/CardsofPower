@@ -1,4 +1,4 @@
-import { mutation, query, type QueryCtx } from "./_generated/server";
+import { internalMutation, mutation, query, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { type Id } from "./_generated/dataModel";
 
@@ -387,5 +387,33 @@ export const removeCardFromInventory = mutation({
     });
 
     return { success: true };
+  },
+});
+
+export const snapshotAllUsersInternal = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    const nowIso = new Date().toISOString();
+
+    for (const user of users) {
+      const clerkId = String(user.clerkId ?? "");
+      if (!clerkId) continue;
+
+      const gold = Number(user.goldCount ?? 0);
+      const cards = Number(user.currentCardCount ?? 0);
+
+      if (!Number.isFinite(gold) || gold < 0) continue;
+      if (!Number.isFinite(cards) || cards < 0) continue;
+
+      await ctx.db.insert("user_snapshots", {
+        userId: clerkId,
+        ts: nowIso,
+        goldCount: gold,
+        currentCardCount: cards,
+      });
+    }
+
+    return { success: true, count: users.length, ts: nowIso };
   },
 });

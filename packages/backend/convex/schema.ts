@@ -89,7 +89,9 @@ export default defineSchema({
     .index("by_clerk_id", ["clerkId"])
     .searchIndex("by_username", {
       searchField: "username",
-    }),
+    })
+    .index("by_highest_gold_count", ["highestGoldCount"])
+    .index("by_current_card_count", ["currentCardCount"]),
 
   friends: defineTable({
     userOneId: v.id("users"),
@@ -153,4 +155,11 @@ export default defineSchema({
     .index("by_receiver_status", ["receiverId", "status"])
     .index("by_offeror_receiver", ["offerorId", "receiverId"])
     .index("by_createdAt", ["createdAt"]),
+  user_snapshots: defineTable({
+    userId: v.string(),
+    ts: v.string(),
+    goldCount: v.number(),
+    currentCardCount: v.number(),
+  })
+    .index("by_user_ts", ["userId", "ts"]),
 });
