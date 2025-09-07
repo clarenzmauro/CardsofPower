@@ -15,91 +15,118 @@ import { v } from "convex/values";
 export const getUserAccount = query({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.subject) throw new Error("Unauthenticated");
+
     const user = await ctx.db
       .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity?.subject))
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
       .first();
+    if (!user) throw new Error("User not found");
 
-    if (!user) {
-      throw new Error("User not found");
-    }
+    // Validate critical fields
+    const goldCount = Number(user.goldCount ?? 0);
+    const currentCardCount = Number(user.currentCardCount ?? 0);
+    const gamesPlayed = Number(user.gamesPlayed ?? 0);
+    const gamesWon = Number(user.gamesWon ?? 0);
+    const gamesLost = Number(user.gamesLost ?? 0);
 
-    // get user's cards for stats
-    const userCards = await ctx.db
-      .query("cards")
-      .withIndex("by_owner", (q) => q.eq("currentOwnerId", user._id))
-      .collect();
+    if (!Number.isFinite(goldCount) || goldCount < 0) throw new Error("Invalid goldCount");
+    if (!Number.isFinite(currentCardCount) || currentCardCount < 0) throw new Error("Invalid currentCardCount");
+    if (!Number.isFinite(gamesPlayed) || gamesPlayed < 0) throw new Error("Invalid gamesPlayed");
+    if (!Number.isFinite(gamesWon) || gamesWon < 0) throw new Error("Invalid gamesWon");
+    if (!Number.isFinite(gamesLost) || gamesLost < 0) throw new Error("Invalid gamesLost");
+    if (gamesWon + gamesLost > gamesPlayed) throw new Error("Invalid game stats");
 
-    // calculate card stats
-    const cardsCreated = userCards.filter(
-      (card) => card.currentOwnerId === user._id
-    ).length;
+    const ownerExternalId = String(user.clerkId ?? identity.subject);
+    const ownerInternalId = String(user._id);
+
+    // Support both legacy (internal _id) and current (Clerk subject) ownership
+    const [cardsByExternal, cardsByInternal] = await Promise.all([
+      ctx.db
+        .query("cards")
+        .withIndex("by_owner", (q) => q.eq("currentOwnerId", ownerExternalId))
+        .collect(),
+      ctx.db
+        .query("cards")
+        .withIndex("by_owner", (q) => q.eq("currentOwnerId", ownerInternalId))
+        .collect(),
+    ]);
+
+    const seen = new Set<string>();
+    const userCards = [...cardsByExternal, ...cardsByInternal].filter((c: any) => {
+      const id = String(c?._id ?? "");
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+
+    // Enforce true ownership: must be marked owned and ownerId must match
+    const ownedCards = userCards.filter((c: any) => {
+      const owner = String(c?.currentOwnerId ?? "");
+      const isOwned = c?.isOwned === true;
+      return isOwned && (owner === ownerExternalId || owner === ownerInternalId);
+    });
+
     const cardsListed = userCards.filter((card) => card.isListed).length;
 
-    // calculate wr from card stats
-    const totalMatches = userCards.reduce(
-      (sum, card) => sum + (card.matches?.total || 0),
-      0
-    );
-    const totalWins = userCards.reduce(
-      (sum, card) => sum + (card.matches?.wins || 0),
-      0
-    );
-    const winRate = totalMatches > 0 ? (totalWins / totalMatches) * 100 : 0;
+    const hasInventory = Array.isArray(user.inventory) && user.inventory.length > 0;
 
-    // get top performing cards
-    const topCards = userCards
-      .filter((card) => card.matches!.total > 0)
-      .sort(
-        (a, b) =>
-          (b.matches?.wins || 0) / (b.matches?.total || 1) -
-          (a.matches?.wins || 0) / (a.matches?.total || 1)
-      )
-      .slice(0, 3)
-      .map((card) => ({
-        id: card._id,
-        name: card.name,
-        type: card.type,
-        matches: card.matches?.total || 0,
-        imageUrl: card.imageUrl,
-      }));
+    // If user has no inventory or owns no cards, return an empty topCards list
+    const topCards = !hasInventory || ownedCards.length === 0
+      ? []
+      : ownedCards
+          .slice()
+          .sort((a, b) => (b.matches?.total ?? 0) - (a.matches?.total ?? 0))
+          .slice(0, 3)
+          .map((card) => {
+            const matches = card.matches?.total ?? 0;
+            const name = card.name ?? "Unnamed Card";
+            const type = ["monster", "spell", "trap"].includes(card.type?.toLowerCase())
+              ? card.type.toLowerCase()
+              : "monster";
 
-    // Calculate level system based on gold count
+            console.assert(typeof name === "string" && name.length > 0, "Invalid card name");
+            console.assert(Number.isFinite(matches) && matches >= 0, "Invalid matches count");
+
+            return {
+              id: card._id,
+              name,
+              type,
+              matches,
+              imageUrl: card.imageUrl,
+            };
+          });
+
     const basePerLevel = 1000;
-    const wealth = Math.floor(user.goldCount / basePerLevel) + 1;
+    const wealth = Math.floor(goldCount / basePerLevel) + 1;
     const currentLevelBase = (wealth - 1) * basePerLevel;
-    const experience = user.goldCount - currentLevelBase;
+    const experience = goldCount - currentLevelBase;
     const maxExperience = basePerLevel;
 
     return {
-      // basic user info
       username: user.username || "Player",
-      dateCreated: user.dateCreated,
+      dateCreated: user.dateCreated ?? new Date().toISOString(),
+      clerkId: user.clerkId ?? "",
 
-      // wealth
       wealth,
-      goldCount: user.goldCount,
-      highestGoldCount: user.highestGoldCount,
+      goldCount,
+      highestGoldCount: Number(user.highestGoldCount ?? 0),
       level: wealth,
       experience,
       maxExperience,
-      gamesPlayed: user.gamesPlayed,
-      gamesWon: user.gamesWon,
-      gamesLost: user.gamesLost,
+      gamesPlayed,
+      gamesWon,
+      gamesLost,
 
-      // card stats
-      currentCardCount: user.currentCardCount,
-      highestCardCount: user.highestCardCount,
-      cardsCreated: user.cardsCreated,
-      cardsBought: user.cardsBought,
-      cardsTraded: user.cardsTraded,
+      currentCardCount,
+      highestCardCount: Number(user.highestCardCount ?? 0),
+      cardsCreated: Number(user.cardsCreated ?? 0),
+      cardsBought: Number(user.cardsBought ?? 0),
+      cardsTraded: Number(user.cardsTraded ?? 0),
       cardsListed,
 
-      // top cards
       topCards,
-
-      // win rate
-      winRate: user.gamesPlayed > 0 ? (user.gamesWon / user.gamesPlayed) * 100 : 0,
+      winRate: gamesPlayed > 0 ? (gamesWon / gamesPlayed) * 100 : 0,
     };
   },
 });
@@ -121,12 +148,10 @@ export const getLeaderboards = query({
     const rawLimit = args.limit ?? 10;
     const limit = Math.max(1, Math.min(20, Math.floor(rawLimit)));
 
-    // TODO: replace with indexed leaderboards
-    const users = await ctx.db.query("users").collect(); // collect must be replaced.
-
-    // strategist
+    // strategist (requires full compute)
+    const users = await ctx.db.query("users").collect();
     const strategist = users
-      .map((u: any) => {
+      .map((u) => {
         const games = u.gamesPlayed ?? 0;
         const wins = u.gamesWon ?? 0;
         const winRate = games > 0 ? (wins / games) * 100 : 0;
@@ -135,23 +160,31 @@ export const getLeaderboards = query({
       .sort((a, b) => b.winRate - a.winRate)
       .slice(0, limit);
 
-    // king midas
-    const kingMidas = users
-      .map((u: any) => ({
-        username: u.username ?? "Player",
-        goldCount: u.goldCount ?? 0,
-      }))
-      .sort((a, b) => b.goldCount - a.goldCount)
-      .slice(0, limit);
+    // king midas (indexed)
+    const kingMidas = await ctx.db
+      .query("users")
+      .withIndex("by_highest_gold_count")
+      .order("desc")
+      .take(limit)
+      .then((users) =>
+        users.map((u) => ({
+          username: u.username ?? "Player",
+          goldCount: Number(u.highestGoldCount ?? 0),
+        }))
+      );
 
-    // card master
-    const cardMaster = users
-      .map((u: any) => ({
-        username: u.username ?? "Player",
-        cardCount: u.currentCardCount ?? 0,
-      }))
-      .sort((a, b) => b.cardCount - a.cardCount)
-      .slice(0, limit);
+    // card master (indexed)
+    const cardMaster = await ctx.db
+      .query("users")
+      .withIndex("by_current_card_count")
+      .order("desc")
+      .take(limit)
+      .then((users) =>
+        users.map((u) => ({
+          username: u.username ?? "Player",
+          cardCount: Number(u.currentCardCount ?? 0),
+        }))
+      );
 
     return { strategist, kingMidas, cardMaster };
   },
@@ -176,60 +209,57 @@ export const getUserRanks = query({
       .query("users")
       .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", identity.subject))
       .first();
+    if (!currentUser) throw new Error("getUserRanks: user not found");
 
-    // TODO: replace .collect with indexed collections
-    const users = await ctx.db.query("users").collect();
-
-    if (users.length === 0)
-      return {
-        strategist: 0,
-        kingMidas: 0,
-        cardMaster: 0,
-        artisan: 0,
-        shopRaider: 0,
-        friendly: 0,
-      };
-
-    const rankBy = (scoreFn: (u: any) => number) => {
-      const sorted = users
-        .map((u: any) => ({
+    // Win rate rank (must collect all users)
+    const allUsers = await ctx.db.query("users").collect();
+    const strategist = allUsers
+      .map((u) => {
+        const games = u.gamesPlayed ?? 0;
+        const wins = u.gamesWon ?? 0;
+        return {
           _id: u._id,
-          score: Number(scoreFn(u) ?? 0),
-        }))
-        .sort((a, b) => b.score - a.score);
+          score: games > 0 ? (wins / games) * 100 : 0,
+        };
+      })
+      .sort((a, b) => b.score - a.score)
+      .findIndex((u) => String(u._id) === String(currentUser._id)) + 1;
 
-      // compare stringified ids properly
-      const idx = sorted.findIndex(
-        (s: any) => String(s._id) === String(currentUser!._id)
-      );
-      return idx >= 0 ? idx + 1 : sorted.length + 1;
-    };
+    // Indexed ranks
+    const [goldUsers, cardUsers] = await Promise.all([
+      ctx.db.query("users").withIndex("by_highest_gold_count").order("desc").collect(),
+      ctx.db.query("users").withIndex("by_current_card_count").order("desc").collect(),
+    ]);
 
-    const strategist = rankBy((u: any) => {
-      const games = u.gamesPlayed ?? 0;
-      const wins = u.gamesWon ?? 0;
-      return games > 0 ? (wins / games) * 100 : 0;
-    });
-    const kingMidas = rankBy((u: any) => u.highestGoldCount ?? 0);
-    const cardMaster = rankBy((u: any) => u.highestCardCount ?? 0); 
-    const artisan = rankBy((u: any) => u.cardsCreated ?? 0);
-    const shopRaider = rankBy((u: any) => u.cardsBought ?? 0);
-    const friendly = rankBy((u: any) =>
-      Array.isArray(u.friends) ? u.friends.length : (u.friendsCount ?? 0)
-    );
+    const kingMidas = goldUsers.findIndex(u => String(u._id) === String(currentUser._id)) + 1;
+    const cardMaster = cardUsers.findIndex(u => String(u._id) === String(currentUser._id)) + 1;
 
-    if (typeof strategist !== "number" || strategist < 0)
-      throw new Error("getUserRanks: invalid strategist rank");
-    if (typeof kingMidas !== "number" || kingMidas < 0)
-      throw new Error("getUserRanks: invalid kingMidas rank");
+    // Other ranks (must collect)
+    const artisan = allUsers
+      .map(u => ({ _id: u._id, score: u.cardsCreated ?? 0 }))
+      .sort((a, b) => b.score - a.score)
+      .findIndex(u => String(u._id) === String(currentUser._id)) + 1;
+
+    const shopRaider = allUsers
+      .map(u => ({ _id: u._id, score: u.cardsBought ?? 0 }))
+      .sort((a, b) => b.score - a.score)
+      .findIndex(u => String(u._id) === String(currentUser._id)) + 1;
+
+    const friendly = allUsers
+      .map(u => ({ 
+        _id: u._id, 
+        score: Array.isArray(u.friendIds) ? u.friendIds.length : 0
+      }))
+      .sort((a, b) => b.score - a.score)
+      .findIndex(u => String(u._id) === String(currentUser._id)) + 1;
 
     return {
-      strategist,
-      kingMidas,
-      cardMaster,
-      artisan,
-      shopRaider,
-      friendly,
+      strategist: Math.max(1, strategist),
+      kingMidas: Math.max(1, kingMidas),
+      cardMaster: Math.max(1, cardMaster),
+      artisan: Math.max(1, artisan),
+      shopRaider: Math.max(1, shopRaider),
+      friendly: Math.max(1, friendly),
     };
   },
 });
@@ -251,26 +281,30 @@ export const getTopCardsGlobal = query({
   },
   handler: async (ctx, args) => {
     const rawLimit = args.limit ?? 3;
-
     const limit = Math.max(1, Math.min(100, Math.floor(rawLimit)));
-
     const metric = (args.metric ?? "matches").toString();
 
-    // TODO: must be indexed as well
-    // Call collect() to get the array of card documents (not the function)
     const cards = await ctx.db.query("cards").collect();
 
     const computed = cards.map((c: any) => {
-      const matchesTotal =
-        c.matches && typeof c.matches.total === "number" ? c.matches.total : 0;
-      const wins =
-        c.matches && typeof c.matches.wins === "number" ? c.matches.wins : 0;
+      const matchesTotal = Math.max(0, Number(c.matches?.total ?? 0));
+      const wins = Math.max(0, Number(c.matches?.wins ?? 0));
       const winRate = matchesTotal > 0 ? (wins / matchesTotal) * 100 : 0;
+      const normalizedType = ['monster', 'spell', 'trap'].includes(c.type?.toLowerCase()) 
+        ? c.type.toLowerCase() 
+        : 'monster';
+
+      if (typeof c.name !== 'string' || c.name.trim().length === 0) {
+        throw new Error('Invalid card name');
+      }
+      if (!Number.isFinite(matchesTotal) || matchesTotal < 0) {
+        throw new Error('Invalid matches count');
+      }
 
       return {
         id: c._id,
-        name: c.name ?? "card",
-        type: c.type ?? "monster",
+        name: c.name.trim(),
+        type: normalizedType,
         matches: matchesTotal,
         winRate,
         imageUrl: c.imageUrl ?? null,
@@ -278,13 +312,8 @@ export const getTopCardsGlobal = query({
     });
 
     const sorted = computed
-      .sort((a: any, b: any) => {
-        if (metric === "matches") return b.matches - a.matches;
-        return b.winRate - a.winRate;
-      })
+      .sort((a, b) => metric === "matches" ? b.matches - a.matches : b.winRate - a.winRate)
       .slice(0, limit);
-
-    // too lazy to add the post assertions
 
     return sorted;
   },
@@ -309,39 +338,30 @@ export const getEconomyStats = query({
   },
   handler: async (ctx: any, args: any) => {
     // determine user
-    const userId = args.userId ?? (await ctx.auth.getUserIdentity())?.subject;
-    if (!userId)
+    const clerkId = args.userId ?? (await ctx.auth.getUserIdentity())?.subject;
+    if (!clerkId)
       throw new Error("getEconomyStats: unauthenticated or missing userId");
 
     // validate inputs
     const range = (args.range ?? "30d").toString();
+    const now = Date.now();
+    const millisMap: Record<string, number> = {
+      "7d": 7 * 24 * 60 * 60 * 1000,
+      "30d": 30 * 24 * 60 * 60 * 1000,
+      "90d": 90 * 24 * 60 * 60 * 1000,
+      "1y": 365 * 24 * 60 * 60 * 1000,
+    };
+    const cutoff = new Date(now - (millisMap[range] ?? millisMap["30d"])).toISOString();
 
     try {
       const snapshots = await ctx.db
         .query("user_snapshots")
-        .withIndex("by_user", (q: any) => q.eq("userId", userId))
+        .withIndex("by_user_ts", (q: any) => q.eq("userId", clerkId).gte("ts", cutoff))
         .collect()
         .catch(() => []);
 
       if (Array.isArray(snapshots) && snapshots.length > 0) {
-        // filter snapshots by requested range
-        const now = Date.now();
-        const millisMap: Record<string, number> = {
-          "7d": 7 * 24 * 60 * 60 * 1000,
-          "30d": 30 * 24 * 60 * 60 * 1000,
-          "90d": 90 * 24 * 60 * 60 * 1000,
-          "1y": 365 * 24 * 60 * 60 * 1000,
-        };
-        const cutoff = new Date(
-          now - (millisMap[range] ?? millisMap["30d"])
-        ).toISOString();
-
-        // keep snapshots after cutoff
         const filtered = snapshots
-          .filter(
-            (s: any) =>
-              s.userId === userId && typeof s.ts === "string" && s.ts >= cutoff
-          )
           .map((s: any) => ({
             ts: s.ts,
             gold: Number(s.goldCount ?? 0),
@@ -370,38 +390,25 @@ export const getEconomyStats = query({
     // fallback:
     const user = await ctx.db
       .query("users")
-      .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", userId))
+      .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", clerkId))
       .first();
 
-    // create a small synthetic series
-    const now = Date.now();
     const points = Math.min(
       10,
       range === "7d" ? 7 : range === "30d" ? 10 : range === "90d" ? 12 : 12
     );
-    const goldNow = Number(user.goldCount ?? 0);
-    const cardsNow = Number(user.currentCardCount ?? 0);
+    const goldNow = Number(user?.goldCount ?? 0);
+    const cardsNow = Number(user?.currentCardCount ?? 0);
 
-    // simple decreasing synthetic history as fallback
     const goldHistory = Array.from({ length: points }, (_, i) => {
-      const ts = new Date(
-        now - (points - 1 - i) * (24 * 60 * 60 * 1000)
-      ).toISOString();
-      const value = Math.max(
-        0,
-        Math.round(goldNow * (0.6 + 0.4 * (i / (points - 1))))
-      );
+      const ts = new Date(now - (points - 1 - i) * 86400000).toISOString();
+      const value = Math.max(0, Math.round(goldNow * (0.6 + 0.4 * (i / (points - 1)))));
       return { ts, value };
     });
 
     const cardCountHistory = Array.from({ length: points }, (_, i) => {
-      const ts = new Date(
-        now - (points - 1 - i) * (24 * 60 * 60 * 1000)
-      ).toISOString();
-      const value = Math.max(
-        0,
-        Math.round(cardsNow * (0.6 + 0.4 * (i / (points - 1))))
-      );
+      const ts = new Date(now - (points - 1 - i) * 86400000).toISOString();
+      const value = Math.max(0, Math.round(cardsNow * (0.6 + 0.4 * (i / (points - 1)))));
       return { ts, value };
     });
 
@@ -430,24 +437,23 @@ export const updateUserStats = mutation({
     cardCountDelta: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    let targetUser: any = null;
-    if (!targetUser) {
-      try {
-        targetUser = await ctx.db.get(args.userId as any);
-      } catch {
-        targetUser = null;
-      }
+    let targetUser;
+    if (args.userId) {
+      targetUser = await ctx.db.query("users").withIndex("by_clerk_id", (q) => q.eq("clerkId", args.userId)).first();
     } else {
       const identity = await ctx.auth.getUserIdentity();
-      if (!identity?.subject)
-        throw new Error("updateUserStats: unauthenticated");
+      if (!identity?.subject) throw new Error("updateUserStats: unauthenticated");
       targetUser = await ctx.db
         .query("users")
-        .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", identity.subject))
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
         .first();
     }
+    if (!targetUser) throw new Error("updateUserStats: user not found");
 
-    const patch: Record<string, any> = {};
+    const patch: Record<string, any> = {
+      lastUpdatedAt: new Date().toISOString()
+    };
+
     const numericFields: Array<[string, number | undefined]> = [
       ["gamesPlayed", args.gamesPlayedInc],
       ["gamesWon", args.gamesWonInc],
@@ -457,31 +463,33 @@ export const updateUserStats = mutation({
     ];
 
     for (const [field, inc] of numericFields) {
-      if (typeof inc !== "undefined") {
-        if (
-          typeof inc !== "number" ||
-          Number.isNaN(inc) ||
-          !Number.isFinite(inc)
-        ) {
-          throw new Error(
-            `updateUserStats: invalid numeric delta for ${field}`
-          );
-        }
-        const current = Number(targetUser[field] ?? 0);
-        const next = current + inc;
-        patch[field] = Math.max(0, next);
+      if (inc === undefined) continue;
+      
+      if (typeof inc !== "number" || !Number.isFinite(inc)) {
+        throw new Error(`updateUserStats: invalid numeric delta for ${field}`);
+      }
+
+      const current = Number((targetUser as Record<string, unknown>)[field] ?? 0);
+      const next = Math.max(0, current + inc);
+      patch[field] = next;
+
+      // Update highest counters
+      if (field === "goldCount" && next > Number(targetUser.highestGoldCount ?? 0)) {
+        patch.highestGoldCount = next;
+      }
+      if (field === "currentCardCount" && next > Number(targetUser.highestCardCount ?? 0)) {
+        patch.highestCardCount = next;
       }
     }
 
-    patch.lastUpdatedAt = new Date().toISOString();
-
     await ctx.db.patch(targetUser._id, patch);
-
     const updated = await ctx.db.get(targetUser._id);
+    if (!updated) throw new Error("updateUserStats: failed to fetch updated user");
 
     return { success: true, user: updated };
   },
 });
+
 /**
  * @description
  * Update user game statistics and track highest values
