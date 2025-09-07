@@ -36,13 +36,6 @@ interface UserStats {
   cardsListed: number;
 }
 
-interface LeaderboardEntry {
-  rank: number;
-  username: string;
-  score: number;
-  change: number;
-}
-
 interface TopCard {
   id: string;
   name: string;
@@ -124,6 +117,10 @@ export default function AccountPage() {
   // TODO: replace with real chart state when economy charts consume history
   const setGoldHistory = (_points: TimeSeriesPoint[]) => {};
   const setCardCountHistory = (_points: TimeSeriesPoint[]) => {};
+
+  const currentUser = useQuery(api.users.current);
+
+  
 
   // map getUserAccount to userStats and topCards
   useEffect(() => {
@@ -247,13 +244,62 @@ export default function AccountPage() {
     { name: "Highest", value: Math.max(0, Number(userStats.highestCardCount || 0)) },
   ];
 
-  // Empty-safe radar data until backend radar is provided
-  const radarData: Array<{ subject: string; A: number }> = [];
+  // Radar data computed from existing stats (clamped to 0-100)
+  const radarData: Array<{ subject: string; A: number }> = (() => {
+    const clampPercentage = (value: number): number => {
+      const numeric = Number.isFinite(value) ? value : 0;
+      if (numeric < 0) return 0;
+      if (numeric > 100) return 100;
+      return numeric;
+    };
 
-  // Compute pie data from actual topCards
+    const percent = (numerator: number, denominator: number): number => {
+      const n = Number(numerator ?? 0);
+      const d = Number(denominator ?? 0);
+      if (!Number.isFinite(n) || !Number.isFinite(d) || d <= 0) return 0;
+      return (n / d) * 100;
+    };
+
+    // 1) Win Rate is already returned as percentage from backend
+    const winRatePct = clampPercentage(Number(winRate ?? 0));
+
+    // 2) Activity: normalize recent activity by capping at 50 matches for 100%
+    const activityCap = 50;
+    const activityPct = clampPercentage(percent(Number(userStats.gamesPlayed ?? 0), activityCap));
+
+    // 3) Collection progress: current vs historical max
+    const collectionPct = clampPercentage(
+      percent(Number(userStats.currentCardCount ?? 0), Math.max(Number(userStats.highestCardCount ?? 0), 1))
+    );
+
+    // 4) Wealth progress: current gold vs historical max
+    const wealthPct = clampPercentage(
+      percent(Number(userStats.goldCount ?? 0), Math.max(Number(userStats.highestGoldCount ?? 0), 1))
+    );
+
+    // 5) Top-card usage share among shown top cards
+    const topCardUsagePct = (() => {
+      if (!Array.isArray(topCards) || topCards.length === 0) return 0;
+      const totalMatches = topCards.reduce((sum, c) => sum + Number(c?.matches ?? 0), 0);
+      if (!Number.isFinite(totalMatches) || totalMatches <= 0) return 0;
+      const topMatches = Number(topCards[0]?.matches ?? 0);
+      return clampPercentage((topMatches / totalMatches) * 100);
+    })();
+
+    return [
+      { subject: "Win Rate", A: winRatePct },
+      { subject: "Activity", A: activityPct },
+      { subject: "Collection", A: collectionPct },
+      { subject: "Wealth", A: wealthPct },
+      { subject: "Top Card Share", A: topCardUsagePct },
+    ];
+  })();
+
   const pieData = (() => {
+    if (!Array.isArray(topCards) || topCards.length === 0) return [];
+
     const counts: Record<string, number> = { monster: 0, spell: 0, trap: 0 };
-    for (const c of topCards ?? []) {
+    for (const c of topCards) {
       const t = (c?.type ?? "monster").toString();
       counts[t] = (counts[t] ?? 0) + 1;
     }
@@ -430,12 +476,14 @@ export default function AccountPage() {
                 {/* Rank Circles */}
                 <div className="flex justify-between mb-6">
                   {Object.entries(userRanks).map(([category, rank]) => (
-                    <div
-                      key={category}
-                      className="w-20 h-20 rounded-full bg-[rgba(139,115,85,0.8)] border-2 border-[rgb(212,175,55)] flex items-center justify-center"
-                    >
-                      <span className="text-xl font-[var(--font-pirata-one)] text-[rgb(42,24,16)] font-bold">
-                        {rank}
+                    <div key={category} className="flex flex-col items-center">
+                      <div className="w-20 h-20 rounded-full bg-[rgba(139,115,85,0.8)] border-2 border-[rgb(212,175,55)] flex items-center justify-center">
+                        <span className="text-xl font-[var(--font-pirata-one)] text-[rgb(42,24,16)] font-bold">
+                          {rank}
+                        </span>
+                      </div>
+                      <span className="mt-2 font-[var(--font-pirata-one)] text-sm text-black capitalize">
+                        {category.replace(/([A-Z])/g, ' $1').trim()}
                       </span>
                     </div>
                   ))}
@@ -541,44 +589,54 @@ export default function AccountPage() {
               </div>
 
               {/* Battle Statistics */}
-              <div className="grid grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Left Column - Basic Stats */}
-                <div className="space-y-4">
-                  <div className="bg-[rgba(255,255,255,0.9)] p-3 rounded">
-                    <span className="font-[var(--font-pirata-one)] text-black">
-                      Matches Won: {userStats.gamesWon}
-                    </span>
-                  </div>
-                  <div className="bg-[rgba(255,255,255,0.9)] p-3 rounded">
-                    <span className="font-[var(--font-pirata-one)] text-black">
-                      Matches Lost: {userStats.gamesLost}
-                    </span>
-                  </div>
-                  <div className="bg-[rgba(255,255,255,0.9)] p-3 rounded">
-                    <span className="font-[var(--font-pirata-one)] text-black">
-                      Highest Card Count: {userStats.highestCardCount}
-                    </span>
-                  </div>
-                  <div className="bg-[rgba(255,255,255,0.9)] p-3 rounded">
-                    <span className="font-[var(--font-pirata-one)] text-black">
-                      Highest Gold Count: {userStats.highestGoldCount}
-                    </span>
+                <div className="bg-[rgba(255,255,255,0.9)] rounded-lg p-4 h-full min-h-[300px]">
+                  <div className="grid grid-cols-1 gap-3 h-full">
+                    <div className="p-3 rounded border-b border-[rgba(69,26,3,0.2)]">
+                      <span className="font-[var(--font-pirata-one)] text-black">
+                        Matches Won: {userStats.gamesWon}
+                      </span>
+                    </div>
+                    <div className="p-3 rounded border-b border-[rgba(69,26,3,0.2)]">
+                      <span className="font-[var(--font-pirata-one)] text-black">
+                        Matches Lost: {userStats.gamesLost}
+                      </span>
+                    </div>
+                    <div className="p-3 rounded border-b border-[rgba(69,26,3,0.2)]">
+                      <span className="font-[var(--font-pirata-one)] text-black">
+                        Highest Card Count: {userStats.highestCardCount}
+                      </span>
+                    </div>
+                    <div className="p-3 rounded">
+                      <span className="font-[var(--font-pirata-one)] text-black">
+                        Highest Gold Count: {userStats.highestGoldCount}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
                 {/* Middle Column - Card Stats */}
-                <div className="space-y-4">
-                  {topCards.length > 0 && (
-                    <div className="bg-[rgba(255,255,255,0.9)] p-3 rounded">
-                      <span className="font-[var(--font-pirata-one)] text-black">
-                        Most Used Card: {topCards[0].name} ({topCards[0].matches} matches)
+                <div className="bg-[rgba(255,255,255,0.9)] rounded-lg p-4 h-full min-h-[300px]">
+                  {topCards.length > 0 ? (
+                    <div className="h-full flex items-center justify-center">
+                      <div className="p-3 rounded w-full">
+                        <span className="font-[var(--font-pirata-one)] text-black">
+                          Most Used Card: {topCards[0].name} ({topCards[0].matches} matches)
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-full flex items-center justify-center">
+                      <span className="font-[var(--font-pirata-one)] text-black/50">
+                        No card usage data available
                       </span>
                     </div>
                   )}
                 </div>
 
-                {/* Right Column - Radar Chart Placeholder */}
-                <div className="bg-[rgba(255,255,255,0.9)] rounded-lg p-4">
+                {/* Right Column - Radar Chart */}
+                <div className="bg-[rgba(255,255,255,0.9)] rounded-lg p-4 h-full min-h-[300px]">
                   <NivoSimpleRadar data={radarData} height={280} />
                 </div>
               </div>
@@ -624,10 +682,18 @@ export default function AccountPage() {
                     <option>Winrate</option>
                   </select>
                 </div>
-                <NivoSimplePie
-                  data={pieData}
-                  height={260}
-                />
+                {pieData.length > 0 ? (
+                  <NivoSimplePie
+                    data={pieData}
+                    height={260}
+                  />
+                ) : (
+                  <div className="h-[260px] flex items-center justify-center">
+                    <span className="font-[var(--font-pirata-one)] text-black/50">
+                      No card data available
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           )}
