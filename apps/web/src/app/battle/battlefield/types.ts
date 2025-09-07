@@ -9,6 +9,9 @@ export interface Player {
   name: string;
   hp: number;
   maxHp: number;
+  hand?: Card[];
+  field?: (Card | null)[];
+  graveyard?: Card[];
 }
 
 export interface BattlefieldState {
