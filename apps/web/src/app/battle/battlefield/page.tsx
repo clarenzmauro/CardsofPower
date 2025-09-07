@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import type { Card } from './types';
-import { CardDisplay, GraveyardPile, PlayerSection, EnemySection, FloatingCard, AnimatingCard } from './components';
+import type { Card, Player } from './types';
+import { CardDisplay, GraveyardPile, PlayerSection, EnemySection, FloatingCard, AnimatingCard, HealthBar, Timer } from './components';
 import { useDragAndDrop } from './hooks/useDragAndDrop';
 import { useGraveyard } from './hooks/useGraveyard';
 
@@ -29,6 +29,23 @@ export default function BattlefieldPage() {
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [dragDropEnabled, setDragDropEnabled] = useState<boolean>(true);
   const [graveyardEnabled, setGraveyardEnabled] = useState<boolean>(true);
+
+  // Player and Enemy data
+  const [player, setPlayer] = useState<Player>({
+    name: "Player",
+    hp: 8000,
+    maxHp: 8000
+  });
+  
+  const [enemy, setEnemy] = useState<Player>({
+    name: "Shadow Duelist",
+    hp: 6500,
+    maxHp: 8000
+  });
+
+  // Timer state
+  const [timeRemaining, setTimeRemaining] = useState<number>(30);
+  const [maxTime] = useState<number>(30);
 
   // Drag and drop functionality
   const { dragState, getDragHandlers, getDropHandlers, logSlotContents, updateMousePosition } = useDragAndDrop({
@@ -107,37 +124,23 @@ export default function BattlefieldPage() {
 
   return (
     <div 
-      className="h-screen bg-cover bg-center bg-no-repeat flex flex-col"
+      className="h-screen bg-cover bg-center bg-no-repeat flex flex-col relative"
       style={{ backgroundImage: 'url(/assets/backgrounds/battlefield.png)' }}
     >
-      {/* Top Controls */}
-      <div className="flex justify-end gap-4 p-4">
-        <button
-          onClick={() => setDragDropEnabled(!dragDropEnabled)}
-          className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
-            dragDropEnabled 
-              ? 'bg-green-600 hover:bg-green-700 text-white' 
-              : 'bg-red-600 hover:bg-red-700 text-white'
-          }`}
-        >
-          Drag & Drop: {dragDropEnabled ? 'ON' : 'OFF'}
-        </button>
-        <button
-          onClick={() => setGraveyardEnabled(!graveyardEnabled)}
-          className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
-            graveyardEnabled 
-              ? 'bg-purple-600 hover:bg-purple-700 text-white' 
-              : 'bg-gray-600 hover:bg-gray-700 text-white'
-          }`}
-        >
-          Graveyard: {graveyardEnabled ? 'ON' : 'OFF'}
-        </button>
-      </div>
+      {/* Timer at top middle */}
+      <Timer timeRemaining={timeRemaining} maxTime={maxTime} />
 
       <div className="flex-1 flex bg-black/20 p-4">
-        {/* Left Side - Large Card Display */}
-        <div className="w-80 flex items-center justify-center pr-4">
+        {/* Left Side - Card Display with Health Bars */}
+        <div className="w-80 flex flex-col justify-center items-center pr-4 gap-6">
+          {/* Enemy Health Bar */}
+          <HealthBar player={enemy} isEnemy={true} />
+          
+          {/* Selected Card Display */}
           <CardDisplay card={selectedCard} />
+          
+          {/* Player Health Bar */}
+          <HealthBar player={player} isEnemy={false} />
         </div>
 
         {/* Center - Game Field */}

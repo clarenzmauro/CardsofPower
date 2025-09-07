@@ -19,14 +19,14 @@ export const current = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity?.subject) throw new Error("current user: unauthenticated");
+    if (!identity?.subject) return null;
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
       .first();
 
-    if (!user) throw new Error("current: user not found");
+    if (!user) return null;
 
     // Runtime assertions
     if (typeof user.goldCount !== "number" || user.goldCount < 0)
@@ -138,6 +138,7 @@ export const upsertFromClerk = mutation({
       gamesLost: 0,
       cardsCreated: 0,
       cardsBought: 0,
+      cardsSold: 0,
       cardsTraded: 0,
       profPicUrl: "prof_pic1.jpg",
       dateCreated: new Date().toISOString(),
@@ -346,5 +347,45 @@ export const addCardToInventory = mutation({
     });
 
     return user._id;
+  },
+});
+
+/**
+ * @description
+ * Mutation to remove a card ID from a user's inventory.
+ *
+ * @receives data from:
+ * - client: userId (Clerk ID) and cardId (Convex ID)
+ *
+ * @sends data to:
+ * - users table: updated user document with card removed from inventory
+ *
+ * @sideEffects:
+ * - Removes cardId from user's inventory array
+ * - Decrements currentCardCount for the user
+ */
+export const removeCardFromInventory = mutation({
+  args: {
+    userId: v.string(),
+    cardId: v.id("cards"),
+  },
+  handler: async (ctx, { userId, cardId }) => {
+    const user = await userByExternalId(ctx, userId);
+    if (!user) throw new Error("removeCardFromInventory: User not found");
+
+    const currentInventory = Array.isArray(user.inventory) 
+      ? user.inventory 
+      : [];
+    if (!currentInventory.includes(cardId)) {
+      console.warn(`Card ${cardId} not found in user ${userId}'s inventory`);
+      return { success: false };
+    }
+
+    await ctx.db.patch(user._id, {
+      inventory: currentInventory.filter(id => id !== cardId),
+      currentCardCount: Math.max(0, user.currentCardCount - 1),
+    });
+
+    return { success: true };
   },
 });

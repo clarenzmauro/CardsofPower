@@ -5,6 +5,12 @@ export interface Card {
   type: 'monster' | 'spell' | 'trap';
 }
 
+export interface Player {
+  name: string;
+  hp: number;
+  maxHp: number;
+}
+
 export interface BattlefieldState {
   playerHand: Card[];
   enemyHand: Card[];
@@ -13,4 +19,6 @@ export interface BattlefieldState {
   playerGraveyard: Card[];
   enemyGraveyard: Card[];
   selectedCard: Card | null;
+  player: Player;
+  enemy: Player;
 }
