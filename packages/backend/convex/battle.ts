@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getCurrentUser } from "./users";
 import { type Id } from "./_generated/dataModel";
@@ -610,6 +610,84 @@ export const updatePresence = mutation({
         updatedAt: now,
       });
     }
+  },
+});
+
+export const cleanupAbandonedBattlesInternal = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = new Date();
+    const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
+    
+    // Get all active battles
+    const activeBattles = await ctx.db
+      .query("battles")
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
+    
+    let cleanedCount = 0;
+    
+    for (const battle of activeBattles) {
+      // Skip battles that don't have both players
+      if (!battle.hostId || !battle.opponentId) continue;
+      
+      // Get presence for both players
+      const [hostPresence, opponentPresence] = await Promise.all([
+        ctx.db.query("presence")
+          .withIndex("by_user", (q) => q.eq("user", battle.hostId!))
+          .first(),
+        ctx.db.query("presence")
+          .withIndex("by_user", (q) => q.eq("user", battle.opponentId!))
+          .first(),
+      ]);
+      
+      // Check if both players are offline for more than 5 minutes
+      const hostOffline = !hostPresence || hostPresence.updatedAt < fiveMinutesAgo;
+      const opponentOffline = !opponentPresence || opponentPresence.updatedAt < fiveMinutesAgo;
+      
+      if (hostOffline && opponentOffline) {
+        // Both players have been offline for more than 5 minutes, delete the battle
+        await ctx.db.delete(battle._id);
+        cleanedCount++;
+      }
+    }
+    
+    // Also clean up completed battles older than 24 hours
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    const oldCompletedBattles = await ctx.db
+      .query("battles")
+      .filter((q) => 
+        q.and(
+          q.eq(q.field("status"), "completed"),
+          q.lt(q.field("lastActionAt"), oneDayAgo)
+        )
+      )
+      .collect();
+    
+    for (const battle of oldCompletedBattles) {
+      await ctx.db.delete(battle._id);
+      cleanedCount++;
+    }
+    
+    // Clean up waiting battles older than 1 hour (abandoned room creation)
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+    const oldWaitingBattles = await ctx.db
+      .query("battles")
+      .filter((q) => 
+        q.and(
+          q.eq(q.field("status"), "waiting"),
+          q.lt(q.field("createdAt"), oneHourAgo)
+        )
+      )
+      .collect();
+    
+    for (const battle of oldWaitingBattles) {
+      await ctx.db.delete(battle._id);
+      cleanedCount++;
+    }
+    
+    console.log(`Cleaned up ${cleanedCount} abandoned battles at ${now.toISOString()}`);
+    return { cleanedCount, timestamp: now.toISOString() };
   },
 });
 
