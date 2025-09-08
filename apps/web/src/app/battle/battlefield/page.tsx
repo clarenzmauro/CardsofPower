@@ -162,6 +162,10 @@ function BattlefieldContent() {
   const playerName = battle?.player?.name ?? 'You';
   const enemyName = battle?.enemy?.name ?? 'Opponent';
   const isWaiting = !battle || battle.status !== 'active' || !battle.hasStarted || battle.isPaused || !battle.enemy || battle.enemy.name === 'Waiting...';
+  const isWaitingForOpponent = battle && (
+    (battle.status === 'waiting') || 
+    (battle.status === 'active' && (!battle.enemy || battle.enemy.name === 'Waiting...'))
+  );
 
   return (
     <div 
@@ -239,11 +243,22 @@ function BattlefieldContent() {
         />
       )}
 
+      {/* Waiting for Opponent Banner */}
+      {isWaitingForOpponent && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60">
+          <div className="w-full py-4 text-center">
+            <div className="text-stone-100 text-2xl font-bold">
+              Waiting for an opponent...
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* First Turn Modal */}
-      {(showFirstTurnModal || battle?.isPaused) && (
+      {(showFirstTurnModal && !isWaitingForOpponent) || battle?.isPaused ? (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60">
           <div className="bg-stone-800 border border-stone-600 rounded-lg p-6 w-[320px] text-center shadow-xl">
-            {showFirstTurnModal ? (
+            {showFirstTurnModal && !isWaitingForOpponent ? (
               <>
                 <div className="text-stone-200 text-lg mb-2">First turn</div>
                 <div className="text-stone-100 text-2xl font-bold mb-4">
@@ -268,7 +283,7 @@ function BattlefieldContent() {
             )}
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

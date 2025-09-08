@@ -304,6 +304,7 @@ export const joinBattle = mutation({
       currentTurnPlayerId: Math.random() > 0.5 ? battle.hostId : user._id,
       turnNumber: 1,
       turnEndsAt,
+      hasStarted: true, // Auto-start the game when second player joins
       playerB: {
         userId: user._id,
         name: user.username ?? "Opponent",
@@ -329,6 +330,9 @@ export const beginBattle = mutation({
     if (battle.status !== "active") throw new Error("Battle not active");
     if (battle.hasStarted) return;
 
+    // Require both players to be present before starting
+    if (!battle.opponentId) throw new Error("Cannot start battle without opponent");
+    
     // Only the currentTurnPlayer can begin
     if (battle.currentTurnPlayerId !== user._id) throw new Error("Only current player can begin");
 
@@ -669,21 +673,23 @@ export const cleanupAbandonedBattlesInternal = internalMutation({
       cleanedCount++;
     }
     
-    // Clean up waiting battles older than 1 hour (abandoned room creation)
-    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
-    const oldWaitingBattles = await ctx.db
+    // Clean up waiting battles where host is offline for >5 minutes
+    const waitingBattles = await ctx.db
       .query("battles")
-      .filter((q) => 
-        q.and(
-          q.eq(q.field("status"), "waiting"),
-          q.lt(q.field("createdAt"), oneHourAgo)
-        )
-      )
+      .filter((q) => q.eq(q.field("status"), "waiting"))
       .collect();
     
-    for (const battle of oldWaitingBattles) {
-      await ctx.db.delete(battle._id);
-      cleanedCount++;
+    for (const battle of waitingBattles) {
+      // Check if host is offline for >5 minutes
+      const hostPresence = await ctx.db.query("presence")
+        .withIndex("by_user", (q) => q.eq("user", battle.hostId))
+        .first();
+      
+      const hostOffline = !hostPresence || hostPresence.updatedAt < fiveMinutesAgo;
+      if (hostOffline) {
+        await ctx.db.delete(battle._id);
+        cleanedCount++;
+      }
     }
     
     console.log(`Cleaned up ${cleanedCount} abandoned battles at ${now.toISOString()}`);
