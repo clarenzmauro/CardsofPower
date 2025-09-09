@@ -300,12 +300,21 @@ export const createBattle = mutation({
     const now = new Date().toISOString();
     const turnEndsAt = new Date(Date.now() + turnDurationSec * 1000).toISOString();
 
-    const initialHand = Array(5).fill(null).map((_, i) => ({
-      id: `card-${i}` as Id<"cards">,
-      name: `Starter Card ${i + 1}`,
-      type: "monster" as const,
-      image: `/assets/cards/starter-${i + 1}.png`
-    }));
+    // Build initial hand from user's actual inventory
+    const MAX_HAND_SIZE = 10;
+    const inventoryIds = Array.isArray(user.inventory) ? user.inventory.slice(0, MAX_HAND_SIZE) : [];
+    const inventoryCards = await Promise.all(
+      inventoryIds.map(async (cardId: any) => await ctx.db.get(cardId))
+    );
+    const initialHand = inventoryCards
+      .filter((c: any) => !!c)
+      .slice(0, MAX_HAND_SIZE)
+      .map((c: any) => ({
+        id: c._id as Id<"cards">,
+        name: String(c.name ?? "Unknown"),
+        type: (c.type === "monster" || c.type === "spell" || c.type === "trap") ? c.type : "monster",
+        image: c.imageUrl as string | undefined,
+      }));
 
     const FIELD_SIZE = 5;
     const battleId = await ctx.db.insert("battles", {
@@ -321,7 +330,7 @@ export const createBattle = mutation({
       turnDurationSec: turnDurationSec,
       preparation: {
         isActive: false,
-        durationSec: 15, // dev; default should be 60
+        durationSec: 60, // dev; default should be 60
         endsAt: undefined,
         playerAReady: false,
         playerBReady: false,
@@ -331,7 +340,7 @@ export const createBattle = mutation({
         name: user.username ?? "Player",
         hp: 8000,
         maxHp: 8000,
-        hand: initialHand.slice(0, 10),
+        hand: initialHand,
         field: Array(FIELD_SIZE).fill(null),
         graveyard: []
       },
@@ -368,12 +377,20 @@ export const joinBattle = mutation({
     const now = new Date();
     const turnEndsAt = new Date(now.getTime() + battle.turnDurationSec * 1000).toISOString();
 
-    const initialHand = Array(5).fill(null).map((_, i) => ({
-      id: `card-${i}` as Id<"cards">,
-      name: `Starter Card ${i + 1}`,
-      type: "monster" as const,
-      image: `/assets/cards/starter-${i + 1}.png`
-    })).slice(0, MAX_HAND_SIZE);
+    // Build opponent initial hand from their actual inventory
+    const opponentInventoryIds = Array.isArray(user.inventory) ? user.inventory.slice(0, MAX_HAND_SIZE) : [];
+    const opponentInventoryCards = await Promise.all(
+      opponentInventoryIds.map(async (cardId: any) => await ctx.db.get(cardId))
+    );
+    const initialHand = opponentInventoryCards
+      .filter((c: any) => !!c)
+      .slice(0, MAX_HAND_SIZE)
+      .map((c: any) => ({
+        id: c._id as Id<"cards">,
+        name: String(c.name ?? "Unknown"),
+        type: (c.type === "monster" || c.type === "spell" || c.type === "trap") ? c.type : "monster",
+        image: c.imageUrl as string | undefined,
+      }));
 
     await ctx.db.patch(battleId, {
       status: "active",

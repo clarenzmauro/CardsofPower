@@ -20,25 +20,13 @@ function BattlefieldContent() {
   const battleId = battleIdParam as Id<'battles'>;
   const battle = useBattle(battleId);
 
-  const [playerHand, setPlayerHand] = useState<Card[]>(battle?.player?.hand ?? [
-    { id: '1', name: 'Blaze Knight', type: 'monster', image: '/assets/cards/Fire/BlazeKnight.png' },
-    { id: '2', name: 'Phoenix Hatchling', type: 'monster', image: '/assets/cards/Fire/PhoenixHatchling.png' },
-    { id: '3', name: 'Crimson Blade Mage', type: 'monster', image: '/assets/cards/Fire/CrimsonBladeMage.png' },
-    { id: '4', name: 'Inferno Giant', type: 'monster', image: '/assets/cards/Fire/InfernoGiant.png' },
-    { id: '5', name: 'Ashen Sovereign', type: 'monster', image: '/assets/cards/Fire/AshenSovereign.png' },
-  ]);
-  
-  const [enemyHand, setEnemyHand] = useState<Card[]>(battle?.enemy?.hand ?? [
-    { id: 'e1', name: 'Hidden Card', type: 'monster' },
-    { id: 'e2', name: 'Hidden Card', type: 'spell' },
-    { id: 'e3', name: 'Hidden Card', type: 'trap' },
-    { id: 'e4', name: 'Hidden Card', type: 'monster' },
-  ]);
-
-  const [playerField, setPlayerField] = useState<(Card | null)[]>(battle?.player?.field ?? [null, null, null, null, null]);
-  const [enemyField, setEnemyField] = useState<(Card | null)[]>(battle?.enemy?.field ?? [null, null, null, null, null]);
-  const [playerGraveyard, setPlayerGraveyard] = useState<Card[]>(battle?.player?.graveyard ?? []);
-  const [enemyGraveyard, setEnemyGraveyard] = useState<Card[]>(battle?.enemy?.graveyard ?? []);
+  // Derive state from server battle data
+  const playerHand = battle?.playerHand ?? [];
+  const enemyHand = battle?.enemyHand ?? [];
+  const playerField = battle?.playerField ?? [null, null, null, null, null];
+  const enemyField = battle?.enemyField ?? [null, null, null, null, null];
+  const playerGraveyard = battle?.playerGraveyard ?? [];
+  const enemyGraveyard = battle?.enemyGraveyard ?? [];
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [dragDropEnabled, setDragDropEnabled] = useState<boolean>(true);
   const [graveyardEnabled, setGraveyardEnabled] = useState<boolean>(true);
@@ -85,13 +73,8 @@ function BattlefieldContent() {
   const { dragState, getDragHandlers, getDropHandlers, logSlotContents, updateMousePosition } = useDragAndDrop({
     enabled: dragDropEnabled,
     onCardMove: (card: Card, fromIndex: number, toSlotIndex: number) => {
-      // Move card from hand to field
-      setPlayerHand(prev => prev.filter((_, index) => index !== fromIndex));
-      setPlayerField(prev => {
-        const newField = [...prev];
-        newField[toSlotIndex] = card;
-        return newField;
-      });
+      // Send to backend; server will update state via subscription
+      battle?.playCard?.(fromIndex, toSlotIndex);
     },
   });
 
@@ -99,14 +82,9 @@ function BattlefieldContent() {
   const { animationState, sendToGraveyard, logGraveyardContents } = useGraveyard({
     enabled: graveyardEnabled,
     onCardToGraveyard: (card: Card, fromSlotIndex: number) => {
-      // Remove card from field and add to graveyard (FILO - First In, Last Out)
-      setPlayerField(prev => {
-        const newField = [...prev];
-        newField[fromSlotIndex] = null;
-        return newField;
-      });
-      setPlayerGraveyard(prev => [...prev, card]); // Add to end of array (last out)
-      setSelectedCard(null); // Deselect card
+      // Trigger backend mutation; server will push new state
+      battle?.sendToGraveyard?.(fromSlotIndex);
+      setSelectedCard(null);
     },
   });
 
@@ -257,8 +235,8 @@ function BattlefieldContent() {
       {/* Preparation Overlay */}
       {battle?.isInPreparation ? (
         <PrepOverlay
-          hand={battle.player?.hand ?? playerHand}
-          field={battle.player?.field ?? playerField}
+          hand={playerHand}
+          field={playerField}
           countdown={battle.prepCountdown ?? 0}
           durationSec={battle.preparation?.durationSec ?? 15}
           waitingForOpponent={!!battle.iAmReady && !battle.opponentReady}
