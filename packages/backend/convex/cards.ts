@@ -110,15 +110,22 @@ export const getUserInventory = query({
             throw new Error("getUserInventory: inventory must be an array");
         }
 
-        const cards = await ctx.db
-            .query("cards")
-            .withIndex("by_owner", (q) => q.eq("currentOwnerId", args.userId))
-            .collect();
+        // Use the inventory array to get cards by their IDs
+        if (user.inventory.length === 0) return [];
+        
+        const cards = await Promise.all(
+            user.inventory.map(async (cardId: any) => {
+                return await ctx.db.get(cardId);
+            })
+        );
 
-        if (!Array.isArray(cards)) throw new Error("getUserInventory: cards must be array");
-        if (cards.length > 0 && !cards[0]._id) throw new Error("getUserInventory: card missing _id");
+        // Filter out any null results and ensure all cards exist
+        const validCards = cards.filter(card => card !== null);
+        
+        if (!Array.isArray(validCards)) throw new Error("getUserInventory: cards must be array");
+        if (validCards.length > 0 && !validCards[0]._id) throw new Error("getUserInventory: card missing _id");
 
-        return cards;
+        return validCards;
     },
 });
 
