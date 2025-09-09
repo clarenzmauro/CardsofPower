@@ -85,8 +85,8 @@ export const getUserAccount = query({
               ? card.type.toLowerCase()
               : "monster";
 
-            console.assert(typeof name === "string" && name.length > 0, "Invalid card name");
-            console.assert(Number.isFinite(matches) && matches >= 0, "Invalid matches count");
+            // console.assert(typeof name === "string" && name.length > 0, "Invalid card name");
+            // console.assert(Number.isFinite(matches) && matches >= 0, "Invalid matches count");
 
             return {
               id: card._id,

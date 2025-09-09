@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useQuery } from "convex/react";
 import { useUser } from "@clerk/nextjs";
 import { api } from "@cards-of-power/backend/convex/_generated/api";
@@ -64,7 +63,7 @@ export default function InventoryPage() {
 
   const userData = cachedUserData || freshUserData;
   const goldCount = userData?.goldCount ?? 0;
-  const inventoryCards: CardData[] = cachedUserInventory || freshUserInventory || [];
+  const inventoryCards: CardData[] = (cachedUserInventory || freshUserInventory || []) as CardData[];
 
   // filter based on search
   const filteredCards = useMemo(() => {
