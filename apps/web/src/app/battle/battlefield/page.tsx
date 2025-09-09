@@ -31,18 +31,18 @@ function BattlefieldContent() {
   const [dragDropEnabled, setDragDropEnabled] = useState<boolean>(true);
   const [graveyardEnabled, setGraveyardEnabled] = useState<boolean>(true);
 
-  // Player and Enemy data
-  const [player, setPlayer] = useState<Player>({
+  // Player and Enemy data from server battle data
+  const player: Player = {
     name: battle?.player?.name ?? "Player",
     hp: battle?.player?.hp ?? 8000,
-    maxHp: battle?.player?.maxHp ?? 8000
-  });
-  
-  const [enemy, setEnemy] = useState<Player>({
+    maxHp: battle?.player?.maxHp ?? 8000,
+  };
+
+  const enemy: Player = {
     name: battle?.enemy?.name ?? "Shadow Duelist",
-    hp: battle?.enemy?.hp ?? 6500,
-    maxHp: battle?.enemy?.maxHp ?? 8000
-  });
+    hp: battle?.enemy?.hp ?? 8000,
+    maxHp: battle?.enemy?.maxHp ?? 8000,
+  };
 
   // Timer state
   const [timeRemaining, setTimeRemaining] = useState<number>(30);
