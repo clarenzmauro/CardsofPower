@@ -37,9 +37,10 @@ export default function SignInPage() {
             return;
         }
 
-        // if user exists in database, redirect to main menu
+        // if user exists in database, redirect appropriately
         if (currentUser) {
-            router.push("/main-menu");
+            const shouldSeeShowcase = currentUser.gamesPlayed === 0 && !currentUser.hasSeenShowcase;
+            router.push(shouldSeeShowcase ? "/showcase" : "/main-menu");
             return;
         }
 
