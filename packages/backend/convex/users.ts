@@ -222,11 +222,41 @@ export const upsertFromClerk = mutation({
 
     if (user === null) {
       console.log(`upsertFromClerk: Creating NEW user for clerkId: ${data.clerkId}`);
-      const newUserId = await ctx.db.insert("users", { ...userAttributes, inventory: [] });
-      
-      // Setup initial 10 cards for new user
-      await setupInitialCards(ctx, newUserId, userAttributes.username);
-      
+      // Preselect starter cards BEFORE inserting user to avoid transient 0-card state
+      const unownedCards = await ctx.db
+        .query("cards")
+        .filter((q: any) => q.eq(q.field("isOwned"), false))
+        .collect();
+
+      const cardsToGive = Math.min(Math.max(unownedCards.length, 1), 10);
+      if (unownedCards.length === 0) {
+        throw new Error("upsertFromClerk: No unowned cards available for new user");
+      }
+      const shuffled = unownedCards.sort(() => 0.5 - Math.random());
+      const selectedCards = shuffled.slice(0, cardsToGive);
+      const cardIds = selectedCards.map((card: any) => card._id);
+
+      const newUserId = await ctx.db.insert("users", {
+        ...userAttributes,
+        currentCardCount: cardsToGive,
+        highestCardCount: cardsToGive,
+        inventory: cardIds,
+      });
+
+      // Update each selected card ownership
+      for (const card of selectedCards) {
+        await ctx.db.patch(card._id, {
+          isOwned: true,
+          currentOwnerId: newUserId,
+          currentOwnerUsername: userAttributes.username,
+          marketValue: 2000,
+        });
+      }
+
+      console.log(
+        `upsertFromClerk: Inserted new user with ${cardsToGive} starter cards (inventory length: ${cardIds.length})`
+      );
+
       return { userId: newUserId, isNewUser: true };
     } else {
       console.log(`upsertFromClerk: Updating EXISTING user for clerkId: ${data.clerkId}`);

@@ -50,12 +50,14 @@ export default function Home() {
         // If user exists in database, check if they're a new user who should see showcase
         if (currentUser) {
             // New users have 0 games played, some starter cards, and haven't seen showcase yet
-            if (currentUser.gamesPlayed === 0 && currentUser.currentCardCount > 0 && !currentUser.hasSeenShowcase) {
-                router.push("/showcase" as any);
-            } else {
-                // Existing users or users who completed showcase go to main menu
-                router.push("/main-menu" as any);
-            }
+            const shouldSeeShowcase = currentUser.gamesPlayed === 0 && !currentUser.hasSeenShowcase;
+            console.log("Landing redirect decision:", {
+                gamesPlayed: currentUser.gamesPlayed,
+                currentCardCount: currentUser.currentCardCount,
+                hasSeenShowcase: currentUser.hasSeenShowcase,
+                route: shouldSeeShowcase ? "/showcase" : "/main-menu",
+            });
+            router.push((shouldSeeShowcase ? "/showcase" : "/main-menu") as any);
             return;
         }
 

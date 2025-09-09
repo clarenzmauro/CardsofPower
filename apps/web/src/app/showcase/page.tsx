@@ -5,6 +5,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@cards-of-power/backend/convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import Image from "next/image"
 
 /**
  * @description
@@ -53,13 +54,22 @@ export default function ShowcasePage() {
         
         // Redirect if user doesn't exist or has already seen showcase
         // New users have 0 games played, some starter cards, and haven't seen showcase yet
-        if (currentUser && (currentUser.gamesPlayed > 0 || currentUser.currentCardCount === 0 || currentUser.hasSeenShowcase)) {
-            router.push("/main-menu" as any);
-            return;
+        if (currentUser) {
+            const shouldRedirectToMenu = currentUser.gamesPlayed > 0 || currentUser.hasSeenShowcase;
+            console.log("Showcase guard:", {
+                gamesPlayed: currentUser.gamesPlayed,
+                currentCardCount: currentUser.currentCardCount,
+                hasSeenShowcase: currentUser.hasSeenShowcase,
+                route: shouldRedirectToMenu ? "/main-menu" : "stay",
+            });
+            if (shouldRedirectToMenu) {
+                router.push("/main-menu" as any);
+                return;
+            }
         }
     }, [isLoaded, user, currentUser, router]);
 
-    if (!isLoaded || !currentUser || !userCards) {
+    if (!isLoaded || currentUser === undefined || userCards === undefined) {
         return (
             <div 
                 className="min-h-screen bg-cover bg-center flex items-center justify-center"
@@ -70,13 +80,17 @@ export default function ShowcasePage() {
         );
     }
 
+    if (!currentUser || !user) {
+        return null;
+    }
+
     if (userCards.length === 0) {
         return (
             <div 
                 className="min-h-screen bg-cover bg-center flex items-center justify-center"
                 style={{ backgroundImage: "url('/assets/backgrounds/showcase.png')" }}
             >
-                <div className="text-white text-xl">Error: No cards found. Redirecting...</div>
+                <div className="text-white text-xl">Preparing your starter cards…</div>
             </div>
         );
     }
@@ -107,30 +121,48 @@ export default function ShowcasePage() {
     if (showAllCards) {
         return (
             <div 
-                className="min-h-screen bg-cover bg-center p-8"
+                className="min-h-screen bg-cover bg-center flex items-center justify-center p-8"
                 style={{ backgroundImage: "url('/assets/backgrounds/showcase.png')" }}
             >
-                <div className="max-w-6xl mx-auto">
-                    <h1 className="text-4xl font-bold text-white text-center mb-8">
+                <div className="max-w-6xl mx-auto text-center">
+                    <h1 className="text-4xl font-bold text-white mb-8 font-[family-name:var(--font-pirata-one)]">
                         Your Complete Collection
                     </h1>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 mb-8">
                         {userCards.map((card: any, index: number) => (
-                            <div key={card._id} className="bg-white rounded-lg p-4 shadow-lg">
-                                <img 
-                                    src={card.imageUrl} 
-                                    alt={card.name}
-                                    className="w-full h-32 object-cover rounded mb-2"
-                                />
-                                <h3 className="font-bold text-sm text-center">{card.name}</h3>
-                                <p className="text-xs text-gray-600 text-center">{card.type}</p>
+                            <div key={card._id} className="p-1">
+                                <div 
+                                    className="relative w-full h-70 cursor-pointer transition-transform duration-300 ease-out hover:scale-110"
+                                    onMouseMove={(e) => {
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        const x = e.clientX - rect.left;
+                                        const y = e.clientY - rect.top;
+                                        const centerX = rect.width / 2;
+                                        const centerY = rect.height / 2;
+                                        const rotateX = (y - centerY) / 10;
+                                        const rotateY = (centerX - x) / 10;
+                                        e.currentTarget.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.1)`;
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = '';
+                                    }}
+                                >
+                                    <img 
+                                        src={card.imageUrl} 
+                                        alt={card.name}
+                                        className="w-full h-full object-contain rounded-lg shadow-lg"
+                                    />
+
+                                    {/* <h3 className="font-bold text-sm text-white text-center">{card.name}</h3> */}
+                                    {/* <p className="text-xs text-white/80 text-center">{card.type}</p> */}
+                                </div>
                             </div>
                         ))}
                     </div>
                     <div className="text-center">
                         <button
                             onClick={handleProceed}
-                            className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white font-bold py-3 px-8 rounded-lg text-xl transition-all duration-300 transform hover:scale-105"
+                            className="bg-black/40 backdrop-blur-sm border border-white/20 text-white font-bold py-3 px-8 rounded-lg text-xl transition-all duration-300 transform hover:scale-105 hover:bg-black/60 font-[family-name:var(--font-pirata-one)]"
                         >
                             Proceed to Main Menu
                         </button>
@@ -146,61 +178,110 @@ export default function ShowcasePage() {
             style={{ backgroundImage: "url('/assets/backgrounds/showcase.png')" }}
         >
             <div className="max-w-md mx-auto text-center">
-                <h1 className="text-3xl font-bold text-white mb-4">
+                <h1 className="text-3xl font-bold text-white mb-4 font-[family-name:var(--font-pirata-one)]">
                     Your Starter Cards
                 </h1>
-                <p className="text-white/80 mb-2">
+                <p className="text-white/80 mb-2 font-[family-name:var(--font-pirata-one)]">
                     Card {currentCardIndex + 1} of {userCards.length}
                 </p>
                 
                 {/* Card Display */}
                 <div className="relative mb-8">
                     <div 
-                        className={`relative w-64 h-96 mx-auto cursor-pointer transition-transform duration-700 transform-style-preserve-3d ${isFlipped ? 'rotate-y-180' : ''}`}
+                        className={`relative w-80 h-[480px] mx-auto cursor-pointer transition-transform duration-700 transform-style-preserve-3d ${isFlipped ? 'rotate-y-180' : ''} hover:scale-110 transition-all duration-300 ease-out`}
                         onClick={() => setIsFlipped(!isFlipped)}
+                        onMouseMove={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const x = e.clientX - rect.left;
+                            const y = e.clientY - rect.top;
+                            const centerX = rect.width / 2;
+                            const centerY = rect.height / 2;
+                            const rotateX = (y - centerY) / 10;
+                            const rotateY = (centerX - x) / 10;
+                            e.currentTarget.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.1) ${isFlipped ? 'rotateY(180deg)' : ''}`;
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = isFlipped ? 'rotateY(180deg)' : '';
+                        }}
                     >
                         {/* Card Front */}
-                        <div className="absolute inset-0 w-full h-full backface-hidden bg-white rounded-lg shadow-xl p-4">
-                            <img 
+                        <div className="absolute inset-0 w-full h-full backface-hidden">
+                            <Image 
                                 src={currentCard.imageUrl} 
                                 alt={currentCard.name}
-                                className="w-full h-48 object-cover rounded mb-4"
+                                width={400}
+                                height={500}
+                                className="w-full h-full object-contain rounded-xl"
                             />
-                            <h2 className="text-xl font-bold mb-2">{currentCard.name}</h2>
-                            <p className="text-sm text-gray-600 mb-2">{currentCard.type}</p>
-                            {currentCard.atkPts !== undefined && (
-                                <div className="flex justify-between text-sm">
-                                    <span>ATK: {currentCard.atkPts}</span>
-                                    <span>DEF: {currentCard.defPts}</span>
-                                </div>
-                            )}
                         </div>
                         
                         {/* Card Back */}
-                        <div className="absolute inset-0 w-full h-full backface-hidden rotate-y-180 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg shadow-xl p-4 text-white">
-                            <h2 className="text-xl font-bold mb-4">{currentCard.name}</h2>
-                            <p className="text-sm mb-4">{currentCard.description || "No description available"}</p>
-                            {currentCard.attribute && (
-                                <p className="text-sm mb-2"><strong>Attribute:</strong> {currentCard.attribute}</p>
-                            )}
-                            {currentCard.class && (
-                                <p className="text-sm mb-2"><strong>Class:</strong> {currentCard.class}</p>
-                            )}
-                            {currentCard.level && (
-                                <p className="text-sm mb-2"><strong>Level:</strong> {currentCard.level}</p>
-                            )}
-                            <p className="text-sm"><strong>Market Value:</strong> {currentCard.marketValue} gold</p>
+                        <div className="absolute inset-0 w-full h-full backface-hidden rotate-y-180">
+                            <Image 
+                                src="/assets/cards/back-card copy.png"
+                                alt="Card Back"
+                                width={400}
+                                height={500}
+                                className="w-full h-full object-contain rounded-xl"
+                            />
+                            <div className="absolute inset-0 flex flex-col justify-center items-center p-8 text-white">
+                                {/* <h2 className="text-3xl font-bold mb-4 text-center drop-shadow-lg">{currentCard.name}</h2> */}
+                                {/* {currentCard.description && (
+                                    <div className="mb-6 p-4 bg-black/30 rounded-lg text-center text-base backdrop-blur-sm">
+                                        <span className="drop-shadow-md">{currentCard.description}</span>
+                                    </div>
+                                )}
+                                can be added back if needed
+                                */}
+                                
+                                <div className="space-y-3 w-full max-w-sm">
+                                    {currentCard.type && (
+                                        <div className="flex justify-center items-center p-3 bg-black/20 rounded-lg backdrop-blur-sm font-[family-name:var(--font-pirata-one)]">
+                                            <span className="capitalize text-base">{currentCard.type} Card</span>
+                                        </div>
+                                    )}
+                                    {(currentCard.type === "trap" || currentCard.type === "spell") && (
+                                        <div className="p-3 bg-yellow-900/30 rounded-lg backdrop-blur-sm font-[family-name:var(--font-pirata-one)]">
+                                            <span className="text-sm text-yellow-200">
+                                                {currentCard.type === "trap" ? "Trap" : "Spell"} cards have minimal stats
+                                            </span>
+                                        </div>
+                                    )}
+                                    {currentCard.attribute && (
+                                        <div className="flex justify-between items-center p-3 bg-black/20 rounded-lg backdrop-blur-sm font-[family-name:var(--font-pirata-one)]">
+                                            <span className="font-medium text-base">Attribute:</span>
+                                            <span className="capitalize text-base">{currentCard.attribute}</span>
+                                        </div>
+                                    )}
+                                    {currentCard.class && (
+                                        <div className="flex justify-between items-center p-3 bg-black/20 rounded-lg backdrop-blur-sm font-[family-name:var(--font-pirata-one)]">
+                                            <span className="font-medium text-base">Class:</span>
+                                            <span className="capitalize text-base">{currentCard.class}</span>
+                                        </div>
+                                    )}
+                                    {currentCard.level && (
+                                        <div className="flex justify-between items-center p-3 bg-black/20 rounded-lg backdrop-blur-sm font-[family-name:var(--font-pirata-one)]">
+                                            <span className="font-medium text-base">Level:</span>
+                                            <span className="text-base">{currentCard.level}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between items-center p-3 bg-black/20 rounded-lg backdrop-blur-sm font-[family-name:var(--font-pirata-one)]">
+                                        <span className="font-medium text-base">Market Value:</span>
+                                        <span className="text-base">{currentCard.marketValue} gold</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
                 
-                <p className="text-white/60 mb-4 text-sm">
+                <p className="text-white/60 mb-4 text-sm font-[family-name:var(--font-pirata-one)]">
                     Click the card to flip and see details
                 </p>
                 
                 <button
                     onClick={handleContinue}
-                    className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105"
+                    className="bg-black/40 backdrop-blur-sm border border-white/20 text-white font-[family-name:var(--font-pirata-one)] py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 hover:bg-black/60"
                 >
                     {currentCardIndex < userCards.length - 1 ? 'Continue' : 'View All Cards'}
                 </button>
