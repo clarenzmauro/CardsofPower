@@ -4,7 +4,7 @@ import { useUser } from "@clerk/nextjs";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@cards-of-power/backend/convex/_generated/api";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image"
 
 /**
@@ -28,6 +28,23 @@ export default function ShowcasePage() {
     const [currentCardIndex, setCurrentCardIndex] = useState(0);
     const [isFlipped, setIsFlipped] = useState(false);
     const [showAllCards, setShowAllCards] = useState(false);
+    
+    const cardRef = useRef<HTMLDivElement | null>(null);
+    const rafIdRef = useRef<number | null>(null);
+    const tiltRef = useRef({ rx: 0, ry: 0 });
+    const isFlippedRef = useRef(false);
+
+    useEffect(() => {
+        isFlippedRef.current = isFlipped;
+    }, [isFlipped]);
+
+    const applyTransform = () => {
+        const node = cardRef.current;
+        if (!node) return;
+        const { rx, ry } = tiltRef.current;
+        const flipY = isFlippedRef.current ? 180 : 0;
+        node.style.transform = `perspective(1000px) rotateX(${rx}deg) rotateY(${ry + flipY}deg)`;
+    };
     
     const markShowcaseCompleted = useMutation(api.users.markShowcaseCompleted);
     
@@ -188,20 +205,43 @@ export default function ShowcasePage() {
                 {/* Card Display */}
                 <div className="relative mb-8">
                     <div 
-                        className={`relative w-80 h-[480px] mx-auto cursor-pointer transition-transform duration-700 transform-style-preserve-3d ${isFlipped ? 'rotate-y-180' : ''} hover:scale-110 transition-all duration-300 ease-out`}
-                        onClick={() => setIsFlipped(!isFlipped)}
+                        ref={cardRef}
+                        className={`relative w-80 h-[480px] mx-auto cursor-pointer transform-style-preserve-3d hover:scale-110 transition-all duration-300 ease-out`}
+                        style={{ willChange: "transform" }}
+                        onClick={() => {
+                            setIsFlipped((prev) => {
+                                const next = !prev;
+                                isFlippedRef.current = next;
+                                if (rafIdRef.current == null) {
+                                    rafIdRef.current = requestAnimationFrame(() => {
+                                        applyTransform();
+                                        rafIdRef.current = null;
+                                    });
+                                }
+                                return next;
+                            });
+                        }}
                         onMouseMove={(e) => {
                             const rect = e.currentTarget.getBoundingClientRect();
                             const x = e.clientX - rect.left;
                             const y = e.clientY - rect.top;
                             const centerX = rect.width / 2;
                             const centerY = rect.height / 2;
-                            const rotateX = (y - centerY) / 10;
-                            const rotateY = (centerX - x) / 10;
-                            e.currentTarget.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.1) ${isFlipped ? 'rotateY(180deg)' : ''}`;
+                            // Clamp tilt to avoid excessive GPU work
+                            const rotateX = Math.max(-12, Math.min(12, (y - centerY) / 10));
+                            const rotateY = Math.max(-12, Math.min(12, (centerX - x) / 10));
+                            tiltRef.current = { rx: rotateX, ry: rotateY };
+                            if (rafIdRef.current == null) {
+                                rafIdRef.current = requestAnimationFrame(() => {
+                                    applyTransform();
+                                    rafIdRef.current = null;
+                                });
+                            }
                         }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = isFlipped ? 'rotateY(180deg)' : '';
+                        onMouseLeave={() => {
+                            // Reset tilt, preserve flip
+                            tiltRef.current = { rx: 0, ry: 0 };
+                            applyTransform();
                         }}
                     >
                         {/* Card Front */}
