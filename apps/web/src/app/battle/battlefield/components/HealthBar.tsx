@@ -12,7 +12,7 @@ export function HealthBar({ player, isEnemy = false }: HealthBarProps) {
   return (
     <div className="flex flex-col items-right gap-2">
       {/* Player Name */}
-      <span className="text-white font-bold text-lg">{player.name}</span>
+      <span className="text-white font-bold text-lg" style={{ fontFamily: 'var(--font-pirata-one)' }}>{player.name}</span>
       
       {/* HP Bar with Icon */}
       <div className="flex items-center gap-2">
@@ -38,7 +38,7 @@ export function HealthBar({ player, isEnemy = false }: HealthBarProps) {
         </div>
         
         {/* HP Text */}
-        <span className="text-white font-semibold text-sm min-w-[60px]">
+        <span className="text-white font-semibold text-sm min-w-[60px]" style={{ fontFamily: 'var(--font-pirata-one)' }}>
           {player.hp}/{player.maxHp}
         </span>
       </div>

@@ -255,7 +255,7 @@ function BattlefieldContent() {
       {isWaitingForOpponent && (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60">
           <div className="w-full py-4 text-center">
-            <div className="text-stone-100 text-2xl font-bold">
+            <div className="text-stone-100 text-2xl font-bold" style={{ fontFamily: 'var(--font-pirata-one)' }}>
               Waiting for an opponent...
             </div>
           </div>
@@ -278,8 +278,8 @@ function BattlefieldContent() {
       {!battle?.isInPreparation && showTurnAnnouncement && !isWaitingForOpponent ? (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60">
           <div className="bg-stone-800 border border-stone-600 rounded-lg p-6 w-[320px] text-center shadow-xl">
-            <div className="text-stone-200 text-lg mb-2">First turn</div>
-            <div className="text-stone-100 text-2xl font-bold">
+            <div className="text-stone-200 text-lg mb-2" style={{ fontFamily: 'var(--font-pirata-one)' }}>First turn</div>
+            <div className="text-stone-100 text-2xl font-bold" style={{ fontFamily: 'var(--font-pirata-one)' }}>
               {isMyTurn ? 'You' : enemyName} go first
             </div>
           </div>
@@ -292,25 +292,26 @@ function BattlefieldContent() {
           <div className="bg-stone-800 border border-stone-600 rounded-lg p-6 w-[320px] text-center shadow-xl">
             {showFirstTurnModal && !isWaitingForOpponent ? (
               <>
-                <div className="text-stone-200 text-lg mb-2">First turn</div>
-                <div className="text-stone-100 text-2xl font-bold mb-4">
+                <div className="text-stone-200 text-lg mb-2" style={{ fontFamily: 'var(--font-pirata-one)' }}>First turn</div>
+                <div className="text-stone-100 text-2xl font-bold mb-4" style={{ fontFamily: 'var(--font-pirata-one)' }}>
                   {isMyTurn ? 'You' : enemyName} go first
                 </div>
                 {isMyTurn ? (
                   <button
                     onClick={() => { battle?.beginBattle?.(); setShowFirstTurnModal(false); }}
                     className="px-4 py-2 rounded bg-amber-700 hover:bg-amber-800 text-white font-semibold"
+                    style={{ fontFamily: 'var(--font-pirata-one)' }}
                   >
                     Begin
                   </button>
                 ) : (
-                  <div className="text-stone-300 text-sm">Waiting for {enemyName} to begin…</div>
+                  <div className="text-stone-300 text-sm" style={{ fontFamily: 'var(--font-pirata-one)' }}>Waiting for {enemyName} to begin…</div>
                 )}
               </>
             ) : (
               <>
-                <div className="text-stone-200 text-lg mb-2">Game paused</div>
-                <div className="text-stone-100 text-sm">Waiting for opponent to reconnect…</div>
+                <div className="text-stone-200 text-lg mb-2" style={{ fontFamily: 'var(--font-pirata-one)' }}>Game paused</div>
+                <div className="text-stone-100 text-sm" style={{ fontFamily: 'var(--font-pirata-one)' }}>Waiting for opponent to reconnect…</div>
               </>
             )}
           </div>
@@ -338,7 +339,7 @@ function BattlefieldContent() {
       {showPositionPicker && pendingSlotIndex != null && (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60">
           <div className="bg-stone-800 border border-stone-600 rounded-lg p-6 w-[320px] text-center shadow-xl">
-            <div className="text-stone-200 text-lg mb-4">Choose position</div>
+            <div className="text-stone-200 text-lg mb-4" style={{ fontFamily: 'var(--font-pirata-one)' }}>Choose position</div>
             <div className="flex gap-4 justify-center mb-4">
               <button
                 onClick={() => placeSelectedCard('attack')}
@@ -370,6 +371,7 @@ function BattlefieldContent() {
                 setSelectedHandIndex(null);
               }}
               className="text-stone-300 text-sm underline"
+              style={{ fontFamily: 'var(--font-pirata-one)' }}
             >
               Cancel
             </button>
@@ -381,7 +383,7 @@ function BattlefieldContent() {
       {showFieldActionModal && activeFieldSlotIndex != null && playerField[activeFieldSlotIndex] && (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60">
           <div className="bg-stone-800 border border-stone-600 rounded-lg p-6 w-[320px] text-center shadow-xl">
-            <div className="text-stone-200 text-lg mb-4">Card actions</div>
+            <div className="text-stone-200 text-lg mb-4" style={{ fontFamily: 'var(--font-pirata-one)' }}>Card actions</div>
             <div className="flex gap-4 justify-center mb-4">
               <button
                 onClick={async () => {
@@ -420,6 +422,7 @@ function BattlefieldContent() {
             <button
               onClick={() => { setShowFieldActionModal(false); setActiveFieldSlotIndex(null); }}
               className="text-stone-300 text-sm underline"
+              style={{ fontFamily: 'var(--font-pirata-one)' }}
             >
               Cancel
             </button>
@@ -432,7 +435,7 @@ function BattlefieldContent() {
 
 export default function BattlefieldPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-screen bg-stone-900 text-stone-100">Loading battle...</div>}>
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen bg-stone-900 text-stone-100" style={{ fontFamily: 'var(--font-pirata-one)' }}>Loading battle...</div>}>
       <BattlefieldContent />
     </Suspense>
   );
