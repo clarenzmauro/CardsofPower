@@ -192,7 +192,7 @@ function BattlefieldContent() {
       {/* Timer at top middle (hidden during preparation) */}
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20">
         {battle?.isInPreparation ? null : isWaiting ? (
-          <div className="px-3 py-1 rounded text-sm font-semibold bg-stone-700/80 text-stone-100">
+          <div className="px-3 py-1 rounded text-sm font-semibold bg-stone-700/80 text-stone-100" style={{ fontFamily: 'var(--font-pirata-one)' }}>
             Waiting for opponent...
           </div>
         ) : (
