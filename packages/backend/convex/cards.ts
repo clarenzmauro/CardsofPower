@@ -29,6 +29,61 @@ export const getAll = query({
 
 /**
  * @description
+ * Debug query to check unowned cards count
+ */
+export const getUnownedCount = query({
+    handler: async (ctx: any) => {
+        const unownedCards = await ctx.db
+            .query("cards")
+            .filter((q: any) => q.eq(q.field("isOwned"), false))
+            .collect();
+        
+        const totalCards = await ctx.db.query("cards").collect();
+        
+        return {
+            totalCards: totalCards.length,
+            unownedCards: unownedCards.length,
+            ownedCards: totalCards.length - unownedCards.length
+        };
+    },
+});
+
+/**
+ * @description
+ * Query to get multiple cards by their IDs
+ * 
+ * @receives data from:
+ * - cardIds: array of card document IDs
+ * 
+ * @sends data to:
+ * - showcase page: card data for display
+ * 
+ * @sideEffects:
+ * - none
+ */
+export const getByIds = query({
+    args: { cardIds: v.array(v.id("cards")) },
+    handler: async (ctx, { cardIds }) => {
+        if (!Array.isArray(cardIds)) {
+            throw new Error("getByIds: cardIds must be an array");
+        }
+        
+        const cards = await Promise.all(
+            cardIds.map(async (cardId) => {
+                const card = await ctx.db.get(cardId);
+                if (!card) {
+                    throw new Error(`getByIds: Card not found: ${cardId}`);
+                }
+                return card;
+            })
+        );
+        
+        return cards;
+    },
+});
+
+/**
+ * @description
  * Query to get user's inventory for filtering owned cards.
  * 
  * @receives data from:

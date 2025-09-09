@@ -98,6 +98,64 @@ export const current = query({
 
 /**
  * @description
+ * Helper function to setup initial 10 random cards for new users
+ *
+ * @receives data from:
+ * - New user document
+ *
+ * @sends data to:
+ * - users table: updated user with 10 cards in inventory
+ * - cards table: 10 cards marked as owned by user
+ *
+ * @sideEffects:
+ * - Assigns 10 random unowned cards to user
+ * - Updates user stats and card ownership
+ */
+async function setupInitialCards(ctx: any, userId: any, username: string) {
+  // Get all unowned cards
+  const unownedCards = await ctx.db
+    .query("cards")
+    .filter((q: any) => q.eq(q.field("isOwned"), false))
+    .collect();
+    
+  console.log(`setupInitialCards: Found ${unownedCards.length} unowned cards`);
+  
+  // Use available cards (minimum 1, maximum 10)
+  const cardsToGive = Math.min(Math.max(unownedCards.length, 1), 10);
+  
+  if (unownedCards.length === 0) {
+    throw new Error("No unowned cards available for new user");
+  }
+  
+  // Randomly select available cards
+  const shuffled = unownedCards.sort(() => 0.5 - Math.random());
+  const selectedCards = shuffled.slice(0, cardsToGive);
+  const cardIds = selectedCards.map((card: any) => card._id);
+  
+  console.log(`setupInitialCards: Giving ${cardsToGive} cards to new user`);
+  
+  // Update user with cards
+  await ctx.db.patch(userId, {
+    currentCardCount: cardsToGive,
+    highestCardCount: cardsToGive,
+    inventory: cardIds,
+  });
+  
+  // Update each card as owned
+  for (const card of selectedCards) {
+    await ctx.db.patch(card._id, {
+      isOwned: true,
+      currentOwnerId: userId,
+      currentOwnerUsername: username,
+      marketValue: 2000,
+    });
+  }
+  
+  return cardIds;
+}
+
+/**
+ * @description
  * Internal mutation to upsert user data from Clerk webhook
  *
  * @receives data from:
@@ -108,6 +166,7 @@ export const current = query({
  *
  * @sideEffects:
  * - Creates or updates user record in database
+ * - Assigns 10 starter cards to new users
  */
 export const upsertFromClerk = mutation({
   args: {
@@ -146,6 +205,10 @@ export const upsertFromClerk = mutation({
     };
 
     const user = await userByExternalId(ctx, data.clerkId);
+    
+    // Debug logging
+    console.log(`upsertFromClerk: Looking for user with clerkId: ${data.clerkId}`);
+    console.log(`upsertFromClerk: Found user:`, user ? "YES" : "NO");
 
     // Defensive: inventory must be an array of strings (card IDs)
     if (!Array.isArray(userAttributes.inventory)) {
@@ -156,14 +219,21 @@ export const upsertFromClerk = mutation({
     }
 
     if (user === null) {
-      return await ctx.db.insert("users", { ...userAttributes, inventory: [] });
+      console.log(`upsertFromClerk: Creating NEW user for clerkId: ${data.clerkId}`);
+      const newUserId = await ctx.db.insert("users", { ...userAttributes, inventory: [] });
+      
+      // Setup initial 10 cards for new user
+      await setupInitialCards(ctx, newUserId, userAttributes.username);
+      
+      return { userId: newUserId, isNewUser: true };
     } else {
+      console.log(`upsertFromClerk: Updating EXISTING user for clerkId: ${data.clerkId}`);
       await ctx.db.patch(user._id, {
         ...userAttributes,
         inventory: user.inventory ?? [],
         friendIds: user.friendIds ?? [],
       });
-      return user._id;
+      return { userId: user._id, isNewUser: false };
     }
   },
 });
