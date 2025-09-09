@@ -28,7 +28,7 @@ export default function ShowcasePage() {
     const [currentCardIndex, setCurrentCardIndex] = useState(0);
     const [isFlipped, setIsFlipped] = useState(false);
     const [showAllCards, setShowAllCards] = useState(false);
-    
+
     const cardRef = useRef<HTMLDivElement | null>(null);
     const rafIdRef = useRef<number | null>(null);
     const tiltRef = useRef({ rx: 0, ry: 0 });
@@ -258,7 +258,7 @@ export default function ShowcasePage() {
                         {/* Card Back */}
                         <div className="absolute inset-0 w-full h-full backface-hidden rotate-y-180">
                             <Image 
-                                src="/assets/cards/back-card copy.png"
+                                src="/assets/cards/back-card.png"
                                 alt="Card Back"
                                 width={400}
                                 height={500}
