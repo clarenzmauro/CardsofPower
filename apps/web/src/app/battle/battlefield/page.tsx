@@ -81,9 +81,7 @@ function BattlefieldContent() {
   // Graveyard functionality
   const { animationState, sendToGraveyard, logGraveyardContents } = useGraveyard({
     enabled: graveyardEnabled,
-    onCardToGraveyard: (card: Card, fromSlotIndex: number) => {
-      // Trigger backend mutation; server will push new state
-      battle?.sendToGraveyard?.(fromSlotIndex);
+    onCardToGraveyard: (_card: Card, _fromSlotIndex: number) => {
       setSelectedCard(null);
     },
   });
@@ -98,6 +96,8 @@ function BattlefieldContent() {
   const handleGraveyardCard = (slotIndex: number) => {
     const card = playerField[slotIndex];
     if (!card) return;
+    if (!battle?.hasStarted) return;
+    if (!battle?.isMyTurn) return;
 
     // Get positions for animation
     const slotElement = document.querySelector(`[data-slot-index="${slotIndex}"]`);
@@ -106,6 +106,8 @@ function BattlefieldContent() {
     if (slotElement && graveyardElement) {
       const slotRect = slotElement.getBoundingClientRect();
       const graveyardRect = graveyardElement.getBoundingClientRect();
+
+      battle?.sendToGraveyard?.(slotIndex);
       
       sendToGraveyard(
         card,

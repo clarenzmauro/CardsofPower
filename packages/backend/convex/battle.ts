@@ -477,7 +477,7 @@ export const playCard = mutation({
 
     if (battle.lastActionIdempotencyKey === idempotencyKey) return;
 
-    const newHand = player.hand.filter((i: number) => i !== fromHandIndex);
+    const newHand = player.hand.filter((_: any, i: number) => i !== fromHandIndex);
     const newField = [...player.field];
     newField[toSlotIndex] = player.hand[fromHandIndex];
 
@@ -525,7 +525,8 @@ export const sendToGraveyard = mutation({
     const card = player.field[fromSlotIndex];
     const newField = [...player.field];
     newField[fromSlotIndex] = null;
-    const newGraveyard = [...player.graveyard, card].slice(-GRAVEYARD_LIMIT);
+    const { position: _ignoredPosition, ...cardForGraveyard } = (card ?? {}) as any;
+    const newGraveyard = [...player.graveyard, cardForGraveyard].slice(-GRAVEYARD_LIMIT);
 
     const updateKey = battle.hostId === user._id ? "playerA" : "playerB";
     await ctx.db.patch(battleId, {
