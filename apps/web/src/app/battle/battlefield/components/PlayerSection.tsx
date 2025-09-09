@@ -7,9 +7,9 @@ interface PlayerSectionProps {
   hand: Card[];
   field: (Card | null)[];
   onCardSelect: (card: Card | null) => void;
-  getDragHandlers?: (card: Card, index: number) => React.HTMLAttributes<HTMLDivElement>;
-  getDropHandlers?: (slotIndex: number, isEmpty: boolean) => React.HTMLAttributes<HTMLDivElement>;
-  dragState?: { isDragging: boolean; draggedCard: Card | null; draggedFromIndex: number | null; dragOverSlot: number | null };
+  onHandSelect?: (handIndex: number) => void;
+  onSlotClick?: (slotIndex: number) => void;
+  onFieldCardClick?: (slotIndex: number) => void;
   selectedCard?: Card | null;
   onGraveyardCard?: (slotIndex: number) => void;
 }
@@ -18,9 +18,9 @@ export const PlayerSection: React.FC<PlayerSectionProps> = ({
   hand, 
   field, 
   onCardSelect, 
-  getDragHandlers, 
-  getDropHandlers, 
-  dragState,
+  onHandSelect,
+  onSlotClick,
+  onFieldCardClick,
   selectedCard,
   onGraveyardCard
 }) => (
@@ -32,11 +32,18 @@ export const PlayerSection: React.FC<PlayerSectionProps> = ({
           <div key={`player-${index}`} data-slot-index={index}>
             <CardSlot 
               card={card} 
-              onClick={() => onCardSelect(card)}
-              dropHandlers={getDropHandlers ? getDropHandlers(index, !card) : undefined}
-              isDragOver={dragState?.dragOverSlot === index}
+              onClick={() => {
+                if (card) {
+                  onCardSelect(card);
+                  onFieldCardClick?.(index);
+                } else {
+                  onCardSelect(null);
+                  onSlotClick?.(index);
+                }
+              }}
+              showPositionBadge={!!card}
               isSelected={selectedCard?.id === card?.id}
-              onGraveyardClick={onGraveyardCard ? () => onGraveyardCard(index) : undefined}
+              onGraveyardClick={undefined}
             />
           </div>
         ))}
@@ -51,9 +58,7 @@ export const PlayerSection: React.FC<PlayerSectionProps> = ({
             <HandCard 
               key={card.id} 
               card={card} 
-              onClick={() => onCardSelect(card)}
-              dragHandlers={getDragHandlers ? getDragHandlers(card, index) : undefined}
-              isDragging={dragState?.draggedCard?.id === card.id}
+              onClick={() => { onCardSelect(card); onHandSelect?.(index); }}
             />
           ))}
         </div>

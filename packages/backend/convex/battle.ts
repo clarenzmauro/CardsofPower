@@ -170,6 +170,20 @@ export const getBattle = query({
     const iAmReady = isPlayerA ? !!battle.preparation?.playerAReady : !!battle.preparation?.playerBReady;
     const opponentReady = isPlayerA ? !!battle.preparation?.playerBReady : !!battle.preparation?.playerAReady;
 
+    // Build enemyField with masking for defense position
+    const maskedEnemyField = normalizeField(enemy.field).map((c: any) => {
+      if (c && c.position === "defense") {
+        return {
+          id: c.id,
+          type: c.type,
+          position: "defense",
+          image: "/assets/cards/back-card.png",
+          name: "Hidden Card",
+        };
+      }
+      return c;
+    });
+
     return {
       playerHand: player.hand.slice(0, 10),
       enemyHand: enemy.hand.slice(0, 10).map(card => ({
@@ -178,7 +192,7 @@ export const getBattle = query({
         type: card.type
       })),
       playerField: normalizeField(player.field),
-      enemyField: normalizeField(enemy.field),
+      enemyField: maskedEnemyField,
       playerGraveyard: player.graveyard.slice(0, 100),
       enemyGraveyard: enemy.graveyard.slice(0, 100),
       selectedCard: null,
@@ -504,9 +518,10 @@ export const playCard = mutation({
     battleId: v.id("battles"),
     fromHandIndex: v.number(),
     toSlotIndex: v.number(),
+    position: v.optional(v.union(v.literal("attack"), v.literal("defense"))),
     idempotencyKey: v.string(),
   },
-  handler: async (ctx, { battleId, fromHandIndex, toSlotIndex, idempotencyKey }) => {
+  handler: async (ctx, { battleId, fromHandIndex, toSlotIndex, position, idempotencyKey }) => {
     const FIELD_SIZE = 5;
     const GRAVEYARD_LIMIT = 100;
 
@@ -533,7 +548,8 @@ export const playCard = mutation({
 
     const newHand = player.hand.filter((_: any, i: number) => i !== fromHandIndex);
     const newField = [...player.field];
-    newField[toSlotIndex] = player.hand[fromHandIndex];
+    const baseCard = player.hand[fromHandIndex];
+    newField[toSlotIndex] = position ? { ...baseCard, position } : baseCard;
 
     const updateKey = battle.hostId === user._id ? "playerA" : "playerB";
     await ctx.db.patch(battleId, {

@@ -40,6 +40,7 @@ export function useBattle(battleId: Id<"battles">) {
   });
 
   const playCardMutation = useMutation(api.battle.playCard);
+  const setCardPositionMutation = useMutation(api.battle.setCardPosition);
   const sendToGraveyardMutation = useMutation(api.battle.sendToGraveyard);
   const endTurnMutation = useMutation(api.battle.endTurn);
   const updateHpMutation = useMutation(api.battle.updateHp);
@@ -105,9 +106,14 @@ export function useBattle(battleId: Id<"battles">) {
     return () => clearInterval(interval);
   }, [battleData?.preparation?.isActive, battleData?.preparation?.endsAt, battleData?.serverNow]);
 
-  const playCard = async (fromHandIndex: number, toSlotIndex: number) => {
+  const playCard = async (fromHandIndex: number, toSlotIndex: number, position?: "attack" | "defense") => {
     if (!battleData?.isMyTurn) return;
-    await playCardMutation({ battleId, fromHandIndex, toSlotIndex, idempotencyKey: crypto.randomUUID() });
+    await playCardMutation({ battleId, fromHandIndex, toSlotIndex, position, idempotencyKey: crypto.randomUUID() });
+  };
+
+  const setCardPosition = async (slotIndex: number, position: "attack" | "defense") => {
+    if (!battleData?.isMyTurn) return;
+    await setCardPositionMutation({ battleId, slotIndex, position, idempotencyKey: crypto.randomUUID() });
   };
 
   const sendToGraveyard = async (fieldIndex: number) => {
@@ -159,6 +165,7 @@ export function useBattle(battleId: Id<"battles">) {
         ? !!battleData?.preparation?.playerBReady
         : !!battleData?.preparation?.playerAReady,
     playCard,
+    setCardPosition,
     sendToGraveyard,
     endTurn,
     updateHp,

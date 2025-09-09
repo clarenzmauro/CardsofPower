@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import type { Card, Player } from './types';
-import { CardDisplay, GraveyardPile, PlayerSection, EnemySection, FloatingCard, AnimatingCard, HealthBar, Timer, PrepOverlay } from './components';
-import { useDragAndDrop } from './hooks/useDragAndDrop';
+import { CardDisplay, GraveyardPile, PlayerSection, EnemySection, AnimatingCard, HealthBar, Timer, PrepOverlay } from './components';
 import { useGraveyard } from './hooks/useGraveyard';
 import { useSearchParams } from 'next/navigation';
 import { type Id } from '@cards-of-power/backend/convex/_generated/dataModel';
@@ -28,7 +27,7 @@ function BattlefieldContent() {
   const playerGraveyard = battle?.playerGraveyard ?? [];
   const enemyGraveyard = battle?.enemyGraveyard ?? [];
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
-  const [dragDropEnabled, setDragDropEnabled] = useState<boolean>(true);
+  const [dragDropEnabled, setDragDropEnabled] = useState<boolean>(false);
   const [graveyardEnabled, setGraveyardEnabled] = useState<boolean>(true);
 
   // Player and Enemy data from server battle data
@@ -83,14 +82,12 @@ function BattlefieldContent() {
     }
   }, [battle?.isInPreparation, battle?.status, battle?.isPaused]);
 
-  // Drag and drop functionality
-  const { dragState, getDragHandlers, getDropHandlers, logSlotContents, updateMousePosition } = useDragAndDrop({
-    enabled: dragDropEnabled,
-    onCardMove: (card: Card, fromIndex: number, toSlotIndex: number) => {
-      // Send to backend; server will update state via subscription
-      battle?.playCard?.(fromIndex, toSlotIndex);
-    },
-  });
+  // Disable drag & drop, use click placement
+  const dragState = { isDragging: false, draggedCard: null as Card | null, draggedFromIndex: null as number | null, dragOverSlot: null as number | null, mousePosition: { x: 0, y: 0 } };
+  const getDragHandlers = undefined;
+  const getDropHandlers = undefined;
+  const logSlotContents = (..._args: any[]) => {};
+  const updateMousePosition = (_x: number, _y: number) => {};
 
   // Graveyard functionality
   const { animationState, sendToGraveyard, logGraveyardContents } = useGraveyard({
@@ -132,30 +129,49 @@ function BattlefieldContent() {
     }
   };
 
-  // Global drag tracking for better cursor following
-  useEffect(() => {
-    const handleGlobalDragOver = (e: DragEvent) => {
-      if (dragState.isDragging) {
-        e.preventDefault();
-        updateMousePosition(e.clientX, e.clientY);
-      }
-    };
-
-    if (dragState.isDragging) {
-      document.addEventListener('dragover', handleGlobalDragOver, { passive: false });
-      return () => {
-        document.removeEventListener('dragover', handleGlobalDragOver);
-      };
-    }
-  }, [dragState.isDragging]);
-
-
   // Enable/disable interactions based on turn and battle state
   useEffect(() => {
     const canInteract = !!(battle && battle.status === 'active' && !battle.isPaused && !battle.isInPreparation && battle.isMyTurn);
-    setDragDropEnabled(canInteract);
+    setDragDropEnabled(false);
     setGraveyardEnabled(canInteract);
   }, [battle?.status, battle?.isPaused, battle?.isInPreparation, battle?.isMyTurn]);
+  // Click-to-place state
+  const [selectedHandIndex, setSelectedHandIndex] = useState<number | null>(null);
+  const [pendingSlotIndex, setPendingSlotIndex] = useState<number | null>(null);
+  const [showPositionPicker, setShowPositionPicker] = useState<boolean>(false);
+  const [showFieldActionModal, setShowFieldActionModal] = useState<boolean>(false);
+  const [activeFieldSlotIndex, setActiveFieldSlotIndex] = useState<number | null>(null);
+
+  const onHandSelect = (handIndex: number) => {
+    if (!battle?.hasStarted || !battle?.isMyTurn) return;
+    setSelectedHandIndex(handIndex);
+  };
+
+  const onSlotClick = (slotIndex: number) => {
+    if (!battle?.hasStarted || !battle?.isMyTurn) return;
+    if (selectedHandIndex == null) return; // require a selected hand card first
+    if (playerField[slotIndex]) return; // only empty slots
+    setPendingSlotIndex(slotIndex);
+    setShowPositionPicker(true);
+  };
+
+  const onFieldCardClick = (slotIndex: number) => {
+    if (!battle?.hasStarted || !battle?.isMyTurn) return;
+    if (!playerField[slotIndex]) return;
+    setActiveFieldSlotIndex(slotIndex);
+    setShowFieldActionModal(true);
+  };
+
+  const placeSelectedCard = async (position: 'attack' | 'defense') => {
+    try {
+      if (selectedHandIndex == null || pendingSlotIndex == null) return;
+      await battle?.playCard?.(selectedHandIndex, pendingSlotIndex, position);
+    } finally {
+      setShowPositionPicker(false);
+      setPendingSlotIndex(null);
+      setSelectedHandIndex(null);
+    }
+  };
 
   const turnCountdown = battle?.hasStarted ? (battle?.turnCountdown ?? timeRemaining) : (battle?.timer?.turnDurationSec ?? maxTime);
   const turnMax = battle?.timer?.turnDurationSec ?? maxTime;
@@ -208,9 +224,9 @@ function BattlefieldContent() {
             hand={playerHand}
             field={playerField}
             onCardSelect={setSelectedCard}
-            getDragHandlers={getDragHandlers}
-            getDropHandlers={getDropHandlers}
-            dragState={dragState}
+            onHandSelect={onHandSelect}
+            onSlotClick={onSlotClick}
+            onFieldCardClick={onFieldCardClick}
             selectedCard={selectedCard}
             onGraveyardCard={handleGraveyardCard}
           />
@@ -224,15 +240,6 @@ function BattlefieldContent() {
           </div>
         </div>
       </div>
-
-      {/* Floating Card Preview */}
-      {dragState.isDragging && dragState.draggedCard && (
-        <FloatingCard
-          card={dragState.draggedCard}
-          position={dragState.mousePosition}
-          isVisible={dragState.isDragging}
-        />
-      )}
 
       {/* Animating Card to Graveyard */}
       {animationState.isAnimating && animationState.animatingCard && (
@@ -319,13 +326,106 @@ function BattlefieldContent() {
             aria-label="End Turn"
           >
             <img
-              src="/assets/menu/end-turn.png"
+              src="/assets/icons/end-turn.png"
               alt="End Turn"
               className="w-full h-full object-contain"
             />
           </button>
         </div>
       ) : null}
+
+      {/* Attack/Defense Picker */}
+      {showPositionPicker && pendingSlotIndex != null && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60">
+          <div className="bg-stone-800 border border-stone-600 rounded-lg p-6 w-[320px] text-center shadow-xl">
+            <div className="text-stone-200 text-lg mb-4">Choose position</div>
+            <div className="flex gap-4 justify-center mb-4">
+              <button
+                onClick={() => placeSelectedCard('attack')}
+                className="w-20 h-16 cursor-pointer rounded-lg bg-transparent border-none p-0"
+                aria-label="Attack"
+              >
+                <img
+                  src="/assets/icons/attack-button.png"
+                  alt="Attack"
+                  className="w-full h-full object-contain"
+                />
+              </button>
+              <button
+                onClick={() => placeSelectedCard('defense')}
+                className="w-20 h-16 cursor-pointer rounded-lg bg-transparent border-none p-0"
+                aria-label="Defense"
+              >
+                <img
+                  src="/assets/icons/defense-button.png"
+                  alt="Defense"
+                  className="w-full h-full object-contain"
+                />
+              </button>
+            </div>
+            <button
+              onClick={() => {
+                setShowPositionPicker(false);
+                setPendingSlotIndex(null);
+                setSelectedHandIndex(null);
+              }}
+              className="text-stone-300 text-sm underline"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Field Card Actions: Change Position / Graveyard */}
+      {showFieldActionModal && activeFieldSlotIndex != null && playerField[activeFieldSlotIndex] && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60">
+          <div className="bg-stone-800 border border-stone-600 rounded-lg p-6 w-[320px] text-center shadow-xl">
+            <div className="text-stone-200 text-lg mb-4">Card actions</div>
+            <div className="flex gap-4 justify-center mb-4">
+              <button
+                onClick={async () => {
+                  const current = playerField[activeFieldSlotIndex!];
+                  if (!current) return;
+                  const nextPos = current.position === 'defense' ? 'attack' : 'defense';
+                  await battle?.setCardPosition?.(activeFieldSlotIndex!, nextPos);
+                  setShowFieldActionModal(false);
+                  setActiveFieldSlotIndex(null);
+                }}
+                className="w-20 h-16 cursor-pointer rounded-lg bg-transparent border-none p-0"
+                aria-label={playerField[activeFieldSlotIndex]?.position === 'defense' ? 'Set to Attack' : 'Set to Defense'}
+              >
+                <img
+                  src={playerField[activeFieldSlotIndex]?.position === 'defense' ? '/assets/icons/attack-button.png' : '/assets/icons/defense-button.png'}
+                  alt={playerField[activeFieldSlotIndex]?.position === 'defense' ? 'Attack' : 'Defense'}
+                  className="w-full h-full object-contain"
+                />
+              </button>
+              <button
+                onClick={() => {
+                  handleGraveyardCard(activeFieldSlotIndex!);
+                  setShowFieldActionModal(false);
+                  setActiveFieldSlotIndex(null);
+                }}
+                className="w-20 h-16 cursor-pointer rounded-lg bg-transparent border-none p-0"
+                aria-label="Graveyard"
+              >
+                <img
+                  src="/assets/icons/graveyard-button.png"
+                  alt="Graveyard"
+                  className="w-full h-full object-contain"
+                />
+              </button>
+            </div>
+            <button
+              onClick={() => { setShowFieldActionModal(false); setActiveFieldSlotIndex(null); }}
+              className="text-stone-300 text-sm underline"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

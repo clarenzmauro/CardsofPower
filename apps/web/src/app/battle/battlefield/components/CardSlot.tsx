@@ -10,6 +10,7 @@ interface CardSlotProps {
   isSelected?: boolean;
   onGraveyardClick?: () => void;
   faceDown?: boolean;
+  showPositionBadge?: boolean;
 }
 
 export const CardSlot: React.FC<CardSlotProps> = ({ 
@@ -21,6 +22,7 @@ export const CardSlot: React.FC<CardSlotProps> = ({
   isSelected = false, 
   onGraveyardClick,
   faceDown = false,
+  showPositionBadge = false,
 }) => (
   <div 
     className={`w-28 h-40 bg-stone-400/30 border-2 border-stone-600/50 rounded-lg backdrop-blur-sm flex flex-col items-center justify-center cursor-pointer hover:bg-stone-400/40 transition-all duration-300 ease-in-out overflow-hidden relative ${className} ${
@@ -47,6 +49,11 @@ export const CardSlot: React.FC<CardSlotProps> = ({
             {!faceDown && (
               <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-1 text-center">
                 <div className="font-semibold truncate">{card.name}</div>
+              </div>
+            )}
+            {showPositionBadge && (
+              <div className={`${card.position === 'defense' ? 'bg-stone-700 text-stone-200' : 'bg-amber-700 text-white'} absolute top-1 right-1 text-[10px] px-1 py-0.5 rounded`}> 
+                {card.position === 'defense' ? 'DEF' : 'ATK'}
               </div>
             )}
             {/* Graveyard Button */}
