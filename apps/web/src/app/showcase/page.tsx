@@ -92,7 +92,7 @@ export default function ShowcasePage() {
                 className="min-h-screen bg-cover bg-center flex items-center justify-center"
                 style={{ backgroundImage: "url('/assets/backgrounds/showcase.png')" }}
             >
-                <div className="text-white text-xl">Loading your cards...</div>
+                <div className="text-white text-xl font-[family-name:var(--font-pirata-one)]">Loading your cards...</div>
             </div>
         );
     }
@@ -107,7 +107,7 @@ export default function ShowcasePage() {
                 className="min-h-screen bg-cover bg-center flex items-center justify-center"
                 style={{ backgroundImage: "url('/assets/backgrounds/showcase.png')" }}
             >
-                <div className="text-white text-xl">Preparing your starter cards…</div>
+                <div className="text-white text-xl font-[family-name:var(--font-pirata-one)]">Preparing your starter cards…</div>
             </div>
         );
     }

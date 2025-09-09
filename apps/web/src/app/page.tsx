@@ -100,7 +100,7 @@ export default function Home() {
             className="min-h-screen bg-cover bg-center flex items-center justify-center"
             style={{ backgroundImage: "url('/assets/backgrounds/showcase.png')" }}
         >
-            <div className="text-white text-xl">
+            <div className="text-white text-xl font-[family-name:var(--font-pirata-one)]">
                 {!isLoaded ? "Loading..." : 
                  isCreating ? "Setting up your account..." : 
                  "Redirecting..."}
