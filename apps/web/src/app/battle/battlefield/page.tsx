@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import type { Card, Player } from './types';
-import { CardDisplay, GraveyardPile, PlayerSection, EnemySection, FloatingCard, AnimatingCard, HealthBar, Timer } from './components';
+import { CardDisplay, GraveyardPile, PlayerSection, EnemySection, FloatingCard, AnimatingCard, HealthBar, Timer, PrepOverlay } from './components';
 import { useDragAndDrop } from './hooks/useDragAndDrop';
 import { useGraveyard } from './hooks/useGraveyard';
 import { useSearchParams } from 'next/navigation';
@@ -161,7 +161,7 @@ function BattlefieldContent() {
   const isMyTurn = battle?.isMyTurn ?? false;
   const playerName = battle?.player?.name ?? 'You';
   const enemyName = battle?.enemy?.name ?? 'Opponent';
-  const isWaiting = !battle || battle.status !== 'active' || !battle.hasStarted || battle.isPaused || !battle.enemy || battle.enemy.name === 'Waiting...';
+  const isWaiting = !battle || battle.status !== 'active' || battle.isPaused || !battle.enemy || battle.enemy.name === 'Waiting...';
   const isWaitingForOpponent = battle && (
     (battle.status === 'waiting') || 
     (battle.status === 'active' && (!battle.enemy || battle.enemy.name === 'Waiting...'))
@@ -172,9 +172,9 @@ function BattlefieldContent() {
       className="h-screen bg-cover bg-center bg-no-repeat flex flex-col relative"
       style={{ backgroundImage: 'url(/assets/backgrounds/battlefield.png)' }}
     >
-      {/* Timer at top middle */}
+      {/* Timer at top middle (hidden during preparation) */}
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20">
-        {isWaiting ? (
+        {battle?.isInPreparation ? null : isWaiting ? (
           <div className="px-3 py-1 rounded text-sm font-semibold bg-stone-700/80 text-stone-100">
             Waiting for opponent...
           </div>
@@ -254,8 +254,20 @@ function BattlefieldContent() {
         </div>
       )}
 
+      {/* Preparation Overlay */}
+      {battle?.isInPreparation ? (
+        <PrepOverlay
+          hand={battle.player?.hand ?? playerHand}
+          field={battle.player?.field ?? playerField}
+          countdown={battle.prepCountdown ?? 0}
+          durationSec={battle.preparation?.durationSec ?? 15}
+          waitingForOpponent={!!battle.iAmReady && !battle.opponentReady}
+          onSubmit={(lineup) => battle.submitPreparation?.(lineup)}
+        />
+      ) : null}
+
       {/* First Turn Modal */}
-      {(showFirstTurnModal && !isWaitingForOpponent) || battle?.isPaused ? (
+      {(!battle?.isInPreparation && (showFirstTurnModal && !isWaitingForOpponent)) || battle?.isPaused ? (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60">
           <div className="bg-stone-800 border border-stone-600 rounded-lg p-6 w-[320px] text-center shadow-xl">
             {showFirstTurnModal && !isWaitingForOpponent ? (

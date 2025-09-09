@@ -149,6 +149,7 @@ export const getBattle = query({
         turnEndsAt: battle.turnEndsAt,
         turnDurationSec: battle.turnDurationSec
       },
+      preparation: battle.preparation,
       status: battle.status,
       isPaused: !!battle.isPaused,
       currentTurnPlayerId: battle.currentTurnPlayerId,
@@ -158,6 +159,75 @@ export const getBattle = query({
       serverNow: new Date().toISOString()
     };
   }
+});
+
+export const submitPreparation = mutation({
+  args: {
+    battleId: v.id("battles"),
+    lineup: v.array(v.object({
+      slotIndex: v.number(),
+      cardId: v.string(),
+      position: v.union(v.literal("attack"), v.literal("defense")),
+    })),
+    idempotencyKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { battleId, lineup, idempotencyKey }) => {
+    const FIELD_SIZE = 5;
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Not authenticated");
+
+    const battle = await ctx.db.get(battleId);
+    if (!battle) throw new Error("Battle not found");
+    if (battle.status !== "active") throw new Error("Battle not active");
+    if (!battle.preparation?.isActive) throw new Error("Preparation not active");
+
+    // Validate lineup
+    if (lineup.length > FIELD_SIZE) throw new Error("Too many cards in lineup");
+    for (const item of lineup) {
+      if (item.slotIndex < 0 || item.slotIndex >= FIELD_SIZE) throw new Error("Invalid slot index");
+    }
+    const slotSet = new Set(lineup.map(l => l.slotIndex));
+    if (slotSet.size !== lineup.length) throw new Error("Duplicate slot indices");
+
+    const isHost = battle.hostId === user._id;
+    const playerKey = isHost ? "playerA" : "playerB";
+    const readyKey = isHost ? "playerAReady" : "playerBReady";
+    const player = battle[playerKey];
+    if (!player) throw new Error("Player not found");
+
+    const handIds = new Set(player.hand.map((c: any) => c.id));
+    for (const item of lineup) {
+      if (!handIds.has(item.cardId)) throw new Error("Card not in hand");
+    }
+
+    // Apply lineup: remove from hand, place in field
+    const newField = [...player.field];
+    const usedIds = new Set<string>();
+    for (const item of lineup) {
+      if (newField[item.slotIndex]) throw new Error("Slot already occupied");
+      if (usedIds.has(item.cardId)) throw new Error("Duplicate cardId");
+      usedIds.add(item.cardId);
+      const card = player.hand.find((c: any) => c.id === item.cardId);
+      if (!card) throw new Error("Card missing");
+      newField[item.slotIndex] = { ...card, position: item.position } as any;
+    }
+    const newHand = player.hand.filter((c: any) => !usedIds.has(c.id));
+
+    const updates: any = {
+      [playerKey]: { ...player, hand: newHand, field: newField },
+      preparation: { ...battle.preparation, [readyKey]: true },
+      lastActionAt: new Date().toISOString(),
+    };
+
+    const bothReady = (isHost ? true : battle.preparation.playerAReady) && (isHost ? battle.preparation.playerBReady : true);
+    if (bothReady) {
+      updates.preparation = { ...updates.preparation, isActive: false };
+      updates.hasStarted = true;
+      updates.turnEndsAt = new Date(Date.now() + battle.turnDurationSec * 1000).toISOString();
+    }
+
+    await ctx.db.patch(battleId, updates);
+  },
 });
 
 export const listOpenBattles = query({
@@ -249,6 +319,13 @@ export const createBattle = mutation({
       turnNumber: 1,
       turnEndsAt,
       turnDurationSec: turnDurationSec,
+      preparation: {
+        isActive: false,
+        durationSec: 15, // dev; default should be 60
+        endsAt: undefined,
+        playerAReady: false,
+        playerBReady: false,
+      },
       playerA: {
         userId: user._id,
         name: user.username ?? "Player",
@@ -304,7 +381,14 @@ export const joinBattle = mutation({
       currentTurnPlayerId: Math.random() > 0.5 ? battle.hostId : user._id,
       turnNumber: 1,
       turnEndsAt,
-      hasStarted: true, // Auto-start the game when second player joins
+      hasStarted: false,
+      preparation: {
+        isActive: true,
+        durationSec: battle.preparation?.durationSec ?? 15,
+        endsAt: new Date(now.getTime() + (battle.preparation?.durationSec ?? 15) * 1000).toISOString(),
+        playerAReady: false,
+        playerBReady: false,
+      },
       playerB: {
         userId: user._id,
         name: user.username ?? "Opponent",
@@ -329,6 +413,7 @@ export const beginBattle = mutation({
     if (!user) throw new Error("Not authenticated");
     if (battle.status !== "active") throw new Error("Battle not active");
     if (battle.hasStarted) return;
+    if (battle.preparation?.isActive) throw new Error("Cannot begin during preparation");
 
     // Require both players to be present before starting
     if (!battle.opponentId) throw new Error("Cannot start battle without opponent");
@@ -550,6 +635,19 @@ export const heartbeatBattle = mutation({
       };
     }
 
+    // Finalize preparation if it expired
+    if (battle.preparation?.isActive && battle.preparation.endsAt) {
+      const nowMs = Date.now();
+      const endsMs = new Date(battle.preparation.endsAt).getTime();
+      if (Number.isFinite(endsMs) && nowMs >= endsMs) {
+        await ctx.db.patch(battleId, {
+          preparation: { ...battle.preparation, isActive: false },
+          hasStarted: true,
+          turnEndsAt: new Date(nowMs + battle.turnDurationSec * 1000).toISOString(),
+        });
+      }
+    }
+
     await autoAdvanceTurnIfExpired(ctx, battleId);
     await enforceRejoinOrLose(ctx, battle);
 
@@ -563,6 +661,7 @@ export const heartbeatBattle = mutation({
       status: updatedBattle.status,
       winnerId: updatedBattle.winnerId,
       isPaused: !!updatedBattle.isPaused,
+      preparation: updatedBattle.preparation,
     };
   },
 });

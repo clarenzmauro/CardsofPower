@@ -2,7 +2,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@backend/convex/_generated/api";
 import { useState, useEffect } from "react";
 import { type Id } from "@backend/convex/_generated/dataModel";
-import type { Player } from '../types';
+import type { Player, PreparationState } from '../types';
 
 interface BattlefieldState {
   playerHand: any[];
@@ -19,6 +19,7 @@ interface BattlefieldState {
   timer: {
     turnDurationSec: number;
   };
+  preparation?: PreparationState;
 }
 
 export function useBattle(battleId: Id<"battles">) {
@@ -45,6 +46,7 @@ export function useBattle(battleId: Id<"battles">) {
   const updatePresenceMutation = useMutation(api.battle.updatePresence);
   const heartbeatMutation = useMutation(api.battle.heartbeatBattle);
   const beginBattleMutation = useMutation(api.battle.beginBattle);
+  const submitPreparationMutation = useMutation(api.battle.submitPreparation);
 
   useEffect(() => {
     if (!battleData) return;
@@ -84,6 +86,25 @@ export function useBattle(battleId: Id<"battles">) {
     return () => clearInterval(interval);
   }, [battleData?.hasStarted, battleData?.isPaused, battleData?.timer?.turnEndsAt, battleData?.serverNow]);
 
+  // Preparation countdown tracking
+  const [prepCountdown, setPrepCountdown] = useState<number>(0);
+  useEffect(() => {
+    if (!battleData?.preparation?.isActive || !battleData?.preparation?.endsAt) return;
+    const serverNowMs = battleData.serverNow ? new Date(battleData.serverNow).getTime() : Date.now();
+    const skewMs = Date.now() - serverNowMs;
+
+    const computeRemaining = () => {
+      const endsMs = new Date(battleData.preparation!.endsAt!).getTime();
+      const nowAdj = Date.now() - skewMs;
+      const remainingMs = Math.max(0, endsMs - nowAdj);
+      return Math.ceil(remainingMs / 1000);
+    };
+
+    setPrepCountdown(computeRemaining());
+    const interval = setInterval(() => setPrepCountdown(computeRemaining()), 300);
+    return () => clearInterval(interval);
+  }, [battleData?.preparation?.isActive, battleData?.preparation?.endsAt, battleData?.serverNow]);
+
   const playCard = async (fromHandIndex: number, toSlotIndex: number) => {
     if (!battleData?.isMyTurn) return;
     await playCardMutation({ battleId, fromHandIndex, toSlotIndex, idempotencyKey: crypto.randomUUID() });
@@ -104,6 +125,17 @@ export function useBattle(battleId: Id<"battles">) {
     await beginBattleMutation({ battleId });
   };
 
+  const submitPreparation = async (
+    lineup: Array<{ slotIndex: number; cardId: string; position: "attack" | "defense" }>
+  ) => {
+    if (!battleData?.preparation?.isActive) return;
+    // Basic client-side validation
+    if (lineup.length > 5) throw new Error("Too many cards");
+    const uniqueSlots = new Set(lineup.map(i => i.slotIndex));
+    if (uniqueSlots.size !== lineup.length) throw new Error("Duplicate slot indices");
+    await submitPreparationMutation({ battleId, lineup, idempotencyKey: crypto.randomUUID() });
+  };
+
   const updateHp = async (amount: number) => {
     await updateHpMutation({ battleId, target: "opponent", delta: amount });
   };
@@ -115,10 +147,22 @@ export function useBattle(battleId: Id<"battles">) {
     status: battleData?.status,
     isPaused: battleData?.isPaused ?? false,
     timer: battleData?.timer,
+    preparation: battleData?.preparation,
+    prepCountdown,
+    isInPreparation: !!battleData?.preparation?.isActive,
+    iAmReady:
+      battleData?.youAre === "A"
+        ? !!battleData?.preparation?.playerAReady
+        : !!battleData?.preparation?.playerBReady,
+    opponentReady:
+      battleData?.youAre === "A"
+        ? !!battleData?.preparation?.playerBReady
+        : !!battleData?.preparation?.playerAReady,
     playCard,
     sendToGraveyard,
     endTurn,
     updateHp,
     beginBattle,
+    submitPreparation,
   };
 }

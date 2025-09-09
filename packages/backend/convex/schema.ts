@@ -181,6 +181,13 @@ export default defineSchema({
     winnerId: v.optional(v.id("users")),
     playerARejoinDeadline: v.optional(v.string()),
     playerBRejoinDeadline: v.optional(v.string()),
+    preparation: v.object({
+      isActive: v.boolean(),
+      durationSec: v.number(),
+      endsAt: v.optional(v.string()),
+      playerAReady: v.boolean(),
+      playerBReady: v.boolean(),
+    }),
     playerA: v.object({
       userId: v.id("users"),
       name: v.string(),
@@ -199,6 +206,7 @@ export default defineSchema({
           name: v.string(),
           type: v.union(v.literal("monster"), v.literal("spell"), v.literal("trap")),
           image: v.optional(v.string()),
+          position: v.optional(v.union(v.literal("attack"), v.literal("defense"))),
         })
       )),
       graveyard: v.array(v.object({
@@ -226,6 +234,7 @@ export default defineSchema({
           name: v.string(),
           type: v.union(v.literal("monster"), v.literal("spell"), v.literal("trap")),
           image: v.optional(v.string()),
+          position: v.optional(v.union(v.literal("attack"), v.literal("defense"))),
         })
       )),
       graveyard: v.array(v.object({

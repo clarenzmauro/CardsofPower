@@ -94,7 +94,10 @@ export default function Home() {
     }, [isLoaded, user, currentUser, upsertUser, router, isCreating]);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <div 
+            className="min-h-screen bg-cover bg-center flex items-center justify-center"
+            style={{ backgroundImage: "url('/assets/backgrounds/showcase.png')" }}
+        >
             <div className="text-white text-xl">
                 {!isLoaded ? "Loading..." : 
                  isCreating ? "Setting up your account..." : 
