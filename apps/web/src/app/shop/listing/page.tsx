@@ -41,7 +41,7 @@ export default function ListingPage() {
     userId: user?.id ?? "",
   });
   const eligibleForSale = useMemo(() => {
-    const items = inventory ?? [];
+    const items = (inventory as any[]) ?? [];
     return items
       .filter((card) => !card.isListed && !card.isForTrade)
       .slice(0, 100);
@@ -292,7 +292,7 @@ export default function ListingPage() {
                     {eligibleForSale.map((card) => (
                       <button
                         key={card._id}
-                        onClick={() => setSelectedListCard(card._id)}
+                        onClick={() => setSelectedListCard(card._id as Id<"cards">)}
                         className={`rounded border p-2 bg-black/40 hover:border-orange-400 text-left ${selectedListCard === card._id ? "border-orange-500 ring-2 ring-orange-300" : "border-white/20"}`}
                       >
                         <div className="h-28 flex items-center justify-center mb-2">

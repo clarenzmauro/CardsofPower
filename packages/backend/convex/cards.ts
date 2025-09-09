@@ -23,7 +23,62 @@ const ListingsScope = v.union(
  */
 export const getAll = query({
     handler: async (ctx: any) => {
-        return await ctx.db.query("cards").collect().slice(0, 100);
+        return (await ctx.db.query("cards").collect()).slice(0, 100);
+    },
+});
+
+/**
+ * @description
+ * Debug query to check unowned cards count
+ */
+export const getUnownedCount = query({
+    handler: async (ctx: any) => {
+        const unownedCards = await ctx.db
+            .query("cards")
+            .filter((q: any) => q.eq(q.field("isOwned"), false))
+            .collect();
+        
+        const totalCards = await ctx.db.query("cards").collect();
+        
+        return {
+            totalCards: totalCards.length,
+            unownedCards: unownedCards.length,
+            ownedCards: totalCards.length - unownedCards.length
+        };
+    },
+});
+
+/**
+ * @description
+ * Query to get multiple cards by their IDs
+ * 
+ * @receives data from:
+ * - cardIds: array of card document IDs
+ * 
+ * @sends data to:
+ * - showcase page: card data for display
+ * 
+ * @sideEffects:
+ * - none
+ */
+export const getByIds = query({
+    args: { cardIds: v.array(v.id("cards")) },
+    handler: async (ctx, { cardIds }) => {
+        if (!Array.isArray(cardIds)) {
+            throw new Error("getByIds: cardIds must be an array");
+        }
+        
+        const cards = await Promise.all(
+            cardIds.map(async (cardId) => {
+                const card = await ctx.db.get(cardId);
+                if (!card) {
+                    throw new Error(`getByIds: Card not found: ${cardId}`);
+                }
+                return card;
+            })
+        );
+        
+        return cards;
     },
 });
 
@@ -55,15 +110,22 @@ export const getUserInventory = query({
             throw new Error("getUserInventory: inventory must be an array");
         }
 
-        const cards = await ctx.db
-            .query("cards")
-            .withIndex("by_owner", (q) => q.eq("currentOwnerId", args.userId))
-            .collect();
+        // Use the inventory array to get cards by their IDs
+        if (user.inventory.length === 0) return [];
+        
+        const cards = await Promise.all(
+            user.inventory.map(async (cardId: any) => {
+                return await ctx.db.get(cardId);
+            })
+        );
 
-        if (!Array.isArray(cards)) throw new Error("getUserInventory: cards must be array");
-        if (cards.length > 0 && !cards[0]._id) throw new Error("getUserInventory: card missing _id");
+        // Filter out any null results and ensure all cards exist
+        const validCards = cards.filter(card => card !== null);
+        
+        if (!Array.isArray(validCards)) throw new Error("getUserInventory: cards must be array");
+        if (validCards.length > 0 && !validCards[0]._id) throw new Error("getUserInventory: card missing _id");
 
-        return cards;
+        return validCards;
     },
 });
 

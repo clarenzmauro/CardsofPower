@@ -84,6 +84,7 @@ export default defineSchema({
     profPicUrl: v.string(),
     dateCreated: v.string(),
     isOnline: v.optional(v.boolean()),
+    hasSeenShowcase: v.optional(v.boolean()),
   })
     .index("byExternalId", ["externalId"])
     .index("by_clerk_id", ["clerkId"])
@@ -162,4 +163,95 @@ export default defineSchema({
     currentCardCount: v.number(),
   })
     .index("by_user_ts", ["userId", "ts"]),
+
+  battles: defineTable({
+    status: v.union(v.literal("waiting"), v.literal("active"), v.literal("completed")),
+    createdAt: v.string(),
+    lastActionAt: v.string(),
+    lastActionIdempotencyKey: v.optional(v.string()),
+    hasStarted: v.boolean(),
+    isPaused: v.optional(v.boolean()),
+    pausedAt: v.optional(v.string()),
+    hostId: v.id("users"),
+    opponentId: v.optional(v.id("users")),
+    currentTurnPlayerId: v.id("users"),
+    turnNumber: v.number(),
+    turnEndsAt: v.string(),
+    turnDurationSec: v.number(),
+    winnerId: v.optional(v.id("users")),
+    playerARejoinDeadline: v.optional(v.string()),
+    playerBRejoinDeadline: v.optional(v.string()),
+    preparation: v.object({
+      isActive: v.boolean(),
+      durationSec: v.number(),
+      endsAt: v.optional(v.string()),
+      playerAReady: v.boolean(),
+      playerBReady: v.boolean(),
+    }),
+    playerA: v.object({
+      userId: v.id("users"),
+      name: v.string(),
+      hp: v.number(),
+      maxHp: v.number(),
+      hand: v.array(v.object({
+        id: v.string(),
+        name: v.string(),
+        type: v.union(v.literal("monster"), v.literal("spell"), v.literal("trap")),
+        image: v.optional(v.string()),
+      })),
+      field: v.array(v.union(
+        v.null(),
+        v.object({
+          id: v.string(),
+          name: v.string(),
+          type: v.union(v.literal("monster"), v.literal("spell"), v.literal("trap")),
+          image: v.optional(v.string()),
+          position: v.optional(v.union(v.literal("attack"), v.literal("defense"))),
+        })
+      )),
+      graveyard: v.array(v.object({
+        id: v.string(),
+        name: v.string(),
+        type: v.union(v.literal("monster"), v.literal("spell"), v.literal("trap")),
+        image: v.optional(v.string()),
+      })),
+    }),
+    playerB: v.object({
+      userId: v.id("users"),
+      name: v.string(),
+      hp: v.number(),
+      maxHp: v.number(),
+      hand: v.array(v.object({
+        id: v.string(),
+        name: v.string(),
+        type: v.union(v.literal("monster"), v.literal("spell"), v.literal("trap")),
+        image: v.optional(v.string()),
+      })),
+      field: v.array(v.union(
+        v.null(),
+        v.object({
+          id: v.string(),
+          name: v.string(),
+          type: v.union(v.literal("monster"), v.literal("spell"), v.literal("trap")),
+          image: v.optional(v.string()),
+          position: v.optional(v.union(v.literal("attack"), v.literal("defense"))),
+        })
+      )),
+      graveyard: v.array(v.object({
+        id: v.string(),
+        name: v.string(),
+        type: v.union(v.literal("monster"), v.literal("spell"), v.literal("trap")),
+        image: v.optional(v.string()),
+      })),
+    }),
+  })
+    .index("by_status_createdAt", ["status", "createdAt"])
+    .index("by_hostId_status", ["hostId", "status"])
+    .index("by_opponentId_status", ["opponentId", "status"]),
+
+  presence: defineTable({
+    user: v.id("users"),
+    updatedAt: v.string(),
+  })
+    .index("by_user", ["user"]),
 });

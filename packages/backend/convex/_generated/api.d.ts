@@ -9,6 +9,7 @@
  */
 
 import type * as account from "../account.js";
+import type * as battle from "../battle.js";
 import type * as cards from "../cards.js";
 import type * as crons from "../crons.js";
 import type * as friends from "../friends.js";
@@ -36,6 +37,7 @@ import type {
  */
 declare const fullApi: ApiFromModules<{
   account: typeof account;
+  battle: typeof battle;
   cards: typeof cards;
   crons: typeof crons;
   friends: typeof friends;

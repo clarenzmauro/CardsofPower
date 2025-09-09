@@ -72,13 +72,13 @@ export default function SignUpPage() {
             upsertUser({ data: userData })
                 .then(() => {
                     setIsCreating(false);
-                    router.push("/main-menu");
+                    router.push("/showcase");
                 })
                 .catch((error) => {
                     console.error("Failed to create user:", error);
                     setIsCreating(false);
-                    // still redirect to main menu even on error to avoid infinite loading
-                    router.push("/main-menu");
+                    // still redirect to landing which routes appropriately
+                    router.push("/");
                 });
         }
     }, [isLoaded, user, currentUser, upsertUser, router, hasAttemptedCreation, shouldSkipDirectMutation]);
@@ -110,7 +110,7 @@ export default function SignUpPage() {
             <SignUp
                 routing="path"
                 path="/sign-up"
-                fallbackRedirectUrl="/main-menu"
+                fallbackRedirectUrl="/showcase"
                 signInUrl="/sign-in"
                 appearance={{
                     variables: {

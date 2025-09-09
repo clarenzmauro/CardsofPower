@@ -11,7 +11,7 @@ import {
   Shield,
   Zap,
 } from "lucide-react";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@cards-of-power/backend/convex/_generated/api";
 import { NivoSimpleBar } from "@/components/ui/nivo-bar";
 import { NivoSimplePie } from "@/components/ui/nivo-pie";
@@ -119,6 +119,30 @@ export default function AccountPage() {
   const setCardCountHistory = (_points: TimeSeriesPoint[]) => {};
 
   const currentUser = useQuery(api.users.current);
+  const updateProfPic = useMutation(api.users.updateProfPicUrl);
+
+  const [pendingProfPic, setPendingProfPic] = useState<string | null>(null);
+  const [showProfPicPicker, setShowProfPicPicker] = useState<boolean>(false);
+
+  const availableProfPics: string[] = [
+    "assets/profile/prof_pic1.jpg",
+    "assets/profile/prof_pic2.jpg",
+    "assets/profile/prof_pic3.jpg",
+    "assets/profile/prof_pic4.jpg",
+    "assets/profile/prof_pic5.jpg",
+    "assets/profile/prof_pic6.jpg",
+    "assets/profile/prof_pic7.jpg",
+    "assets/profile/prof_pic8.jpg",
+  ];
+
+  const saveProfilePicture = async () => {
+    if (!pendingProfPic) return;
+    const userId = currentUser?.clerkId ?? "";
+    if (!userId) return;
+    await updateProfPic({ userId, profPicUrl: pendingProfPic });
+    setPendingProfPic(null);
+    setShowProfPicPicker(false);
+  };
 
   
 
@@ -402,10 +426,19 @@ export default function AccountPage() {
               <div className="bg-[rgba(255,255,255,0.9)] rounded-lg p-6">
                 <div className="flex items-start gap-6">
                   {/* Profile Picture */}
-                  <div className="w-32 h-32 bg-[rgb(69,26,3)] rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-white font-[var(--font-pirata-one)] text-4xl">
-                      {userStats.username.charAt(0)}
-                    </span>
+                  <div
+                    className="w-32 h-32 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden cursor-pointer hover:ring-2 hover:ring-[rgb(69,26,3)]"
+                    onClick={() => setShowProfPicPicker(true)}
+                  >
+                    <img
+                      src={(pendingProfPic ?? currentUser?.profPicUrl ?? "assets/profile/prof_pic1.jpg")}
+                      alt="Profile" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = 'assets/profile/prof_pic1.jpg';
+                      }}
+                    />
                   </div>
 
                   {/* User Info */}
@@ -427,6 +460,59 @@ export default function AccountPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Profile picture selector */}
+                {showProfPicPicker && (
+                <div className="mt-6">
+                  <h3 className="text-sm font-[var(--font-pirata-one)] text-black mb-2">Choose a profile picture</h3>
+                  <div className="grid grid-cols-4 gap-3">
+                    {availableProfPics.map((src) => (
+                      <button
+                        key={src}
+                        type="button"
+                        onClick={() => setPendingProfPic(src)}
+                        className={`border rounded overflow-hidden focus:outline-none ${
+                          (pendingProfPic ?? currentUser?.profPicUrl) === src
+                            ? "border-[rgb(69,26,3)] ring-2 ring-[rgb(69,26,3)]"
+                            : "border-[rgba(69,26,3,0.3)] hover:border-[rgb(69,26,3)]"
+                        }`}
+                      >
+                        <img
+                          src={src}
+                          alt="Profile option"
+                          className="w-full h-20 object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = 'assets/profile/prof_pic1.jpg';
+                          }}
+                        />
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 flex gap-2">
+                    <Button
+                      size="sm"
+                      className="bg-[rgb(69,26,3)] text-white"
+                      onClick={saveProfilePicture}
+                      disabled={!pendingProfPic || !currentUser?.clerkId}
+                    >
+                      Save Picture
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-black border-[rgba(69,26,3,0.4)]"
+                      onClick={() => {
+                        setPendingProfPic(null);
+                        setShowProfPicPicker(false);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+                )}
               </div>
 
               {/* Top Cards Section */}

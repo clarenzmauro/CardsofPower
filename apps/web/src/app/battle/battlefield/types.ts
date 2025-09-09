@@ -3,12 +3,16 @@ export interface Card {
   name: string;
   image?: string;
   type: 'monster' | 'spell' | 'trap';
+  position?: 'attack' | 'defense';
 }
 
 export interface Player {
   name: string;
   hp: number;
   maxHp: number;
+  hand?: Card[];
+  field?: (Card | null)[];
+  graveyard?: Card[];
 }
 
 export interface BattlefieldState {
@@ -21,4 +25,12 @@ export interface BattlefieldState {
   selectedCard: Card | null;
   player: Player;
   enemy: Player;
+}
+
+export interface PreparationState {
+  isActive: boolean;
+  durationSec: number;
+  endsAt?: string;
+  playerAReady: boolean;
+  playerBReady: boolean;
 }
