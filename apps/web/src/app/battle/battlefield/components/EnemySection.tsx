@@ -30,6 +30,7 @@ export const EnemySection: React.FC<EnemySectionProps> = ({ hand, field, onCardS
             key={`enemy-${index}`} 
             card={card} 
             onClick={() => onCardSelect(card)}
+            faceDown={card?.position === 'defense'}
           />
         ))}
       </div>

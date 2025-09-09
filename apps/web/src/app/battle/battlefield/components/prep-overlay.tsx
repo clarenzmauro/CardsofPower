@@ -38,6 +38,10 @@ export const PrepOverlay: React.FC<PrepOverlayProps> = ({
   const { dragState, getDragHandlers, getDropHandlers } = useDragAndDrop({
     enabled: !waitingForOpponent,
     onCardMove: (card, fromIndex, toSlotIndex) => {
+      // Only allow monster cards to be placed during preparation
+      if (card.type !== 'monster') {
+        return;
+      }
       setPrepHand(prev => prev.filter((_, i) => i !== fromIndex));
       setPrepField(prev => {
         const next = [...prev];
@@ -100,7 +104,7 @@ export const PrepOverlay: React.FC<PrepOverlayProps> = ({
                 <div
                   key={`prep-slot-${index}`}
                   onClick={() => togglePosition(index)}
-                  {...(getDropHandlers ? getDropHandlers(index, !card) : {})}
+                  {...(getDropHandlers ? getDropHandlers(index, !card && (dragState?.draggedCard?.type === 'monster')) : {})}
                 >
                   <div className="w-28 h-40 bg-stone-400/30 border-2 border-stone-600/50 rounded-lg overflow-hidden relative flex items-center justify-center">
                     {card ? (
