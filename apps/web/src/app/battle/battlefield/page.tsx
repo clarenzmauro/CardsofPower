@@ -312,13 +312,17 @@ function BattlefieldContent() {
 
       {/* End Turn Button */}
       {!battle?.isInPreparation && battle?.status === 'active' && !battle?.isPaused && isMyTurn ? (
-        <div className="absolute bottom-4 right-4 z-20">
+        <div className="fixed bottom-4 right-4 z-20 sm:bottom-6 sm:right-6">
           <button
             onClick={() => battle?.endTurn?.()}
-            className="px-4 py-2 rounded bg-amber-700 hover:bg-amber-800 text-white font-semibold disabled:bg-stone-600"
-            disabled={!isMyTurn || battle?.isPaused}
+            className="w-20 h-16 sm:w-24 sm:h-20 cursor-pointer rounded-lg bg-transparent border-none p-0"
+            aria-label="End Turn"
           >
-            End Turn
+            <img
+              src="/assets/menu/end-turn.png"
+              alt="End Turn"
+              className="w-full h-full object-contain"
+            />
           </button>
         </div>
       ) : null}
