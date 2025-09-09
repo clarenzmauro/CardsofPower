@@ -89,6 +89,7 @@ export const current = query({
       cardsTraded: user.cardsTraded,
       profPicUrl: user.profPicUrl ?? "",
       dateCreated: user.dateCreated ?? "",
+      hasSeenShowcase: user.hasSeenShowcase ?? false,
       friendsCount,
       unreadMailCount,
       messagesSentCount,
@@ -202,6 +203,7 @@ export const upsertFromClerk = mutation({
       profPicUrl: "assets/profile/prof_pic1.jpg",
       dateCreated: new Date().toISOString(),
       friendIds: [],
+      hasSeenShowcase: false,
     };
 
     const user = await userByExternalId(ctx, data.clerkId);
@@ -232,6 +234,7 @@ export const upsertFromClerk = mutation({
         ...userAttributes,
         inventory: user.inventory ?? [],
         friendIds: user.friendIds ?? [],
+        hasSeenShowcase: user.hasSeenShowcase ?? false,
       });
       return { userId: user._id, isNewUser: false };
     }
@@ -479,6 +482,20 @@ export const updateProfPicUrl = mutation({
     if (!user) throw new Error("updateProfPicUrl: User not found");
 
     await ctx.db.patch(user._id, { profPicUrl });
+    return { success: true };
+  },
+});
+
+export const markShowcaseCompleted = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("markShowcaseCompleted: Not authenticated");
+    
+    const user = await userByExternalId(ctx, identity.subject);
+    if (!user) throw new Error("markShowcaseCompleted: User not found");
+    
+    await ctx.db.patch(user._id, { hasSeenShowcase: true });
     return { success: true };
   },
 });

@@ -84,6 +84,7 @@ export default defineSchema({
     profPicUrl: v.string(),
     dateCreated: v.string(),
     isOnline: v.optional(v.boolean()),
+    hasSeenShowcase: v.optional(v.boolean()),
   })
     .index("byExternalId", ["externalId"])
     .index("by_clerk_id", ["clerkId"])

@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@cards-of-power/backend/convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -28,6 +28,8 @@ export default function ShowcasePage() {
     const [isFlipped, setIsFlipped] = useState(false);
     const [showAllCards, setShowAllCards] = useState(false);
     
+    const markShowcaseCompleted = useMutation(api.users.markShowcaseCompleted);
+    
     // Get current user data
     const currentUser = useQuery(
         api.users.current,
@@ -49,9 +51,9 @@ export default function ShowcasePage() {
             return;
         }
         
-        // Redirect if user doesn't exist or has played games (not a new user)
-        // New users have 0 games played and some starter cards
-        if (currentUser && (currentUser.gamesPlayed > 0 || currentUser.currentCardCount === 0)) {
+        // Redirect if user doesn't exist or has already seen showcase
+        // New users have 0 games played, some starter cards, and haven't seen showcase yet
+        if (currentUser && (currentUser.gamesPlayed > 0 || currentUser.currentCardCount === 0 || currentUser.hasSeenShowcase)) {
             router.push("/main-menu" as any);
             return;
         }
@@ -84,8 +86,16 @@ export default function ShowcasePage() {
         }
     };
 
-    const handleProceed = () => {
-        router.push("/main-menu" as any);
+    const handleProceed = async () => {
+        try {
+            // Mark showcase as completed so user never sees it again
+            await markShowcaseCompleted();
+            router.push("/main-menu" as any);
+        } catch (error) {
+            console.error("Failed to mark showcase completed:", error);
+            // Still redirect to avoid getting stuck
+            router.push("/main-menu" as any);
+        }
     };
 
     if (showAllCards) {

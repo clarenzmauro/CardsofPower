@@ -49,11 +49,11 @@ export default function Home() {
 
         // If user exists in database, check if they're a new user who should see showcase
         if (currentUser) {
-            // New users have 0 games played and some starter cards - send to showcase
-            if (currentUser.gamesPlayed === 0 && currentUser.currentCardCount > 0) {
+            // New users have 0 games played, some starter cards, and haven't seen showcase yet
+            if (currentUser.gamesPlayed === 0 && currentUser.currentCardCount > 0 && !currentUser.hasSeenShowcase) {
                 router.push("/showcase" as any);
             } else {
-                // Existing users go to main menu
+                // Existing users or users who completed showcase go to main menu
                 router.push("/main-menu" as any);
             }
             return;
