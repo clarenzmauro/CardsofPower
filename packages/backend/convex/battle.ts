@@ -3,6 +3,44 @@ import { v } from "convex/values";
 import { getCurrentUser } from "./users";
 import { type Id } from "./_generated/dataModel";
 
+// Turn/presence constants
+const DEFAULT_TURN_DURATION_SEC = 30; // server default; client may override at creation
+const MAX_TURNS_PER_PLAYER = 5;
+const MAX_TOTAL_TURNS = MAX_TURNS_PER_PLAYER * 2;
+const OFFLINE_DETECT_MS = 1500;
+const REJOIN_GRACE_MS = 30000;
+
+function computeCountdownSeconds(endsIso?: string): number {
+  if (!endsIso) return 0;
+  const nowMs = Date.now();
+  const endMs = new Date(endsIso).getTime();
+  if (!Number.isFinite(endMs)) return 0;
+  return Math.max(0, Math.floor((endMs - nowMs) / 1000));
+}
+
+async function finalizeIfTurnCapReached(
+  ctx: any,
+  battleId: Id<"battles">,
+  battle: any
+) {
+  if (!battle) return;
+  if (battle.turnNumber <= MAX_TOTAL_TURNS) return;
+
+  const playerA = battle.playerA;
+  const playerB = battle.playerB;
+  if (!playerA || !playerB) return;
+
+  let winnerId: Id<"users"> | undefined = undefined;
+  if (playerA.hp > playerB.hp) winnerId = playerA.userId;
+  else if (playerB.hp > playerA.hp) winnerId = playerB.userId;
+
+  await ctx.db.patch(battleId, {
+    status: "completed",
+    winnerId,
+    lastActionAt: new Date().toISOString(),
+  });
+}
+
 async function autoAdvanceTurnIfExpired(
   ctx: any,
   battleId: Id<"battles">
@@ -36,6 +74,8 @@ async function autoAdvanceTurnIfExpired(
       lastActionAt: new Date().toISOString(),
     });
 
+    const updated = await ctx.db.get(battleId);
+    await finalizeIfTurnCapReached(ctx, battleId, updated);
     return await ctx.db.get(battleId);
   }
 
@@ -47,8 +87,8 @@ async function enforceRejoinOrLose(ctx: any, battle: any) {
 
   const now = new Date();
   const nowMs = now.getTime();
-  const offlineThresholdIso = new Date(nowMs - 1500).toISOString();
-  const rejoinDeadlineIso = new Date(nowMs + 30000).toISOString();
+  const offlineThresholdIso = new Date(nowMs - OFFLINE_DETECT_MS).toISOString();
+  const rejoinDeadlineIso = new Date(nowMs + REJOIN_GRACE_MS).toISOString();
 
   const [presenceA, presenceB] = await Promise.all([
     ctx.db.query("presence")
@@ -123,6 +163,13 @@ export const getBattle = query({
       return normalized;
     };
 
+    const nowIso = new Date().toISOString();
+    const isInPreparation = !!battle.preparation?.isActive;
+    const prepCountdown = isInPreparation ? computeCountdownSeconds(battle.preparation?.endsAt) : 0;
+    const turnCountdown = !isInPreparation ? computeCountdownSeconds(battle.turnEndsAt) : 0;
+    const iAmReady = isPlayerA ? !!battle.preparation?.playerAReady : !!battle.preparation?.playerBReady;
+    const opponentReady = isPlayerA ? !!battle.preparation?.playerBReady : !!battle.preparation?.playerAReady;
+
     return {
       playerHand: player.hand.slice(0, 10),
       enemyHand: enemy.hand.slice(0, 10).map(card => ({
@@ -147,7 +194,7 @@ export const getBattle = query({
       },
       timer: {
         turnEndsAt: battle.turnEndsAt,
-        turnDurationSec: battle.turnDurationSec
+        turnDurationSec: battle.turnDurationSec ?? DEFAULT_TURN_DURATION_SEC
       },
       preparation: battle.preparation,
       status: battle.status,
@@ -156,7 +203,12 @@ export const getBattle = query({
       hasStarted: !!battle.hasStarted,
       youAre: isPlayerA ? "A" : "B",
       isMyTurn: battle.currentTurnPlayerId === user._id,
-      serverNow: new Date().toISOString()
+      serverNow: nowIso,
+      isInPreparation,
+      prepCountdown,
+      turnCountdown,
+      iAmReady,
+      opponentReady,
     };
   }
 });
@@ -327,7 +379,7 @@ export const createBattle = mutation({
       currentTurnPlayerId: user._id,
       turnNumber: 1,
       turnEndsAt,
-      turnDurationSec: turnDurationSec,
+      turnDurationSec: turnDurationSec || DEFAULT_TURN_DURATION_SEC,
       preparation: {
         isActive: false,
         durationSec: 60, // dev; default should be 60
@@ -465,6 +517,8 @@ export const playCard = mutation({
     if (!battle) throw new Error("Battle not found");
     if (battle.status !== "active") throw new Error("Battle not active");
     if (!battle.hasStarted) throw new Error("Battle has not begun");
+    if (battle.isPaused) throw new Error("Battle is paused");
+    if (battle.preparation?.isActive) throw new Error("Preparation active");
     if (battle.currentTurnPlayerId !== user._id) throw new Error("Not your turn");
 
     const player = battle.hostId === user._id ? battle.playerA : battle.playerB;
@@ -512,6 +566,8 @@ export const sendToGraveyard = mutation({
     if (!battle) throw new Error("Battle not found");
     if (battle.status !== "active") throw new Error("Battle not active");
     if (!battle.hasStarted) throw new Error("Battle has not begun");
+    if (battle.isPaused) throw new Error("Battle is paused");
+    if (battle.preparation?.isActive) throw new Error("Preparation active");
     if (battle.currentTurnPlayerId !== user._id) throw new Error("Not your turn");
 
     const player = battle.hostId === user._id ? battle.playerA : battle.playerB;
@@ -553,6 +609,8 @@ export const updateHp = mutation({
     if (!battle) throw new Error("Battle not found");
     if (battle.status !== "active") throw new Error("Battle not active");
     if (!battle.hasStarted) throw new Error("Battle has not begun");
+    if (battle.isPaused) throw new Error("Battle is paused");
+    if (battle.preparation?.isActive) throw new Error("Preparation active");
 
     const isHost = battle.hostId === user!._id;
     const playerKey = isHost ? "playerA" : "playerB";
@@ -594,6 +652,8 @@ export const endTurn = mutation({
     if (battle.status !== "active") throw new Error("Battle not active");
     if (!battle.hasStarted) throw new Error("Battle has not begun");
     if (battle.currentTurnPlayerId !== user!._id) throw new Error("Not your turn");
+    if (battle.isPaused) throw new Error("Battle is paused");
+    if (battle.preparation?.isActive) throw new Error("Preparation active");
 
     const isHost = battle.hostId === user!._id;
     const nextPlayerId = isHost ? battle.playerB.userId : battle.playerA.userId;
@@ -604,6 +664,56 @@ export const endTurn = mutation({
       turnNumber: battle.turnNumber + 1,
       turnEndsAt,
       lastActionAt: new Date().toISOString(),
+    });
+
+    const updated = await ctx.db.get(battleId);
+    await finalizeIfTurnCapReached(ctx, battleId, updated);
+  },
+});
+
+// Toggle a card's position during battle
+export const setCardPosition = mutation({
+  args: {
+    battleId: v.id("battles"),
+    slotIndex: v.number(),
+    position: v.union(v.literal("attack"), v.literal("defense")),
+    idempotencyKey: v.string(),
+  },
+  handler: async (ctx, { battleId, slotIndex, position, idempotencyKey }) => {
+    const FIELD_SIZE = 5;
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Not authenticated");
+
+    let battle = await autoAdvanceTurnIfExpired(ctx, battleId);
+    if (!battle) throw new Error("Battle not found");
+    if (battle.status !== "active") throw new Error("Battle not active");
+    if (!battle.hasStarted) throw new Error("Battle has not begun");
+    if (battle.isPaused) throw new Error("Battle is paused");
+    if (battle.preparation?.isActive) throw new Error("Preparation active");
+    if (battle.currentTurnPlayerId !== user._id) throw new Error("Not your turn");
+
+    if (slotIndex < 0 || slotIndex >= FIELD_SIZE) throw new Error("Invalid slot index");
+
+    const isHost = battle.hostId === user._id;
+    const playerKey = isHost ? "playerA" : "playerB";
+    const player = battle[playerKey];
+    if (!player) throw new Error("Player not found");
+
+    const card = player.field[slotIndex];
+    if (!card) throw new Error("No card at slot index");
+
+    if (battle.lastActionIdempotencyKey === idempotencyKey) return;
+
+    const newField = [...player.field];
+    newField[slotIndex] = { ...card, position };
+
+    await ctx.db.patch(battleId, {
+      lastActionAt: new Date().toISOString(),
+      lastActionIdempotencyKey: idempotencyKey,
+      [playerKey]: {
+        ...player,
+        field: newField,
+      },
     });
   },
 });
@@ -650,6 +760,10 @@ export const heartbeatBattle = mutation({
         turnNumber: battle.turnNumber,
         status: battle.status,
         winnerId: battle.winnerId,
+        serverNow: new Date().toISOString(),
+        isInPreparation: !!battle.preparation?.isActive,
+        turnCountdown: computeCountdownSeconds(battle.turnEndsAt),
+        prepCountdown: computeCountdownSeconds(battle.preparation?.endsAt),
       };
     }
 
@@ -672,6 +786,9 @@ export const heartbeatBattle = mutation({
     const updatedBattle = await ctx.db.get(battleId);
     if (!updatedBattle) throw new Error("Battle disappeared");
 
+    // In case auto-advance incremented turn beyond cap, finalize
+    await finalizeIfTurnCapReached(ctx, battleId, updatedBattle);
+
     return {
       turnEndsAt: updatedBattle.turnEndsAt,
       currentTurnPlayerId: updatedBattle.currentTurnPlayerId,
@@ -680,6 +797,10 @@ export const heartbeatBattle = mutation({
       winnerId: updatedBattle.winnerId,
       isPaused: !!updatedBattle.isPaused,
       preparation: updatedBattle.preparation,
+      serverNow: new Date().toISOString(),
+      isInPreparation: !!updatedBattle.preparation?.isActive,
+      turnCountdown: computeCountdownSeconds(updatedBattle.turnEndsAt),
+      prepCountdown: computeCountdownSeconds(updatedBattle.preparation?.endsAt),
     };
   },
 });

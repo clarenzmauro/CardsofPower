@@ -114,6 +114,11 @@ export const PrepOverlay: React.FC<PrepOverlayProps> = ({
                         className="w-full h-full object-cover"
                       />
                     ) : null}
+                    {card ? (
+                      <div className={`${card.position === 'defense' ? 'bg-stone-700 text-stone-200' : 'bg-amber-700 text-white'} absolute top-1 right-1 text-[10px] px-1 py-0.5 rounded`}>
+                        {card.position === 'defense' ? 'DEF' : 'ATK'}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               ))}

@@ -51,6 +51,8 @@ function BattlefieldContent() {
   // First turn modal state
   const [showFirstTurnModal, setShowFirstTurnModal] = useState<boolean>(true);
   const hasAnnouncedRef = useRef<boolean>(false);
+  const [showTurnAnnouncement, setShowTurnAnnouncement] = useState<boolean>(false);
+  const prevWasInPreparation = useRef<boolean | null>(null);
 
   useEffect(() => {
     if (!battle) return;
@@ -68,6 +70,18 @@ function BattlefieldContent() {
       setShowFirstTurnModal(false);
     }
   }, [battle?.hasStarted]);
+
+  // Show who goes first right after preparation ends
+  useEffect(() => {
+    const isInPrep = !!battle?.isInPreparation;
+    const prev = prevWasInPreparation.current;
+    prevWasInPreparation.current = isInPrep;
+    if (prev === true && isInPrep === false && battle?.status === 'active' && !battle?.isPaused) {
+      setShowTurnAnnouncement(true);
+      const t = setTimeout(() => setShowTurnAnnouncement(false), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [battle?.isInPreparation, battle?.status, battle?.isPaused]);
 
   // Drag and drop functionality
   const { dragState, getDragHandlers, getDropHandlers, logSlotContents, updateMousePosition } = useDragAndDrop({
@@ -135,6 +149,13 @@ function BattlefieldContent() {
     }
   }, [dragState.isDragging]);
 
+
+  // Enable/disable interactions based on turn and battle state
+  useEffect(() => {
+    const canInteract = !!(battle && battle.status === 'active' && !battle.isPaused && !battle.isInPreparation && battle.isMyTurn);
+    setDragDropEnabled(canInteract);
+    setGraveyardEnabled(canInteract);
+  }, [battle?.status, battle?.isPaused, battle?.isInPreparation, battle?.isMyTurn]);
 
   const turnCountdown = battle?.hasStarted ? (battle?.turnCountdown ?? timeRemaining) : (battle?.timer?.turnDurationSec ?? maxTime);
   const turnMax = battle?.timer?.turnDurationSec ?? maxTime;
@@ -246,6 +267,18 @@ function BattlefieldContent() {
         />
       ) : null}
 
+      {/* Post-preparation first turn announcement */}
+      {!battle?.isInPreparation && showTurnAnnouncement && !isWaitingForOpponent ? (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60">
+          <div className="bg-stone-800 border border-stone-600 rounded-lg p-6 w-[320px] text-center shadow-xl">
+            <div className="text-stone-200 text-lg mb-2">First turn</div>
+            <div className="text-stone-100 text-2xl font-bold">
+              {isMyTurn ? 'You' : enemyName} go first
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* First Turn Modal */}
       {(!battle?.isInPreparation && (showFirstTurnModal && !isWaitingForOpponent)) || battle?.isPaused ? (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60">
@@ -274,6 +307,19 @@ function BattlefieldContent() {
               </>
             )}
           </div>
+        </div>
+      ) : null}
+
+      {/* End Turn Button */}
+      {!battle?.isInPreparation && battle?.status === 'active' && !battle?.isPaused && isMyTurn ? (
+        <div className="absolute bottom-4 right-4 z-20">
+          <button
+            onClick={() => battle?.endTurn?.()}
+            className="px-4 py-2 rounded bg-amber-700 hover:bg-amber-800 text-white font-semibold disabled:bg-stone-600"
+            disabled={!isMyTurn || battle?.isPaused}
+          >
+            End Turn
+          </button>
         </div>
       ) : null}
     </div>
