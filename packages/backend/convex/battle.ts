@@ -951,3 +951,106 @@ export const cleanupAbandonedBattlesInternal = internalMutation({
   },
 });
 
+export const attack = mutation({
+  args: {
+    battleId: v.id("battles"),
+    attackerSlotIndex: v.number(),
+    targetSlotIndex: v.number(),
+    idempotencyKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { battleId, attackerSlotIndex, targetSlotIndex, idempotencyKey }) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Not authenticated");
+
+    const battle = await autoAdvanceTurnIfExpired(ctx, battleId);
+    if (!battle) throw new Error("Battle not found");
+    if (battle.status !== "active") throw new Error("Battle is not active");
+    if (battle.currentTurnPlayerId !== user._id) throw new Error("Not your turn");
+    if (battle.isPaused) throw new Error("Battle is paused");
+
+    // Prevent duplicate actions with idempotency
+    if (idempotencyKey && battle.lastActionIdempotencyKey === idempotencyKey) {
+      return { success: true, message: "Action already processed" };
+    }
+
+    const isPlayerA = battle.playerA.userId === user._id;
+    const attacker = isPlayerA ? battle.playerA : battle.playerB;
+    const defender = isPlayerA ? battle.playerB : battle.playerA;
+
+    // Validate attacker slot
+    if (attackerSlotIndex < 0 || attackerSlotIndex >= 5) {
+      throw new Error("Invalid attacker slot index");
+    }
+    const attackerCard = attacker.field[attackerSlotIndex];
+    if (!attackerCard) throw new Error("No card in attacker slot");
+    if (attackerCard.type !== "monster") throw new Error("Only monsters can attack");
+
+    // Validate target slot
+    if (targetSlotIndex < 0 || targetSlotIndex >= 5) {
+      throw new Error("Invalid target slot index");
+    }
+    const targetCard = defender.field[targetSlotIndex];
+    if (!targetCard) throw new Error("No card in target slot");
+    if (targetCard.type !== "monster") throw new Error("Can only attack monsters");
+
+    // Get card stats from database to ensure we have ATK/DEF values
+    const attackerCardData = await ctx.db
+      .query("cards")
+      .filter((q) => q.eq(q.field("_id"), attackerCard.id))
+      .first();
+    
+    const targetCardData = await ctx.db
+      .query("cards")
+      .filter((q) => q.eq(q.field("_id"), targetCard.id))
+      .first();
+
+    if (!attackerCardData || !targetCardData) {
+      throw new Error("Card data not found");
+    }
+
+    // Use inGame stats if available, otherwise use base stats
+    const attackerATK = attackerCardData.inGameAtkPts ?? attackerCardData.atkPts ?? 0;
+    const targetDEF = targetCardData.inGameDefPts ?? targetCardData.defPts ?? 0;
+
+    // Calculate damage: DEF - ATK
+    const newDefPts = targetDEF - attackerATK;
+    
+    // Update target card's DEF
+    await ctx.db.patch(targetCardData._id, {
+      inGameDefPts: newDefPts
+    });
+
+    let updatedDefender = { ...defender };
+    
+    // If target DEF <= 0, move to graveyard
+    if (newDefPts <= 0) {
+      // Remove from field
+      updatedDefender.field[targetSlotIndex] = null;
+      
+      // Add to graveyard
+      updatedDefender.graveyard.push({
+        id: targetCard.id,
+        name: targetCard.name,
+        type: targetCard.type,
+        image: targetCard.image,
+      });
+    }
+
+    // Update battle with new defender state
+    const updateField = isPlayerA ? "playerB" : "playerA";
+    await ctx.db.patch(battleId, {
+      [updateField]: updatedDefender,
+      lastActionAt: new Date().toISOString(),
+      lastActionIdempotencyKey: idempotencyKey,
+    });
+
+    return {
+      success: true,
+      attackerATK,
+      originalTargetDEF: targetDEF,
+      newTargetDEF: newDefPts,
+      targetDestroyed: newDefPts <= 0,
+    };
+  },
+});
+
