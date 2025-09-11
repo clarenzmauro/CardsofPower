@@ -12,6 +12,8 @@ interface PlayerSectionProps {
   onFieldCardClick?: (slotIndex: number) => void;
   selectedCard?: Card | null;
   onGraveyardCard?: (slotIndex: number) => void;
+  onAttackCard?: (slotIndex: number) => void;
+  onEffectCard?: (slotIndex: number) => void;
 }
 
 export const PlayerSection: React.FC<PlayerSectionProps> = ({ 
@@ -22,7 +24,9 @@ export const PlayerSection: React.FC<PlayerSectionProps> = ({
   onSlotClick,
   onFieldCardClick,
   selectedCard,
-  onGraveyardCard
+  onGraveyardCard,
+  onAttackCard,
+  onEffectCard
 }) => (
   <>
     {/* Player Field */}
@@ -43,7 +47,9 @@ export const PlayerSection: React.FC<PlayerSectionProps> = ({
               }}
               showPositionBadge={!!card}
               isSelected={selectedCard?.id === card?.id}
-              onGraveyardClick={undefined}
+              onGraveyardClick={onGraveyardCard ? () => onGraveyardCard(index) : undefined}
+              onAttackClick={onAttackCard ? () => onAttackCard(index) : undefined}
+              onEffectClick={onEffectCard ? () => onEffectCard(index) : undefined}
             />
           </div>
         ))}

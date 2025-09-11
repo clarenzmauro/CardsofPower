@@ -157,9 +157,39 @@ export const getBattle = query({
     const player = isPlayerA ? battle.playerA : battle.playerB;
     const enemy = isPlayerA ? battle.playerB : battle.playerA;
 
-    const normalizeField = (field: any[]) => {
+    const normalizeField = async (field: any[]) => {
       const normalized = Array(5).fill(null);
-      field.slice(0, 5).forEach((card, i) => (normalized[i] = card));
+      for (let i = 0; i < Math.min(field.length, 5); i++) {
+        const card = field[i];
+        if (card) {
+          // Fetch complete card data from database
+          const cardData = await ctx.db
+            .query("cards")
+            .filter((q) => q.eq(q.field("_id"), card.id))
+            .first();
+          
+          if (cardData) {
+            normalized[i] = {
+              ...card,
+              // Include all card properties
+              name: cardData.name,
+              type: cardData.type,
+              image: cardData.imageUrl,
+              character: cardData.character,
+              atkPts: cardData.atkPts,
+              defPts: cardData.defPts,
+              inGameAtkPts: cardData.inGameAtkPts,
+              inGameDefPts: cardData.inGameDefPts,
+              level: cardData.level,
+              class: cardData.class,
+              description: cardData.description,
+              marketValue: cardData.marketValue,
+            };
+          } else {
+            normalized[i] = card;
+          }
+        }
+      }
       return normalized;
     };
 
@@ -170,8 +200,12 @@ export const getBattle = query({
     const iAmReady = isPlayerA ? !!battle.preparation?.playerAReady : !!battle.preparation?.playerBReady;
     const opponentReady = isPlayerA ? !!battle.preparation?.playerBReady : !!battle.preparation?.playerAReady;
 
+    // Normalize fields with complete card data
+    const playerField = await normalizeField(player.field);
+    const enemyFieldNormalized = await normalizeField(enemy.field);
+    
     // Build enemyField with masking for defense position
-    const maskedEnemyField = normalizeField(enemy.field).map((c: any) => {
+    const maskedEnemyField = enemyFieldNormalized.map((c: any) => {
       if (c && c.position === "defense") {
         return {
           id: c.id,
@@ -191,7 +225,7 @@ export const getBattle = query({
         name: 'Hidden Card',
         type: card.type
       })),
-      playerField: normalizeField(player.field),
+      playerField,
       enemyField: maskedEnemyField,
       playerGraveyard: player.graveyard.slice(0, 100),
       enemyGraveyard: enemy.graveyard.slice(0, 100),

@@ -281,6 +281,11 @@ function BattlefieldContent() {
             onFieldCardClick={onFieldCardClick}
             selectedCard={selectedCard}
             onGraveyardCard={handleGraveyardCard}
+            onAttackCard={startAttack}
+            onEffectCard={(slotIndex) => {
+              // TODO: Implement effect handler
+              console.log('Effect clicked for slot:', slotIndex);
+            }}
           />
         </div>
 
@@ -501,42 +506,27 @@ function BattlefieldContent() {
                 </>
               )}
               
-              {/* Position Change Button */}
-              <button
-                onClick={async () => {
-                  const current = playerField[activeFieldSlotIndex!];
-                  if (!current) return;
-                  const nextPos = current.position === 'defense' ? 'attack' : 'defense';
-                  await battle?.setCardPosition?.(activeFieldSlotIndex!, nextPos);
-                  setShowFieldActionModal(false);
-                  setActiveFieldSlotIndex(null);
-                }}
-                className="w-20 h-16 cursor-pointer rounded-lg bg-transparent border-none p-0"
-                aria-label={playerField[activeFieldSlotIndex]?.position === 'defense' ? 'Set to Attack' : 'Set to Defense'}
-              >
-                <img
-                  src={playerField[activeFieldSlotIndex]?.position === 'defense' ? '/assets/icons/attack-button.png' : '/assets/icons/defense-button.png'}
-                  alt={playerField[activeFieldSlotIndex]?.position === 'defense' ? 'Attack' : 'Defense'}
-                  className="w-full h-full object-contain"
-                />
-              </button>
+              {/* Position Change Button - only for defense position cards */}
+              {playerField[activeFieldSlotIndex]?.position === 'defense' && (
+                <button
+                  onClick={async () => {
+                    const current = playerField[activeFieldSlotIndex!];
+                    if (!current) return;
+                    await battle?.setCardPosition?.(activeFieldSlotIndex!, 'attack');
+                    setShowFieldActionModal(false);
+                    setActiveFieldSlotIndex(null);
+                  }}
+                  className="w-20 h-16 cursor-pointer rounded-lg bg-transparent border-none p-0"
+                  aria-label="Set to Attack"
+                >
+                  <img
+                    src="/assets/icons/attack-button.png"
+                    alt="Attack"
+                    className="w-full h-full object-contain"
+                  />
+                </button>
+              )}
               
-              {/* Graveyard Button */}
-              <button
-                onClick={() => {
-                  handleGraveyardCard(activeFieldSlotIndex!);
-                  setShowFieldActionModal(false);
-                  setActiveFieldSlotIndex(null);
-                }}
-                className="w-20 h-16 cursor-pointer rounded-lg bg-transparent border-none p-0"
-                aria-label="Graveyard"
-              >
-                <img
-                  src="/assets/icons/graveyard-button.png"
-                  alt="Graveyard"
-                  className="w-full h-full object-contain"
-                />
-              </button>
             </div>
             <button
               onClick={() => { setShowFieldActionModal(false); setActiveFieldSlotIndex(null); }}
