@@ -2,6 +2,7 @@ import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getCurrentUser } from "./users";
 import { type Id } from "./_generated/dataModel";
+import { executeCardEffect } from "./effects/cardEffects";
 
 // Turn/presence constants
 const DEFAULT_TURN_DURATION_SEC = 30; // server default; client may override at creation
@@ -1085,6 +1086,55 @@ export const attack = mutation({
       newTargetDEF: newDefPts,
       targetDestroyed: newDefPts <= 0,
     };
+  },
+});
+
+export const useCardEffect = mutation({
+  args: {
+    battleId: v.id("battles"),
+    cardName: v.string(),
+  },
+  handler: async (ctx, { battleId, cardName }) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Not authenticated");
+
+    const battle = await ctx.db.get(battleId);
+    if (!battle) throw new Error("Battle not found");
+    if (battle.status !== "active") throw new Error("Battle is not active");
+
+    // Check if it's the user's turn
+    const isPlayerA = battle.playerA?.userId === user._id;
+    const isPlayerB = battle.playerB?.userId === user._id;
+    if (!isPlayerA && !isPlayerB) throw new Error("Not a participant in this battle");
+
+    const isMyTurn = battle.currentTurnPlayerId === user._id;
+    if (!isMyTurn) throw new Error("Not your turn");
+
+    // Convert card name to file path format
+    // "Forgemaster of Creation" -> "Forgemaster_of_Creation"
+    const effectFileName = cardName.replace(/\s+/g, '_');
+    
+    try {
+      // Execute the effect using static import
+      const result = executeCardEffect(ctx, battleId, user._id, cardName);
+      
+      // Update battle with last action timestamp
+      await ctx.db.patch(battleId, {
+        lastActionAt: new Date().toISOString(),
+      });
+
+      return {
+        success: true,
+        message: result.message,
+        effectFileName,
+        logs: result.logs,
+        effectResult: result
+      };
+    } catch (error) {
+      console.error(`Failed to execute effect for ${cardName}:`, error);
+      const errorMessage = error instanceof Error ? error.message : `Effect failed for card: ${cardName}`;
+      throw new Error(errorMessage);
+    }
   },
 });
 

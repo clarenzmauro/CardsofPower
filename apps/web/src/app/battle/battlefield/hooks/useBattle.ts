@@ -49,6 +49,7 @@ export function useBattle(battleId: Id<"battles">) {
   const beginBattleMutation = useMutation(api.battle.beginBattle);
   const submitPreparationMutation = useMutation(api.battle.submitPreparation);
   const attackMutation = useMutation(api.battle.attack);
+  const useCardEffectMutation = useMutation(api.battle.useCardEffect);
 
   useEffect(() => {
     if (!battleData) return;
@@ -157,6 +158,11 @@ export function useBattle(battleId: Id<"battles">) {
     });
   };
 
+  const useCardEffect = async (cardName: string) => {
+    if (!battleData?.isMyTurn) return;
+    return await useCardEffectMutation({ battleId, cardName });
+  };
+
   return {
     ...state,
     hasStarted: battleData?.hasStarted ?? false,
@@ -183,5 +189,6 @@ export function useBattle(battleId: Id<"battles">) {
     beginBattle,
     submitPreparation,
     attack,
+    useCardEffect,
   };
 }

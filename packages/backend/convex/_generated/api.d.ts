@@ -12,6 +12,7 @@ import type * as account from "../account.js";
 import type * as battle from "../battle.js";
 import type * as cards from "../cards.js";
 import type * as crons from "../crons.js";
+import type * as effects_cardEffects from "../effects/cardEffects.js";
 import type * as friends from "../friends.js";
 import type * as http from "../http.js";
 import type * as mails from "../mails.js";
@@ -40,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   battle: typeof battle;
   cards: typeof cards;
   crons: typeof crons;
+  "effects/cardEffects": typeof effects_cardEffects;
   friends: typeof friends;
   http: typeof http;
   mails: typeof mails;

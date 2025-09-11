@@ -282,9 +282,15 @@ function BattlefieldContent() {
             selectedCard={selectedCard}
             onGraveyardCard={handleGraveyardCard}
             onAttackCard={startAttack}
-            onEffectCard={(slotIndex) => {
-              // TODO: Implement effect handler
-              console.log('Effect clicked for slot:', slotIndex);
+            onEffectCard={async (slotIndex) => {
+              const card = playerField[slotIndex];
+              if (!card) return;
+              try {
+                const result = await battle?.useCardEffect?.(card.name);
+                console.log('Effect result:', result);
+              } catch (error) {
+                console.error('Effect failed:', error);
+              }
             }}
           />
         </div>
@@ -487,9 +493,15 @@ function BattlefieldContent() {
                   {/* Use Effect Button - only show for effect monsters */}
                   {playerField[activeFieldSlotIndex]?.character === 'effect' && (
                     <button
-                      onClick={() => {
-                        // TODO: Implement effect logic
-                        console.log('Use effect of card:', playerField[activeFieldSlotIndex]);
+                      onClick={async () => {
+                        const card = playerField[activeFieldSlotIndex!];
+                        if (!card) return;
+                        try {
+                          const result = await battle?.useCardEffect?.(card.name);
+                          console.log('Effect result:', result);
+                        } catch (error) {
+                          console.error('Effect failed:', error);
+                        }
                         setShowFieldActionModal(false);
                         setActiveFieldSlotIndex(null);
                       }}
