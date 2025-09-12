@@ -1,5 +1,4 @@
-
-import { mutation, query, type QueryCtx } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 /**
@@ -34,11 +33,21 @@ export const getFriendsList = query({
     const [friendsOne, friendsTwo] = await Promise.all([
       ctx.db
         .query("friends")
-        .withIndex("by_server_userOne_status_timestamp", (q) => q.eq("serverId", user.serverId).eq("userOneId", user._id).eq("status", "accepted"))
+        .withIndex("by_server_userOne_status_timestamp", (q) =>
+          q
+            .eq("serverId", user.serverId)
+            .eq("userOneId", user._id)
+            .eq("status", "accepted")
+        )
         .collect(),
       ctx.db
         .query("friends")
-        .withIndex("by_server_userTwo_status_timestamp", (q) => q.eq("serverId", user.serverId).eq("userTwoId", user._id).eq("status", "accepted"))
+        .withIndex("by_server_userTwo_status_timestamp", (q) =>
+          q
+            .eq("serverId", user.serverId)
+            .eq("userTwoId", user._id)
+            .eq("status", "accepted")
+        )
         .collect(),
     ]);
 
@@ -50,37 +59,47 @@ export const getFriendsList = query({
     const allFriends = [...friendsOne, ...friendsTwo].slice(0, 100);
 
     // Defensive: ensure lastMessageId and lastMessageTimestamp are present
-    allFriends.forEach(f => {
-      if (f.status !== "accepted") throw new Error("getFriendsList: non-accepted friend status found");
-      if (!("lastMessageId" in f)) throw new Error("getFriendsList: missing lastMessageId");
-      if (!("lastMessageTimestamp" in f)) throw new Error("getFriendsList: missing lastMessageTimestamp");
+    allFriends.forEach((f) => {
+      if (f.status !== "accepted")
+        throw new Error("getFriendsList: non-accepted friend status found");
+      if (!("lastMessageId" in f))
+        throw new Error("getFriendsList: missing lastMessageId");
+      if (!("lastMessageTimestamp" in f))
+        throw new Error("getFriendsList: missing lastMessageTimestamp");
     });
 
     // Determine the friend user ID for each relationship
-    const friendUserIds = allFriends.map(f =>
+    const friendUserIds = allFriends.map((f) =>
       String(f.userOneId) === String(user._id) ? f.userTwoId : f.userOneId
     );
 
     // Fetch friend user details
     const friendUsers = await ctx.db
       .query("users")
-      .filter((q) => q.or(...friendUserIds.map(id => q.eq("_id", String(id)))))
+      .filter((q) =>
+        q.or(...friendUserIds.map((id) => q.eq("_id", String(id))))
+      )
       .collect();
 
-    if (!Array.isArray(friendUsers)) throw new Error("getFriendsList: friendUsers not array");
+    if (!Array.isArray(friendUsers))
+      throw new Error("getFriendsList: friendUsers not array");
 
     // Map friend userId to user details
-    const userMap = Object.fromEntries(friendUsers.map(u => [String(u._id), u]));
+    const userMap = Object.fromEntries(
+      friendUsers.map((u) => [String(u._id), u])
+    );
 
     // For each friend, update isOnline based on the latest user data
     // Defensive: ensure friendUsers have isOnline property
-    friendUsers.forEach(u => {
-      if (!("isOnline" in u)) throw new Error("getFriendsList: user missing isOnline");
+    friendUsers.forEach((u) => {
+      if (!("isOnline" in u))
+        throw new Error("getFriendsList: user missing isOnline");
     });
 
     // Compose result
-    const result = allFriends.map(f => {
-      const friendId = String(f.userOneId) === String(user._id) ? f.userTwoId : f.userOneId;
+    const result = allFriends.map((f) => {
+      const friendId =
+        String(f.userOneId) === String(user._id) ? f.userTwoId : f.userOneId;
       const friendUser = userMap[String(friendId)];
       return {
         id: String(friendId),
@@ -95,13 +114,19 @@ export const getFriendsList = query({
     });
 
     // Runtime assertions
-    if (!Array.isArray(result)) throw new Error("getFriendsList: result not array");
-    if (result.length > 100) throw new Error("getFriendsList: result too large");
+    if (!Array.isArray(result))
+      throw new Error("getFriendsList: result not array");
+    if (result.length > 100)
+      throw new Error("getFriendsList: result too large");
 
     // Assert all results have lastMessageId and lastMessageTimestamp
-    result.forEach(r => {
-      if (!("lastMessageId" in r)) throw new Error("getFriendsList: missing lastMessageId in result");
-      if (!("lastMessageTimestamp" in r)) throw new Error("getFriendsList: missing lastMessageTimestamp in result");
+    result.forEach((r) => {
+      if (!("lastMessageId" in r))
+        throw new Error("getFriendsList: missing lastMessageId in result");
+      if (!("lastMessageTimestamp" in r))
+        throw new Error(
+          "getFriendsList: missing lastMessageTimestamp in result"
+        );
     });
 
     return result;
@@ -143,11 +168,21 @@ export const searchFriends = query({
     // Get all friend relationships for this user (both directions)
     const friendsOne = await ctx.db
       .query("friends")
-      .withIndex("by_server_userOne_status_timestamp", (q) => q.eq("serverId", user.serverId).eq("userOneId", user._id).eq("status", "accepted"))
+      .withIndex("by_server_userOne_status_timestamp", (q) =>
+        q
+          .eq("serverId", user.serverId)
+          .eq("userOneId", user._id)
+          .eq("status", "accepted")
+      )
       .collect();
     const friendsTwo = await ctx.db
       .query("friends")
-      .withIndex("by_server_userTwo_status_timestamp", (q) => q.eq("serverId", user.serverId).eq("userTwoId", user._id).eq("status", "accepted"))
+      .withIndex("by_server_userTwo_status_timestamp", (q) =>
+        q
+          .eq("serverId", user.serverId)
+          .eq("userTwoId", user._id)
+          .eq("status", "accepted")
+      )
       .collect();
 
     if (!Array.isArray(friendsOne) || !Array.isArray(friendsTwo))
@@ -157,28 +192,34 @@ export const searchFriends = query({
     const allFriends = [...friendsOne, ...friendsTwo].slice(0, 100);
 
     // Get the other user's ID for each friend relationship
-    const friendUserIds = allFriends.map(f =>
+    const friendUserIds = allFriends.map((f) =>
       String(f.userOneId) === String(user._id) ? f.userTwoId : f.userOneId
     );
 
     // Fetch friend user details
     const friendUsers = await ctx.db
       .query("users")
-      .filter((q) => q.or(...friendUserIds.map(id => q.eq("_id", String(id)))))
+      .filter((q) =>
+        q.or(...friendUserIds.map((id) => q.eq("_id", String(id))))
+      )
       .collect();
 
-    if (!Array.isArray(friendUsers)) throw new Error("searchFriends: friendUsers not array");
+    if (!Array.isArray(friendUsers))
+      throw new Error("searchFriends: friendUsers not array");
 
     // Map friendId to user details for quick lookup
-    const userMap = Object.fromEntries(friendUsers.map(u => [String(u._id), u]));
+    const userMap = Object.fromEntries(
+      friendUsers.map((u) => [String(u._id), u])
+    );
 
     // Normalize search string
     const searchLower = search.trim().toLowerCase();
 
     // Compose and filter result
     const result = allFriends
-      .map(f => {
-        const friendId = String(f.userOneId) === String(user._id) ? f.userTwoId : f.userOneId;
+      .map((f) => {
+        const friendId =
+          String(f.userOneId) === String(user._id) ? f.userTwoId : f.userOneId;
         const friendUser = userMap[String(friendId)];
         return {
           id: String(friendId),
@@ -191,13 +232,15 @@ export const searchFriends = query({
           createdAt: f.createdAt,
         };
       })
-      .filter(friend =>
-        friend.name.toLowerCase().includes(searchLower) ||
-        friend.username.toLowerCase().includes(searchLower)
+      .filter(
+        (friend) =>
+          friend.name.toLowerCase().includes(searchLower) ||
+          friend.username.toLowerCase().includes(searchLower)
       );
 
     // Runtime assertions
-    if (!Array.isArray(result)) throw new Error("searchFriends: result not array");
+    if (!Array.isArray(result))
+      throw new Error("searchFriends: result not array");
     if (result.length > 100) throw new Error("searchFriends: result too large");
 
     return result;
@@ -224,14 +267,16 @@ export const displayConversation = query({
   },
   handler: async (ctx, { friendId }) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity?.subject) throw new Error("displayConversation: unauthenticated");
+    if (!identity?.subject)
+      throw new Error("displayConversation: unauthenticated");
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
       .first();
     if (!user) throw new Error("displayConversation: user not found");
-    if (!user.serverId) throw new Error("displayConversation: user has no server");
+    if (!user.serverId)
+      throw new Error("displayConversation: user has no server");
 
     // Find the friend relationship (conversation) between the two users
     const userId = user._id;
@@ -239,13 +284,23 @@ export const displayConversation = query({
       .query("friends")
       .filter((q) =>
         q.or(
-          q.and(q.eq("userOneId", String(userId)), q.eq("userTwoId", String(friendId))),
-          q.and(q.eq("userOneId", String(friendId)), q.eq("userTwoId", String(userId)))
+          q.and(
+            q.eq("userOneId", String(userId)),
+            q.eq("userTwoId", String(friendId))
+          ),
+          q.and(
+            q.eq("userOneId", String(friendId)),
+            q.eq("userTwoId", String(userId))
+          )
         )
       )
       .first();
-    if (!friendObj) throw new Error("displayConversation: friend relationship not found");
-    if (!friendObj.serverId || String(friendObj.serverId) !== String(user.serverId)) {
+    if (!friendObj)
+      throw new Error("displayConversation: friend relationship not found");
+    if (
+      !friendObj.serverId ||
+      String(friendObj.serverId) !== String(user.serverId)
+    ) {
       throw new Error("displayConversation: cross-server conversation denied");
     }
 
@@ -258,8 +313,10 @@ export const displayConversation = query({
       .order("asc")
       .take(200);
 
-    if (!Array.isArray(messages)) throw new Error("displayConversation: messages not array");
-    if (messages.length > 200) throw new Error("displayConversation: too many messages");
+    if (!Array.isArray(messages))
+      throw new Error("displayConversation: messages not array");
+    if (messages.length > 200)
+      throw new Error("displayConversation: too many messages");
 
     // Get all unique sender IDs (cap at 10)
     const senderIds = [
@@ -268,8 +325,9 @@ export const displayConversation = query({
 
     const senders = await ctx.db
       .query("users")
-      .filter((q) => q.or(...senderIds.map((id) => q.eq("_id", id as any))))
-    if (!Array.isArray(senders)) throw new Error("displayConversation: senders not array");
+      .filter((q) => q.or(...senderIds.map((id) => q.eq("_id", id as any))));
+    if (!Array.isArray(senders))
+      throw new Error("displayConversation: senders not array");
 
     const senderMap = Object.fromEntries(
       senders.map((u) => [String(u._id), u])
@@ -286,8 +344,10 @@ export const displayConversation = query({
       timestamp: msg.timestamp,
     }));
 
-    if (!Array.isArray(result)) throw new Error("displayConversation: result not array");
-    if (result.length > 200) throw new Error("displayConversation: result too large");
+    if (!Array.isArray(result))
+      throw new Error("displayConversation: result not array");
+    if (result.length > 200)
+      throw new Error("displayConversation: result too large");
 
     return result;
   },
@@ -314,8 +374,7 @@ export const sendMessage = mutation({
   handler: async (ctx, { friendId, content }) => {
     if (typeof content !== "string" || !content.trim())
       throw new Error("sendMessage: content is empty");
-    if (content.length > 1000)
-      throw new Error("sendMessage: content too long");
+    if (content.length > 1000) throw new Error("sendMessage: content too long");
 
     const identity = await ctx.auth.getUserIdentity();
     if (!identity?.subject) throw new Error("sendMessage: unauthenticated");
@@ -339,19 +398,28 @@ export const sendMessage = mutation({
       .query("friends")
       .filter((q) =>
         q.or(
-          q.and(q.eq("userOneId", String(user._id)), q.eq("userTwoId", String(friendId))),
-          q.and(q.eq("userOneId", String(friendId)), q.eq("userTwoId", String(user._id)))
+          q.and(
+            q.eq("userOneId", String(user._id)),
+            q.eq("userTwoId", String(friendId))
+          ),
+          q.and(
+            q.eq("userOneId", String(friendId)),
+            q.eq("userTwoId", String(user._id))
+          )
         )
       )
       .first();
 
     if (!friendship) throw new Error("sendMessage: friendship not found");
-    if (!friendship.serverId || String(friendship.serverId) !== String(user.serverId)) {
+    if (
+      !friendship.serverId ||
+      String(friendship.serverId) !== String(user.serverId)
+    ) {
       throw new Error("sendMessage: cross-server message denied");
     }
 
     if (friendship.status !== "accepted") {
-        throw new Error("sendMessage: friendship not accepted");
+      throw new Error("sendMessage: friendship not accepted");
     }
 
     const now = new Date().toISOString();
@@ -449,7 +517,7 @@ export const reportUser = mutation({
  */
 export const unfollowUser = mutation({
   args: {
-    friendId: v.id("users"), 
+    friendId: v.id("users"),
   },
   handler: async (ctx, { friendId }) => {
     if (!friendId) {
@@ -525,7 +593,7 @@ export const searchUsers = query({
     }
 
     // Filter out the current user from the search results
-    const filteredUsers = users.filter(user => user._id !== currentUser._id);
+    const filteredUsers = users.filter((user) => user._id !== currentUser._id);
 
     // Limit results for safety
     if (filteredUsers.length > 100) {
@@ -542,129 +610,135 @@ export const searchUsers = query({
 });
 
 export const sendFriendRequest = mutation({
-    args: {
-        friendId: v.id("users"),
-    },
-    handler: async (ctx, { friendId }) => {
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) throw new Error("Not authenticated");
+  args: {
+    friendId: v.id("users"),
+  },
+  handler: async (ctx, { friendId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
 
-        const user = await ctx.db
-            .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-            .unique();
-        if (!user) throw new Error("User not found");
-        if (!user.serverId) throw new Error("User has no server");
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) throw new Error("User not found");
+    if (!user.serverId) throw new Error("User has no server");
 
-        if (user._id === friendId) {
-            throw new Error("Cannot send a friend request to yourself");
-        }
+    if (user._id === friendId) {
+      throw new Error("Cannot send a friend request to yourself");
+    }
 
-        const existingFriendship = await ctx.db
-            .query("friends")
-            .withIndex("by_userOneId_userTwoId", (q) =>
-                q.eq("userOneId", user._id).eq("userTwoId", friendId)
-            )
-            .first();
+    const existingFriendship = await ctx.db
+      .query("friends")
+      .withIndex("by_userOneId_userTwoId", (q) =>
+        q.eq("userOneId", user._id).eq("userTwoId", friendId)
+      )
+      .first();
 
-        const existingReverseFriendship = await ctx.db
-            .query("friends")
-            .withIndex("by_userOneId_userTwoId", (q) =>
-                q.eq("userOneId", friendId).eq("userTwoId", user._id)
-            )
-            .first();
+    const existingReverseFriendship = await ctx.db
+      .query("friends")
+      .withIndex("by_userOneId_userTwoId", (q) =>
+        q.eq("userOneId", friendId).eq("userTwoId", user._id)
+      )
+      .first();
 
-        if (existingFriendship || existingReverseFriendship) {
-            throw new Error("Friend request already sent or you are already friends");
-        }
+    if (existingFriendship || existingReverseFriendship) {
+      throw new Error("Friend request already sent or you are already friends");
+    }
 
-        const friendUser = await ctx.db.get(friendId);
-        if (!friendUser) throw new Error("Friend not found");
-        if (!friendUser.serverId || String(friendUser.serverId) !== String(user.serverId)) {
-          throw new Error("Cross-server friend request denied");
-        }
+    const friendUser = await ctx.db.get(friendId);
+    if (!friendUser) throw new Error("Friend not found");
+    if (
+      !friendUser.serverId ||
+      String(friendUser.serverId) !== String(user.serverId)
+    ) {
+      throw new Error("Cross-server friend request denied");
+    }
 
-        const now = new Date().toISOString();
-        await ctx.db.insert("friends", {
-            serverId: user.serverId,
-            userOneId: user._id,
-            userTwoId: friendId,
-            status: "pending",
-            createdAt: now,
-        });
+    const now = new Date().toISOString();
+    await ctx.db.insert("friends", {
+      serverId: user.serverId,
+      userOneId: user._id,
+      userTwoId: friendId,
+      status: "pending",
+      createdAt: now,
+    });
 
-        return { success: true };
-    },
+    return { success: true };
+  },
 });
 
 export const getPendingFriendRequests = query({
-    args: {},
-    handler: async (ctx) => {
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) throw new Error("Not authenticated");
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
 
-        const user = await ctx.db
-            .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-            .unique();
-        if (!user) throw new Error("User not found");
-        if (!user.serverId) throw new Error("User has no server");
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) throw new Error("User not found");
+    if (!user.serverId) throw new Error("User has no server");
 
-        const pendingRequests = await ctx.db
-            .query("friends")
-            .withIndex("by_server_userTwo_status_timestamp", (q) =>
-                q.eq("serverId", user.serverId).eq("userTwoId", user._id).eq("status", "pending")
-            )
-            .collect();
+    const pendingRequests = await ctx.db
+      .query("friends")
+      .withIndex("by_server_userTwo_status_timestamp", (q) =>
+        q
+          .eq("serverId", user.serverId)
+          .eq("userTwoId", user._id)
+          .eq("status", "pending")
+      )
+      .collect();
 
-        const requesters = await Promise.all(
-            pendingRequests.map((req) => ctx.db.get(req.userOneId))
-        );
+    const requesters = await Promise.all(
+      pendingRequests.map((req) => ctx.db.get(req.userOneId))
+    );
 
-        return pendingRequests.map((req, i) => {
-            const requester = requesters[i];
-            return {
-                ...req,
-                requester: {
-                    id: requester?._id,
-                    name: requester?.name ?? requester?.username ?? "Unknown",
-                    username: requester?.username ?? "",
-                    avatar: requester?.profPicUrl ?? null,
-                },
-            };
-        });
-    },
+    return pendingRequests.map((req, i) => {
+      const requester = requesters[i];
+      return {
+        ...req,
+        requester: {
+          id: requester?._id,
+          name: requester?.name ?? requester?.username ?? "Unknown",
+          username: requester?.username ?? "",
+          avatar: requester?.profPicUrl ?? null,
+        },
+      };
+    });
+  },
 });
 
 export const acceptFriendRequest = mutation({
-    args: {
-        friendshipId: v.id("friends"),
-    },
-    handler: async (ctx, { friendshipId }) => {
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) throw new Error("Not authenticated");
+  args: {
+    friendshipId: v.id("friends"),
+  },
+  handler: async (ctx, { friendshipId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
 
-        const friendship = await ctx.db.get(friendshipId);
-        if (!friendship) throw new Error("Friendship not found");
+    const friendship = await ctx.db.get(friendshipId);
+    if (!friendship) throw new Error("Friendship not found");
 
-        const user = await ctx.db
-            .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-            .unique();
-        if (!user) throw new Error("User not found");
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) throw new Error("User not found");
 
-        if (friendship.userTwoId !== user._id) {
-            throw new Error("You are not the recipient of this friend request");
-        }
+    if (friendship.userTwoId !== user._id) {
+      throw new Error("You are not the recipient of this friend request");
+    }
 
-        if (friendship.status !== "pending") {
-            throw new Error("This friend request is not pending");
-        }
+    if (friendship.status !== "pending") {
+      throw new Error("This friend request is not pending");
+    }
 
-        await ctx.db.patch(friendshipId, {
-            status: "accepted",
-        });
+    await ctx.db.patch(friendshipId, {
+      status: "accepted",
+    });
 
-        return { success: true };
-    },
+    return { success: true };
+  },
 });

@@ -9,13 +9,13 @@ crons.daily(
     hourUTC: 0,
     minuteUTC: 0,
   },
-  internal.users.snapshotAllUsersInternal,
+  internal.users.snapshotAllUsersInternal
 );
 
 crons.interval(
   "cleanupAbandonedBattles",
   { minutes: 5 },
-  internal.battle.cleanupAbandonedBattlesInternal,
+  internal.battle.cleanupAbandonedBattlesInternal
 );
 
 export default crons;

@@ -32,23 +32,38 @@ export const getUserAccount = query({
     const gamesWon = Number(user.gamesWon ?? 0);
     const gamesLost = Number(user.gamesLost ?? 0);
 
-    if (!Number.isFinite(goldCount) || goldCount < 0) throw new Error("Invalid goldCount");
-    if (!Number.isFinite(currentCardCount) || currentCardCount < 0) throw new Error("Invalid currentCardCount");
-    if (!Number.isFinite(gamesPlayed) || gamesPlayed < 0) throw new Error("Invalid gamesPlayed");
-    if (!Number.isFinite(gamesWon) || gamesWon < 0) throw new Error("Invalid gamesWon");
-    if (!Number.isFinite(gamesLost) || gamesLost < 0) throw new Error("Invalid gamesLost");
-    if (gamesWon + gamesLost > gamesPlayed) throw new Error("Invalid game stats");
+    if (!Number.isFinite(goldCount) || goldCount < 0)
+      throw new Error("Invalid goldCount");
+    if (!Number.isFinite(currentCardCount) || currentCardCount < 0)
+      throw new Error("Invalid currentCardCount");
+    if (!Number.isFinite(gamesPlayed) || gamesPlayed < 0)
+      throw new Error("Invalid gamesPlayed");
+    if (!Number.isFinite(gamesWon) || gamesWon < 0)
+      throw new Error("Invalid gamesWon");
+    if (!Number.isFinite(gamesLost) || gamesLost < 0)
+      throw new Error("Invalid gamesLost");
+    if (gamesWon + gamesLost > gamesPlayed)
+      throw new Error("Invalid game stats");
 
     // Build top cards from server-scoped user_cards joined to card_templates
     // Limit to 3 for UI
     const userCards: Doc<"user_cards">[] = await ctx.db
       .query("user_cards")
-      .withIndex("by_server_user", (q) => q.eq("serverId", user.serverId! as Id<"servers">).eq("userId", user._id as Id<"users">))
+      .withIndex("by_server_user", (q) =>
+        q
+          .eq("serverId", user.serverId! as Id<"servers">)
+          .eq("userId", user._id as Id<"users">)
+      )
       .collect();
 
-    const templates: Array<{ uc: Doc<"user_cards">; tmpl: Doc<"card_templates"> | null }> = await Promise.all(
+    const templates: Array<{
+      uc: Doc<"user_cards">;
+      tmpl: Doc<"card_templates"> | null;
+    }> = await Promise.all(
       userCards.slice(0, 100).map(async (uc: Doc<"user_cards">) => {
-        const tmpl = await ctx.db.get(uc.cardTemplateId as Id<"card_templates">);
+        const tmpl = await ctx.db.get(
+          uc.cardTemplateId as Id<"card_templates">
+        );
         return { uc, tmpl };
       })
     );
@@ -81,9 +96,13 @@ export const getUserAccount = query({
     // Listed count migrated to listings table for server-scoped marketplace
     const myListings: Doc<"listings">[] = await ctx.db
       .query("listings")
-      .withIndex("by_server_status", (q) => q.eq("serverId", user.serverId! as Id<"servers">).eq("status", "active"))
+      .withIndex("by_server_status", (q) =>
+        q.eq("serverId", user.serverId! as Id<"servers">).eq("status", "active")
+      )
       .collect();
-    const cardsListed = myListings.filter((l) => String(l.sellerId) === String(user._id)).length;
+    const cardsListed = myListings.filter(
+      (l) => String(l.sellerId) === String(user._id)
+    ).length;
 
     const basePerLevel = 1000;
     const wealth = Math.floor(goldCount / basePerLevel) + 1;
@@ -213,45 +232,59 @@ export const getUserRanks = query({
 
     // Win rate rank (must collect all users)
     const allUsers = await ctx.db.query("users").collect();
-    const strategist = allUsers
-      .map((u) => {
-        const games = u.gamesPlayed ?? 0;
-        const wins = u.gamesWon ?? 0;
-        return {
-          _id: u._id,
-          score: games > 0 ? (wins / games) * 100 : 0,
-        };
-      })
-      .sort((a, b) => b.score - a.score)
-      .findIndex((u) => String(u._id) === String(currentUser._id)) + 1;
+    const strategist =
+      allUsers
+        .map((u) => {
+          const games = u.gamesPlayed ?? 0;
+          const wins = u.gamesWon ?? 0;
+          return {
+            _id: u._id,
+            score: games > 0 ? (wins / games) * 100 : 0,
+          };
+        })
+        .sort((a, b) => b.score - a.score)
+        .findIndex((u) => String(u._id) === String(currentUser._id)) + 1;
 
     // Indexed ranks
     const [goldUsers, cardUsers] = await Promise.all([
-      ctx.db.query("users").withIndex("by_highest_gold_count").order("desc").collect(),
-      ctx.db.query("users").withIndex("by_current_card_count").order("desc").collect(),
+      ctx.db
+        .query("users")
+        .withIndex("by_highest_gold_count")
+        .order("desc")
+        .collect(),
+      ctx.db
+        .query("users")
+        .withIndex("by_current_card_count")
+        .order("desc")
+        .collect(),
     ]);
 
-    const kingMidas = goldUsers.findIndex(u => String(u._id) === String(currentUser._id)) + 1;
-    const cardMaster = cardUsers.findIndex(u => String(u._id) === String(currentUser._id)) + 1;
+    const kingMidas =
+      goldUsers.findIndex((u) => String(u._id) === String(currentUser._id)) + 1;
+    const cardMaster =
+      cardUsers.findIndex((u) => String(u._id) === String(currentUser._id)) + 1;
 
     // Other ranks (must collect)
-    const artisan = allUsers
-      .map(u => ({ _id: u._id, score: u.cardsCreated ?? 0 }))
-      .sort((a, b) => b.score - a.score)
-      .findIndex(u => String(u._id) === String(currentUser._id)) + 1;
+    const artisan =
+      allUsers
+        .map((u) => ({ _id: u._id, score: u.cardsCreated ?? 0 }))
+        .sort((a, b) => b.score - a.score)
+        .findIndex((u) => String(u._id) === String(currentUser._id)) + 1;
 
-    const shopRaider = allUsers
-      .map(u => ({ _id: u._id, score: u.cardsBought ?? 0 }))
-      .sort((a, b) => b.score - a.score)
-      .findIndex(u => String(u._id) === String(currentUser._id)) + 1;
+    const shopRaider =
+      allUsers
+        .map((u) => ({ _id: u._id, score: u.cardsBought ?? 0 }))
+        .sort((a, b) => b.score - a.score)
+        .findIndex((u) => String(u._id) === String(currentUser._id)) + 1;
 
-    const friendly = allUsers
-      .map(u => ({ 
-        _id: u._id, 
-        score: Array.isArray(u.friendIds) ? u.friendIds.length : 0
-      }))
-      .sort((a, b) => b.score - a.score)
-      .findIndex(u => String(u._id) === String(currentUser._id)) + 1;
+    const friendly =
+      allUsers
+        .map((u) => ({
+          _id: u._id,
+          score: Array.isArray(u.friendIds) ? u.friendIds.length : 0,
+        }))
+        .sort((a, b) => b.score - a.score)
+        .findIndex((u) => String(u._id) === String(currentUser._id)) + 1;
 
     return {
       strategist: Math.max(1, strategist),
@@ -290,13 +323,16 @@ export const getTopCardsGlobal = query({
       const matchesTotal = Math.max(0, Number(t.matches?.total ?? 0));
       const wins = Math.max(0, Number(t.matches?.wins ?? 0));
       const winRate = matchesTotal > 0 ? (wins / matchesTotal) * 100 : 0;
-      const normalizedType = ['monster', 'spell', 'trap'].includes(String(t.type ?? '').toLowerCase()) 
-        ? String(t.type).toLowerCase() 
-        : 'monster';
+      const normalizedType = ["monster", "spell", "trap"].includes(
+        String(t.type ?? "").toLowerCase()
+      )
+        ? String(t.type).toLowerCase()
+        : "monster";
 
-      const name = String(t.name ?? '').trim();
-      if (name.length === 0) throw new Error('Invalid card template name');
-      if (!Number.isFinite(matchesTotal) || matchesTotal < 0) throw new Error('Invalid matches count');
+      const name = String(t.name ?? "").trim();
+      if (name.length === 0) throw new Error("Invalid card template name");
+      if (!Number.isFinite(matchesTotal) || matchesTotal < 0)
+        throw new Error("Invalid matches count");
 
       return {
         id: t._id,
@@ -309,7 +345,9 @@ export const getTopCardsGlobal = query({
     });
 
     const sorted = computed
-      .sort((a, b) => metric === "matches" ? b.matches - a.matches : b.winRate - a.winRate)
+      .sort((a, b) =>
+        metric === "matches" ? b.matches - a.matches : b.winRate - a.winRate
+      )
       .slice(0, limit);
 
     return sorted;
@@ -348,12 +386,16 @@ export const getEconomyStats = query({
       "90d": 90 * 24 * 60 * 60 * 1000,
       "1y": 365 * 24 * 60 * 60 * 1000,
     };
-    const cutoff = new Date(now - (millisMap[range] ?? millisMap["30d"])).toISOString();
+    const cutoff = new Date(
+      now - (millisMap[range] ?? millisMap["30d"])
+    ).toISOString();
 
     try {
       const snapshots = await ctx.db
         .query("user_snapshots")
-        .withIndex("by_user_ts", (q: any) => q.eq("userId", clerkId).gte("ts", cutoff))
+        .withIndex("by_user_ts", (q: any) =>
+          q.eq("userId", clerkId).gte("ts", cutoff)
+        )
         .collect()
         .catch(() => []);
 
@@ -399,13 +441,19 @@ export const getEconomyStats = query({
 
     const goldHistory = Array.from({ length: points }, (_, i) => {
       const ts = new Date(now - (points - 1 - i) * 86400000).toISOString();
-      const value = Math.max(0, Math.round(goldNow * (0.6 + 0.4 * (i / (points - 1)))));
+      const value = Math.max(
+        0,
+        Math.round(goldNow * (0.6 + 0.4 * (i / (points - 1))))
+      );
       return { ts, value };
     });
 
     const cardCountHistory = Array.from({ length: points }, (_, i) => {
       const ts = new Date(now - (points - 1 - i) * 86400000).toISOString();
-      const value = Math.max(0, Math.round(cardsNow * (0.6 + 0.4 * (i / (points - 1)))));
+      const value = Math.max(
+        0,
+        Math.round(cardsNow * (0.6 + 0.4 * (i / (points - 1))))
+      );
       return { ts, value };
     });
 
@@ -436,10 +484,14 @@ export const updateUserStats = mutation({
   handler: async (ctx, args) => {
     let targetUser;
     if (args.userId) {
-      targetUser = await ctx.db.query("users").withIndex("by_clerk_id", (q) => q.eq("clerkId", args.userId)).first();
+      targetUser = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.userId))
+        .first();
     } else {
       const identity = await ctx.auth.getUserIdentity();
-      if (!identity?.subject) throw new Error("updateUserStats: unauthenticated");
+      if (!identity?.subject)
+        throw new Error("updateUserStats: unauthenticated");
       targetUser = await ctx.db
         .query("users")
         .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
@@ -448,7 +500,7 @@ export const updateUserStats = mutation({
     if (!targetUser) throw new Error("updateUserStats: user not found");
 
     const patch: Record<string, any> = {
-      lastUpdatedAt: new Date().toISOString()
+      lastUpdatedAt: new Date().toISOString(),
     };
 
     const numericFields: Array<[string, number | undefined]> = [
@@ -461,27 +513,36 @@ export const updateUserStats = mutation({
 
     for (const [field, inc] of numericFields) {
       if (inc === undefined) continue;
-      
+
       if (typeof inc !== "number" || !Number.isFinite(inc)) {
         throw new Error(`updateUserStats: invalid numeric delta for ${field}`);
       }
 
-      const current = Number((targetUser as Record<string, unknown>)[field] ?? 0);
+      const current = Number(
+        (targetUser as Record<string, unknown>)[field] ?? 0
+      );
       const next = Math.max(0, current + inc);
       patch[field] = next;
 
       // Update highest counters
-      if (field === "goldCount" && next > Number(targetUser.highestGoldCount ?? 0)) {
+      if (
+        field === "goldCount" &&
+        next > Number(targetUser.highestGoldCount ?? 0)
+      ) {
         patch.highestGoldCount = next;
       }
-      if (field === "currentCardCount" && next > Number(targetUser.highestCardCount ?? 0)) {
+      if (
+        field === "currentCardCount" &&
+        next > Number(targetUser.highestCardCount ?? 0)
+      ) {
         patch.highestCardCount = next;
       }
     }
 
     await ctx.db.patch(targetUser._id, patch);
     const updated = await ctx.db.get(targetUser._id);
-    if (!updated) throw new Error("updateUserStats: failed to fetch updated user");
+    if (!updated)
+      throw new Error("updateUserStats: failed to fetch updated user");
 
     return { success: true, user: updated };
   },
@@ -511,7 +572,8 @@ export const updateUserGameStats = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity?.subject) throw new Error("updateUserGameStats: unauthenticated");
+    if (!identity?.subject)
+      throw new Error("updateUserGameStats: unauthenticated");
 
     const user = await ctx.db
       .query("users")

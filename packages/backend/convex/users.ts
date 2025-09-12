@@ -1,4 +1,9 @@
-import { internalMutation, mutation, query, type QueryCtx } from "./_generated/server";
+import {
+  internalMutation,
+  mutation,
+  query,
+  type QueryCtx,
+} from "./_generated/server";
 import { v } from "convex/values";
 import { type Id } from "./_generated/dataModel";
 
@@ -61,14 +66,14 @@ export const current = query({
     if (!Array.isArray(mail)) throw new Error("current: mail not array");
     const unreadMailCount = mail.filter((m) => m.isRead === false).length;
 
-    // Fetch messages sent by user (limit 1000 for safety)
+    // Fetch messages sent by user (limit 100 for safety)
     const messages = await ctx.db
       .query("messages")
       .filter((q) => q.eq("senderId", String(user._id)))
       .collect();
     if (!Array.isArray(messages))
       throw new Error("current: messages not array");
-    const messagesSentCount = messages.length > 1000 ? 1000 : messages.length;
+    const messagesSentCount = messages.length > 100 ? 100 : messages.length;
 
     return {
       _id: user._id,
@@ -97,33 +102,8 @@ export const current = query({
   },
 });
 
-/**
- * @description
- * Helper function to setup initial 10 random cards for new users
- *
- * @receives data from:
- * - New user document
- *
- * @sends data to:
- * - users table: updated user with 10 cards in inventory
- * - cards table: 10 cards marked as owned by user
- *
- * @sideEffects:
- * - Assigns 10 random unowned cards to user
- * - Updates user stats and card ownership
- */
 // Removed legacy: setupInitialCards (inventory/cards ownership)
 
-/**
- * Select starter cards using a balanced distribution per type.
- *
- * Distribution target (default): 5 monster, 3 trap, 2 spell (total 10).
- * If a type is short, we fill from other types (favor monster, then whichever has most surplus).
- * All loops have fixed caps based on the target distribution to avoid infinite loops.
- *
- * NOTE: Once the pre-seeded pool is depleted, newly uploaded cards via workshop
- * will be used as the source of unowned cards as they appear in the database.
- */
 // Removed legacy: selectStarterCardsBalanced (inventory/cards ownership)
 
 /**
@@ -178,17 +158,17 @@ export const upsertFromClerk = mutation({
     };
 
     const user = await userByExternalId(ctx, data.clerkId);
-    
-    // Debug logging
-    console.log(`upsertFromClerk: Looking for user with clerkId: ${data.clerkId}`);
-    console.log(`upsertFromClerk: Found user:`, user ? "YES" : "NO");
 
     // Defensive: legacy inventory retained as empty array, but not used further
-    if (!Array.isArray(userAttributes.inventory)) throw new Error("upsertFromClerk: inventory must be an array");
-    if (userAttributes.inventory.some((id) => typeof id !== "string")) throw new Error("upsertFromClerk: all inventory items must be strings");
+    if (!Array.isArray(userAttributes.inventory))
+      throw new Error("upsertFromClerk: inventory must be an array");
+    if (userAttributes.inventory.some((id) => typeof id !== "string"))
+      throw new Error("upsertFromClerk: all inventory items must be strings");
 
     if (user === null) {
-      console.log(`upsertFromClerk: Creating NEW user for clerkId: ${data.clerkId}`);
+      console.log(
+        `upsertFromClerk: Creating NEW user for clerkId: ${data.clerkId}`
+      );
       const newUserId = await ctx.db.insert("users", {
         ...userAttributes,
         currentCardCount: 0,
@@ -197,7 +177,9 @@ export const upsertFromClerk = mutation({
       });
       return { userId: newUserId, isNewUser: true };
     } else {
-      console.log(`upsertFromClerk: Updating EXISTING user for clerkId: ${data.clerkId}`);
+      console.log(
+        `upsertFromClerk: Updating EXISTING user for clerkId: ${data.clerkId}`
+      );
       await ctx.db.patch(user._id, {
         ...userAttributes,
         inventory: user.inventory ?? [],
@@ -344,36 +326,8 @@ async function userByExternalId(ctx: QueryCtx, clerkId: string) {
   return user;
 }
 
-/**
- * @description
- * Mutation to add a card ID to a user's inventory.
- *
- * @receives data from:
- * - client: userId (Clerk ID) and cardId (Convex ID)
- *
- * @sends data to:
- * - users table: updated user document with new card in inventory
- *
- * @sideEffects:
- * - Adds cardId to user's inventory array
- * - Increments currentCardCount and cardsCreated for the user
- */
 // Removed legacy: addCardToInventory
 
-/**
- * @description
- * Mutation to remove a card ID from a user's inventory.
- *
- * @receives data from:
- * - client: userId (Clerk ID) and cardId (Convex ID)
- *
- * @sends data to:
- * - users table: updated user document with card removed from inventory
- *
- * @sideEffects:
- * - Removes cardId from user's inventory array
- * - Decrements currentCardCount for the user
- */
 // Removed legacy: removeCardFromInventory
 
 export const updateProfPicUrl = mutation({
@@ -384,11 +338,15 @@ export const updateProfPicUrl = mutation({
   handler: async (ctx, { userId, profPicUrl }) => {
     // Basic runtime validations
     if (typeof profPicUrl !== "string" || profPicUrl.length === 0) {
-      throw new Error("updateProfPicUrl: profPicUrl must be a non-empty string");
+      throw new Error(
+        "updateProfPicUrl: profPicUrl must be a non-empty string"
+      );
     }
     // Enforce path under assets/profile/
     if (!profPicUrl.startsWith("assets/profile/")) {
-      throw new Error("updateProfPicUrl: profPicUrl must start with assets/profile/");
+      throw new Error(
+        "updateProfPicUrl: profPicUrl must start with assets/profile/"
+      );
     }
 
     const user = await userByExternalId(ctx, userId);
@@ -404,10 +362,10 @@ export const markShowcaseCompleted = mutation({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("markShowcaseCompleted: Not authenticated");
-    
+
     const user = await userByExternalId(ctx, identity.subject);
     if (!user) throw new Error("markShowcaseCompleted: User not found");
-    
+
     await ctx.db.patch(user._id, { hasSeenShowcase: true });
     return { success: true };
   },
@@ -438,13 +396,15 @@ export const assignServerOnFirstAuth = mutation({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity?.subject) throw new Error("assignServerOnFirstAuth: Not authenticated");
+    if (!identity?.subject)
+      throw new Error("assignServerOnFirstAuth: Not authenticated");
 
     const user = await userByExternalId(ctx, identity.subject);
     if (!user) throw new Error("assignServerOnFirstAuth: User not found");
 
     // If already assigned, no-op
-    if (user.serverId) return { serverId: user.serverId, alreadyAssigned: true };
+    if (user.serverId)
+      return { serverId: user.serverId, alreadyAssigned: true };
 
     // Find the least-full active server
     let server = await ctx.db
@@ -454,7 +414,11 @@ export const assignServerOnFirstAuth = mutation({
       .first();
 
     // Create a new server if none or full
-    if (!server || typeof server.capacity !== "number" || server.memberCount >= server.capacity) {
+    if (
+      !server ||
+      typeof server.capacity !== "number" ||
+      server.memberCount >= server.capacity
+    ) {
       const activeCount = await ctx.db
         .query("servers")
         .withIndex("by_status_createdAt", (q) => q.eq("status", "active"))
@@ -470,7 +434,8 @@ export const assignServerOnFirstAuth = mutation({
       server = await ctx.db.get(serverId);
     }
 
-    if (!server) throw new Error("assignServerOnFirstAuth: Failed to resolve server");
+    if (!server)
+      throw new Error("assignServerOnFirstAuth: Failed to resolve server");
     const nextCount = (server.memberCount ?? 0) + 1;
     if (!Number.isFinite(nextCount) || nextCount < 1) {
       throw new Error("assignServerOnFirstAuth: Invalid memberCount increment");

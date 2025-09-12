@@ -400,6 +400,7 @@ export const createBattle = mutation({
     const templates = await Promise.all(userCards.map(uc => ctx.db.get(uc.cardTemplateId as Id<"card_templates">)));
     const initialHand = templates
       .filter((t): t is Doc<"card_templates"> => !!t)
+      .filter((t) => t.isBattleEligible !== false)
       .slice(0, MAX_HAND_SIZE)
       .map((t) => ({
         id: String(t._id),
@@ -490,6 +491,7 @@ export const joinBattle = mutation({
     const templates = await Promise.all(userCards.map(uc => ctx.db.get(uc.cardTemplateId as Id<"card_templates">)));
     const initialHand = templates
       .filter((t): t is Doc<"card_templates"> => !!t)
+      .filter((t) => t.isBattleEligible !== false)
       .slice(0, MAX_HAND_SIZE)
       .map((t) => ({
         id: String(t._id),

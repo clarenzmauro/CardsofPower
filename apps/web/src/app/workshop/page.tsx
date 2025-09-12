@@ -3,12 +3,12 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useMutation } from "convex/react";
-import { useUser } from "@clerk/nextjs";
 import { api } from "@cards-of-power/backend/convex/_generated/api";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+
 
 export default function Workshop() {
-  const { user } = useUser();
 
   interface CardFormData {
     name: string;
@@ -168,8 +168,8 @@ export default function Workshop() {
         grantToCreator: true,
       });
 
-      if (!created?.templateId) throw new Error("Template creation failed");
-      alert("Card template created successfully and added to your server inventory!");
+      if (!created?.templateId) throw new Error("Card creation failed");
+      toast.success("Card created successfully and added to your inventory!");
       
       // Reset form after successful creation
       setFormData({

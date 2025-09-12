@@ -29,5 +29,3 @@ export const snapshotAllUsersInternal = internalMutation({
     return { success: true, count: users.length, ts: nowIso };
   },
 });
-
-

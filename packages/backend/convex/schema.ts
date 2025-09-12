@@ -9,7 +9,7 @@ export default defineSchema({
     status: v.union(v.literal("active"), v.literal("archived")),
     createdAt: v.string(),
   })
-    .index("by_status_memberCount", ["status", "memberCount"]) 
+    .index("by_status_memberCount", ["status", "memberCount"])
     .index("by_status_createdAt", ["status", "createdAt"]),
 
   // Card templates are global definitions, not owned by users
@@ -51,12 +51,14 @@ export default defineSchema({
         local: v.number(),
       })
     ),
+    // Eligibility flags
+    isBattleEligible: v.optional(v.boolean()),
   })
-    .index("by_type", ["type"]) 
-    .index("by_name_type", ["name", "type"]) 
-    .index("by_attribute", ["attribute"]) 
-    .index("by_class", ["class"]) 
-    .index("by_character", ["character"]) 
+    .index("by_type", ["type"])
+    .index("by_name_type", ["name", "type"])
+    .index("by_attribute", ["attribute"])
+    .index("by_class", ["class"])
+    .index("by_character", ["character"])
     .index("by_level", ["level"]),
 
   // Per-user ownership of card templates, scoped to a server
@@ -67,8 +69,8 @@ export default defineSchema({
     quantity: v.number(),
     acquiredAt: v.string(),
   })
-    .index("by_user", ["userId"]) 
-    .index("by_server_user", ["serverId", "userId"]) 
+    .index("by_user", ["userId"])
+    .index("by_server_user", ["serverId", "userId"])
     .index("by_template", ["cardTemplateId"]),
 
   // Server-scoped listings for marketplace transactions
@@ -84,9 +86,9 @@ export default defineSchema({
     ),
     createdAt: v.string(),
   })
-    .index("by_server_createdAt", ["serverId", "createdAt"]) 
-    .index("by_server_status", ["serverId", "status"]) 
-    .index("by_seller_status", ["sellerId", "status"]) 
+    .index("by_server_createdAt", ["serverId", "createdAt"])
+    .index("by_server_status", ["serverId", "status"])
+    .index("by_seller_status", ["sellerId", "status"])
     .index("by_userCard_status", ["userCardId", "status"]),
 
   cards: defineTable({
@@ -220,7 +222,7 @@ export default defineSchema({
     isSystem: v.optional(v.boolean()),
   })
     .index("by_recipientId_sentAt", ["recipientId", "sentAt"])
-    .index("by_isSystem_sentAt", ["isSystem", "sentAt"]) 
+    .index("by_isSystem_sentAt", ["isSystem", "sentAt"])
     .index("by_server_sentAt", ["serverId", "sentAt"]),
 
   messages: defineTable({
@@ -232,8 +234,12 @@ export default defineSchema({
     isSystem: v.optional(v.boolean()),
     isRead: v.optional(v.boolean()),
   })
-    .index("by_conversationId_timestamp", ["conversationId", "timestamp"]) 
-    .index("by_server_conversation_timestamp", ["serverId", "conversationId", "timestamp"]),
+    .index("by_conversationId_timestamp", ["conversationId", "timestamp"])
+    .index("by_server_conversation_timestamp", [
+      "serverId",
+      "conversationId",
+      "timestamp",
+    ]),
   trades: defineTable({
     serverId: v.id("servers"),
     offerorId: v.id("users"),
@@ -250,20 +256,23 @@ export default defineSchema({
     .index("by_offeror_status", ["offerorId", "status"])
     .index("by_receiver_status", ["receiverId", "status"])
     .index("by_offeror_receiver", ["offerorId", "receiverId"])
-    .index("by_createdAt", ["createdAt"]) 
-    .index("by_server_status", ["serverId", "status"]) 
+    .index("by_createdAt", ["createdAt"])
+    .index("by_server_status", ["serverId", "status"])
     .index("by_server_createdAt", ["serverId", "createdAt"]),
   user_snapshots: defineTable({
     userId: v.string(),
     ts: v.string(),
     goldCount: v.number(),
     currentCardCount: v.number(),
-  })
-    .index("by_user_ts", ["userId", "ts"]),
+  }).index("by_user_ts", ["userId", "ts"]),
 
   battles: defineTable({
     serverId: v.optional(v.id("servers")),
-    status: v.union(v.literal("waiting"), v.literal("active"), v.literal("completed")),
+    status: v.union(
+      v.literal("waiting"),
+      v.literal("active"),
+      v.literal("completed")
+    ),
     createdAt: v.string(),
     lastActionAt: v.string(),
     lastActionIdempotencyKey: v.optional(v.string()),
@@ -291,59 +300,99 @@ export default defineSchema({
       name: v.string(),
       hp: v.number(),
       maxHp: v.number(),
-      hand: v.array(v.object({
-        id: v.string(),
-        name: v.string(),
-        type: v.union(v.literal("monster"), v.literal("spell"), v.literal("trap")),
-        image: v.optional(v.string()),
-      })),
-      field: v.array(v.union(
-        v.null(),
+      hand: v.array(
         v.object({
           id: v.string(),
           name: v.string(),
-          type: v.union(v.literal("monster"), v.literal("spell"), v.literal("trap")),
+          type: v.union(
+            v.literal("monster"),
+            v.literal("spell"),
+            v.literal("trap")
+          ),
           image: v.optional(v.string()),
-          position: v.optional(v.union(v.literal("attack"), v.literal("defense"))),
         })
-      )),
-      graveyard: v.array(v.object({
-        id: v.string(),
-        name: v.string(),
-        type: v.union(v.literal("monster"), v.literal("spell"), v.literal("trap")),
-        image: v.optional(v.string()),
-      })),
+      ),
+      field: v.array(
+        v.union(
+          v.null(),
+          v.object({
+            id: v.string(),
+            name: v.string(),
+            type: v.union(
+              v.literal("monster"),
+              v.literal("spell"),
+              v.literal("trap")
+            ),
+            image: v.optional(v.string()),
+            position: v.optional(
+              v.union(v.literal("attack"), v.literal("defense"))
+            ),
+          })
+        )
+      ),
+      graveyard: v.array(
+        v.object({
+          id: v.string(),
+          name: v.string(),
+          type: v.union(
+            v.literal("monster"),
+            v.literal("spell"),
+            v.literal("trap")
+          ),
+          image: v.optional(v.string()),
+        })
+      ),
     }),
     playerB: v.object({
       userId: v.id("users"),
       name: v.string(),
       hp: v.number(),
       maxHp: v.number(),
-      hand: v.array(v.object({
-        id: v.string(),
-        name: v.string(),
-        type: v.union(v.literal("monster"), v.literal("spell"), v.literal("trap")),
-        image: v.optional(v.string()),
-      })),
-      field: v.array(v.union(
-        v.null(),
+      hand: v.array(
         v.object({
           id: v.string(),
           name: v.string(),
-          type: v.union(v.literal("monster"), v.literal("spell"), v.literal("trap")),
+          type: v.union(
+            v.literal("monster"),
+            v.literal("spell"),
+            v.literal("trap")
+          ),
           image: v.optional(v.string()),
-          position: v.optional(v.union(v.literal("attack"), v.literal("defense"))),
         })
-      )),
-      graveyard: v.array(v.object({
-        id: v.string(),
-        name: v.string(),
-        type: v.union(v.literal("monster"), v.literal("spell"), v.literal("trap")),
-        image: v.optional(v.string()),
-      })),
+      ),
+      field: v.array(
+        v.union(
+          v.null(),
+          v.object({
+            id: v.string(),
+            name: v.string(),
+            type: v.union(
+              v.literal("monster"),
+              v.literal("spell"),
+              v.literal("trap")
+            ),
+            image: v.optional(v.string()),
+            position: v.optional(
+              v.union(v.literal("attack"), v.literal("defense"))
+            ),
+          })
+        )
+      ),
+      graveyard: v.array(
+        v.object({
+          id: v.string(),
+          name: v.string(),
+          type: v.union(
+            v.literal("monster"),
+            v.literal("spell"),
+            v.literal("trap")
+          ),
+          image: v.optional(v.string()),
+        })
+      ),
     }),
   })
-    .index("by_status_createdAt", ["status", "createdAt"]) 
+    .index("by_status_createdAt", ["status", "createdAt"])
     .index("by_server_status_createdAt", ["serverId", "status", "createdAt"])
     .index("by_hostId_status", ["hostId", "status"])
     .index("by_opponentId_status", ["opponentId", "status"]),
@@ -351,8 +400,7 @@ export default defineSchema({
   presence: defineTable({
     user: v.id("users"),
     updatedAt: v.string(),
-  })
-    .index("by_user", ["user"]),
+  }).index("by_user", ["user"]),
 
   // Workshop submissions: raw uploads and metadata captured from the Workshop UI
   workshop_cards: defineTable({
@@ -373,7 +421,16 @@ export default defineSchema({
     createdAt: v.string(),
     templateId: v.optional(v.id("card_templates")),
   })
-    .index("by_uploader", ["uploaderId"]) 
-    .index("by_server_createdAt", ["serverId", "createdAt"]) 
+    .index("by_uploader", ["uploaderId"])
+    .index("by_server_createdAt", ["serverId", "createdAt"])
     .index("by_name_type", ["name", "type"]),
+
+  // Migration backups to ensure no data is lost
+  migration_backups: defineTable({
+    tableName: v.string(),
+    documentId: v.string(),
+    snapshotJson: v.string(),
+    removedJson: v.string(),
+    ts: v.string(),
+  }).index("by_table_doc_ts", ["tableName", "documentId", "ts"]),
 });
