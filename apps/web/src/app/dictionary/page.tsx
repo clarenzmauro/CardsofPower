@@ -50,14 +50,14 @@ export default function DictionaryPage() {
   const [selectedCard, setSelectedCard] = useState<CardTemplate | null>(null);
 
   // fetch data from convex (server-scoped)
-  const freshCards = useQuery(api.cards.getAllTemplates);
+  const dictData = useQuery(api.cards.getDictionaryTemplates);
   const freshUserInventory = useQuery(api.cards.getMyUserCards);
   const freshUserData = useQuery(api.users.current);
 
   // cache data with TTL
-  const { cachedData: cachedCards, isCacheLoaded: cardsCacheLoaded } =
-    useDataCache(freshCards, { key: "cards_all", ttl: 8 * 60 * 60 * 1000 }, [
-      freshCards,
+  const { cachedData: cachedDict, isCacheLoaded: dictCacheLoaded } =
+    useDataCache(dictData, { key: "dictionary_templates", ttl: 8 * 60 * 60 * 1000 }, [
+      dictData,
     ]);
 
   const { cachedData: cachedUserInventory } = useDataCache(
@@ -74,7 +74,14 @@ export default function DictionaryPage() {
     );
 
   // prefer cached data, fall back to fresh data
-  const cards: CardTemplate[] = (cachedCards || freshCards) as any;
+  const dict = (cachedDict || dictData) as { globalTemplates: CardTemplate[]; serverWorkshopTemplates: CardTemplate[] } | undefined;
+  const cards: CardTemplate[] = (() => {
+    if (!dict) return [];
+    const map = new Map<string, CardTemplate>();
+    for (const t of dict.globalTemplates ?? []) map.set(String(t._id), t);
+    for (const t of dict.serverWorkshopTemplates ?? []) map.set(String(t._id), t);
+    return Array.from(map.values());
+  })();
   const userInventory: any[] = (cachedUserInventory || freshUserInventory) as any;
   const userData = cachedUserData || freshUserData;
 
@@ -157,7 +164,7 @@ export default function DictionaryPage() {
   // manage loading state
   const isLoading = useMemo(() => {
     // check data (cache is prioritized)
-    const hasCardData = cachedCards !== undefined || freshCards !== undefined;
+    const hasCardData = cachedDict !== undefined || dictData !== undefined;
     const hasInventoryData =
       cachedUserInventory !== undefined || freshUserInventory !== undefined;
     const hasUserData =
@@ -166,8 +173,8 @@ export default function DictionaryPage() {
     // only load if there's missing data
     return !(hasCardData && hasInventoryData && hasUserData);
   }, [
-    cachedCards,
-    freshCards,
+    cachedDict,
+    dictData,
     cachedUserInventory,
     freshUserInventory,
     cachedUserData,
@@ -218,7 +225,7 @@ export default function DictionaryPage() {
             ></div>
           </div>
           <div className="text-lg opacity-90">
-            {cachedCards && cardsCacheLoaded ? (
+            {cachedDict && dictCacheLoaded ? (
               <p>Loading latest data...</p>
             ) : (
               <p>Please wait...</p>

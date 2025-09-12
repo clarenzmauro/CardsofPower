@@ -145,6 +145,65 @@ export const getAllTemplates = query({
   },
 });
 
+// Dictionary templates: global templates + server-scoped workshop templates
+export const getDictionaryTemplates = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.subject) throw new Error("getDictionaryTemplates: unauthenticated");
+    const me = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!me) throw new Error("getDictionaryTemplates: user not found");
+
+    // Global templates (not server-scoped)
+    const globalTemplates = await ctx.db
+      .query("card_templates")
+      .order("desc")
+      .take(500);
+
+    // Server-scoped workshop templates: find workshop_cards on my server, expand to templates
+    let serverWorkshopTemplates: Array<Doc<"card_templates">> = [];
+    if (me.serverId) {
+      const workshop = await ctx.db
+        .query("workshop_cards")
+        .withIndex("by_server_createdAt", (q) => q.eq("serverId", me.serverId))
+        .take(500);
+      const templateIds = Array.from(new Set(
+        workshop
+          .map((w) => w.templateId)
+          .filter((id): id is Id<"card_templates"> => !!id)
+          .map((id) => String(id))
+      ));
+
+      if (templateIds.length > 0) {
+        const fetched: Array<Doc<"card_templates"> | null> = await Promise.all(
+          templateIds.map(async (tidStr) => ctx.db.get(tidStr as unknown as Id<"card_templates">))
+        );
+        serverWorkshopTemplates = fetched.filter((t): t is Doc<"card_templates"> => !!t);
+      }
+    }
+
+    const mapOut = (t: Doc<"card_templates">) => ({
+      _id: t._id,
+      name: t.name,
+      type: t.type,
+      description: t.description ?? "",
+      imageUrl: t.imageUrl,
+      atkPts: t.atkPts ?? 0,
+      defPts: t.defPts ?? 0,
+      attribute: t.attribute ?? null,
+      level: t.level ?? null,
+    });
+
+    return {
+      globalTemplates: globalTemplates.map(mapOut),
+      serverWorkshopTemplates: serverWorkshopTemplates.map(mapOut),
+    };
+  },
+});
+
 export const getMyUserCards = query({
   args: {},
   handler: async (ctx) => {
