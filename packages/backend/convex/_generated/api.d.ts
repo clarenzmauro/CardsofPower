@@ -16,6 +16,7 @@ import type * as effects_cardEffects from "../effects/cardEffects.js";
 import type * as friends from "../friends.js";
 import type * as http from "../http.js";
 import type * as mails from "../mails.js";
+import type * as migrations from "../migrations.js";
 import type * as privateData from "../privateData.js";
 import type * as snapshots from "../snapshots.js";
 import type * as storage from "../storage.js";
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   friends: typeof friends;
   http: typeof http;
   mails: typeof mails;
+  migrations: typeof migrations;
   privateData: typeof privateData;
   snapshots: typeof snapshots;
   storage: typeof storage;

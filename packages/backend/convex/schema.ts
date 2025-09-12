@@ -53,6 +53,7 @@ export default defineSchema({
     ),
   })
     .index("by_type", ["type"]) 
+    .index("by_name_type", ["name", "type"]) 
     .index("by_attribute", ["attribute"]) 
     .index("by_class", ["class"]) 
     .index("by_character", ["character"]) 
