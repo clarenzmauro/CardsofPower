@@ -137,31 +137,7 @@ export const getUserInventory = query({
  * @sideEffects:
  * - updates card ownership in database
  */
-export const updateOwnership = mutation({
-    args: {
-        cardId: v.string(),
-        isOwned: v.boolean(),
-        ownerId: v.optional(v.string()),
-        ownerUsername: v.optional(v.string())
-    },
-    handler: async (ctx: any, args: any) => {
-        const cardId = args.cardId as any;
-        
-        const card = await ctx.db.get(cardId);
-        
-        if (!card) {
-            throw new Error("updateOwnership: card not found");
-        }
-        
-        await ctx.db.patch(cardId, {
-            isOwned: args.isOwned,
-            currentOwnerId: args.ownerId,
-            currentOwnerUsername: args.ownerUsername,
-        });
-        
-        return { success: true };
-    },
-});
+// Legacy ownership mutation removed in V2
 
 // comment these out if you want to remove uploading cards easily
 /**
@@ -331,127 +307,9 @@ const filterCards = (cards: any[], args: any, currentUserId: string) => {
     return filteredCards.slice(0, 100); // Safety limit
 };
 
-export const getListings = query({
-  args: {
-    scope: ListingsScope,
-    searchQuery: v.optional(v.string()),
-    minPrice: v.optional(v.number()),
-    maxPrice: v.optional(v.number()),
-    currentUserId: v.string(),
-  },
-  handler: async (ctx, args) => {
-    let cards: any[] = [];
-    const me = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", args.currentUserId))
-      .unique();
-    if (!me?.serverId) return [];
+// Legacy listings query removed in V2
 
-    if (args.scope === "shop") {
-      cards = await ctx.db
-        .query("cards")
-        .withIndex("by_is_listed_market_value", (q) =>
-          q
-            .eq("isListed", true)
-            .gte("marketValue", args.minPrice ?? 0)
-            .lte("marketValue", args.maxPrice ?? Number.MAX_SAFE_INTEGER)
-        )
-        .collect();
-      cards = cards.filter((card) => card.currentOwnerId !== args.currentUserId);
-      // Server scoping: only show listings from same server
-      const sellerIds = [...new Set(cards.map((c) => c.currentOwnerId).filter(Boolean))];
-      const sellers = await Promise.all(
-        sellerIds.map((cid) => ctx.db.query("users").withIndex("byExternalId", (q: any) => q.eq("externalId", String(cid))).unique())
-      );
-      const sameServerSellerIds = new Set(
-        sellers.filter((u: any) => u?.serverId && String(u.serverId) === String(me.serverId)).map((u: any) => String(u.clerkId ?? u.externalId))
-      );
-      cards = cards.filter((c) => sameServerSellerIds.has(String(c.currentOwnerId)));
-    } else if (args.scope === "trade") {
-      cards = await ctx.db
-        .query("cards")
-        .withIndex("by_is_for_trade_market_value", (q) =>
-          q
-            .eq("isForTrade", true)
-            .gte("marketValue", args.minPrice ?? 0)
-            .lte("marketValue", args.maxPrice ?? Number.MAX_SAFE_INTEGER)
-        )
-        .collect();
-      cards = cards.filter((card) => card.currentOwnerId !== args.currentUserId);
-      const sellerIds = [...new Set(cards.map((c) => c.currentOwnerId).filter(Boolean))];
-      const sellers = await Promise.all(
-        sellerIds.map((cid) => ctx.db.query("users").withIndex("byExternalId", (q: any) => q.eq("externalId", String(cid))).unique())
-      );
-      const sameServerSellerIds = new Set(
-        sellers.filter((u: any) => u?.serverId && String(u.serverId) === String(me.serverId)).map((u: any) => String(u.clerkId ?? u.externalId))
-      );
-      cards = cards.filter((c) => sameServerSellerIds.has(String(c.currentOwnerId)));
-    } else if (args.scope === "mine") {
-      cards = await ctx.db
-        .query("cards")
-        .withIndex("by_owner", (q) =>
-          q.eq("currentOwnerId", args.currentUserId)
-        )
-        .collect();
-      cards = cards.filter((card) => card.isListed);
-    } else if (args.scope === "my-trade") {
-      cards = await ctx.db
-        .query("cards")
-        .withIndex("by_owner", (q) =>
-          q.eq("currentOwnerId", args.currentUserId)
-        )
-        .collect();
-      cards = cards.filter((card) => card.isForTrade === true);
-    }
-
-    if (!Array.isArray(cards)) throw new Error("getListings: cards must be an array");
-
-    return filterCards(cards, args, args.currentUserId);
-  },
-});
-
-export const setListingStatus = mutation({
-  args: {
-    cardId: v.id("cards"),
-    mode: v.union(v.literal("sale"), v.literal("trade"), v.literal("unlist")),
-    price: v.optional(v.number()),
-    ownerId: v.string(),
-  },
-  handler: async (ctx, { cardId, mode, price, ownerId }) => {
-    const card = await ctx.db.get(cardId);
-    if (!card) throw new Error("setListingStatus: Card not found");
-    if (card.currentOwnerId !== ownerId) {
-      throw new Error("setListingStatus: Not card owner");
-    }
-
-    let isListed = false;
-    let isForTrade = false;
-    let marketValue: number | undefined;
-
-    if (mode === "sale") {
-      if (price === undefined || price <= 0) throw new Error("setListingStatus: Invalid price for sale");
-      isListed = true;
-      marketValue = price;
-      isForTrade = false;
-    } else if (mode === "trade") {
-      isForTrade = true;
-      isListed = false;
-      marketValue = undefined;
-    } else if (mode === "unlist") {
-      isListed = false;
-      marketValue = undefined;
-      isForTrade = false;
-    }
-
-    await ctx.db.patch(cardId, {
-      isListed,
-      marketValue,
-      isForTrade,
-    });
-
-    return { success: true };
-  },
-});
+// Legacy setListingStatus removed in V2
 
 // V2 helpers for frontend
 export const getAllTemplates = query({
@@ -553,62 +411,7 @@ const userByExternalId = async (ctx: any, externalId: string) => {
   return user;
 };
 
-export const purchaseCard = mutation({
-  args: {
-    cardId: v.id("cards"),
-  },
-  handler: async (ctx, { cardId }) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("purchaseCard: Not authenticated");
-    const buyerId = identity.subject;
-
-    const card = await ctx.db.get(cardId);
-    if (!card) throw new Error("purchaseCard: Card not found");
-    if (!card.isListed) throw new Error("purchaseCard: Card not listed");
-    if (card.currentOwnerId === buyerId) throw new Error("purchaseCard: Cannot buy your own card");
-
-    const [buyer, seller] = await Promise.all([
-      userByExternalId(ctx, buyerId),
-      userByExternalId(ctx, card.currentOwnerId ?? "")
-    ]);
-
-    if (!buyer || !seller) throw new Error("purchaseCard: User not found");
-    if (!buyer.serverId || !seller.serverId || String(buyer.serverId) !== String(seller.serverId)) {
-      throw new Error("purchaseCard: cross-server purchase denied");
-    }
-    if (buyer.goldCount < (card.marketValue ?? 0)) throw new Error("purchaseCard: Insufficient funds");
-
-    const price = card.marketValue ?? 0;
-    const buyerInventory = Array.isArray(buyer.inventory) ? buyer.inventory : [];
-    const sellerInventory = Array.isArray(seller.inventory) ? seller.inventory : [];
-
-    await Promise.all([
-      ctx.db.patch(buyer._id, {
-        goldCount: buyer.goldCount - price,
-        highestGoldCount: Math.max(buyer.highestGoldCount, buyer.goldCount - price),
-        inventory: [...buyerInventory, cardId],
-        currentCardCount: buyer.currentCardCount + 1,
-        highestCardCount: Math.max(buyer.highestCardCount, buyer.currentCardCount + 1),
-        cardsBought: buyer.cardsBought + 1,
-      }),
-      ctx.db.patch(seller._id, {
-        goldCount: seller.goldCount + price,
-        highestGoldCount: Math.max(seller.highestGoldCount, seller.goldCount + price),
-        inventory: sellerInventory.filter((id: string) => id !== cardId),
-        currentCardCount: seller.currentCardCount - 1,
-        cardsSold: (seller.cardsSold ?? 0) + 1,
-      }),
-      ctx.db.patch(cardId, {
-        isListed: false,
-        currentOwnerId: buyerId,
-        currentOwnerUsername: buyer.username,
-        boughtFor: price,
-      })
-    ]);
-
-    return { success: true };
-  },
-});
+// Legacy purchaseCard removed in V2
 
 // V2: Server-scoped marketplace using listings/user_cards/card_templates
 export const getServerListingsV2 = query({

@@ -107,17 +107,7 @@ export default defineSchema({
     character: v.optional(v.string()),
     level: v.optional(v.number()),
 
-    // Ownership & Market
-    isOwned: v.boolean(),
-    isListed: v.optional(v.boolean()),
-    isForTrade: v.optional(v.boolean()),
-    currentOwnerId: v.optional(v.string()),
-    currentOwnerUsername: v.optional(v.string()),
-    boughtFor: v.optional(v.number()),
-    marketValue: v.optional(v.number()),
-    marketCount: v.optional(v.number()),
-    roi: v.optional(v.number()),
-    passCount: v.optional(v.number()),
+    // Ownership & Market (removed in V2)
 
     // Statistics
     matches: v.optional(
@@ -143,10 +133,7 @@ export default defineSchema({
     .index("by_attribute", ["attribute"])
     .index("by_class", ["class"])
     .index("by_character", ["character"])
-    .index("by_level", ["level"])
-    .index("by_owner", ["currentOwnerId"])
-    .index("by_is_listed_market_value", ["isListed", "marketValue"])
-    .index("by_is_for_trade_market_value", ["isForTrade", "marketValue"]),
+    .index("by_level", ["level"]),
 
   users: defineTable({
     name: v.optional(v.string()),
