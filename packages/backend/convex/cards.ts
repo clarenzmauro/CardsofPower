@@ -111,9 +111,7 @@ export const getUserInventory = query({
         if (user.inventory.length === 0) return [];
         
         const cards = await Promise.all(
-            user.inventory.map(async (cardId: any) => {
-                return await ctx.db.get(cardId);
-            })
+            user.inventory.map(async (cardId: string) => ctx.db.get(cardId as unknown as Id<"cards">))
         );
 
         // Filter out any null results and ensure all cards exist
@@ -452,6 +450,71 @@ export const setListingStatus = mutation({
     });
 
     return { success: true };
+  },
+});
+
+// V2 helpers for frontend
+export const getAllTemplates = query({
+  args: {},
+  handler: async (ctx) => {
+    const templates = await ctx.db
+      .query("card_templates")
+      .order("desc")
+      .take(500);
+    return templates.map((t) => ({
+      _id: t._id,
+      name: t.name,
+      type: t.type,
+      description: t.description ?? "",
+      imageUrl: t.imageUrl,
+      atkPts: t.atkPts ?? 0,
+      defPts: t.defPts ?? 0,
+      attribute: t.attribute ?? null,
+      level: t.level ?? null,
+    }));
+  },
+});
+
+export const getMyUserCards = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.subject) throw new Error("getMyUserCards: unauthenticated");
+
+    const me = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!me?.serverId) return [];
+
+    const userCards = await ctx.db
+      .query("user_cards")
+      .withIndex("by_server_user", (q) => q.eq("serverId", me.serverId!).eq("userId", me._id))
+      .collect();
+
+    const enriched = await Promise.all(
+      userCards.map(async (uc) => {
+        const tmpl = await ctx.db.get(uc.cardTemplateId as unknown as Id<"card_templates">);
+        return {
+          userCardId: uc._id,
+          quantity: uc.quantity,
+          template: tmpl
+            ? {
+                id: tmpl._id,
+                name: tmpl.name,
+                type: tmpl.type,
+                imageUrl: tmpl.imageUrl,
+                atkPts: tmpl.atkPts ?? 0,
+                defPts: tmpl.defPts ?? 0,
+                attribute: tmpl.attribute ?? null,
+                level: tmpl.level ?? null,
+              }
+            : null,
+        };
+      })
+    );
+
+    return enriched;
   },
 });
 

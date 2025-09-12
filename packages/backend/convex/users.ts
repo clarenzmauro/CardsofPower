@@ -627,6 +627,27 @@ export const markShowcaseCompleted = mutation({
   },
 });
 
+export const getMe = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.subject) return null;
+
+    const me = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!me) return null;
+    return {
+      _id: me._id,
+      clerkId: me.clerkId ?? null,
+      username: me.username ?? null,
+      serverId: me.serverId ?? null,
+    };
+  },
+});
+
 export const assignServerOnFirstAuth = mutation({
   args: {},
   handler: async (ctx) => {
