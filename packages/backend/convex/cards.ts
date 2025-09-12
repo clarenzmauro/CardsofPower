@@ -16,7 +16,7 @@ import { type Id, type Doc } from "./_generated/dataModel";
 
 // Removed legacy: filterCards helper
 
-// V2: Create a card template from uploaded storage image and optional metadata
+// V2: Create a workshop-only card entry from uploaded storage image and optional metadata
 export const createTemplateV2 = mutation({
   args: {
     storageId: v.string(),
@@ -70,28 +70,8 @@ export const createTemplateV2 = mutation({
         throw new Error("createTemplateV2: invalid monster stats");
     }
 
-    const templateId = await ctx.db.insert("card_templates", {
-      name: args.name,
-      type: typeLower,
-      description: args.description,
-      imageUrl,
-      atkPts: args.atkPts,
-      defPts: args.defPts,
-      inGameAtkPts: undefined,
-      inGameDefPts: undefined,
-      attribute: args.attribute,
-      class: args.class,
-      character: args.character,
-      level: args.level,
-      matches: { wins: 0, total: 0 },
-      cardWin: { global: 0, local: 0 },
-      cardLose: { global: 0, local: 0 },
-      // Workshop-created templates are inventory-only by default
-      isBattleEligible: false,
-    });
-
-    // Persist a workshop entry for audit/future features
-    await ctx.db.insert("workshop_cards", {
+    // Persist a workshop entry only (do NOT create a global card_template)
+    const workshopCardId = await ctx.db.insert("workshop_cards", {
       uploaderId: creator._id as Id<"users">,
       serverId: creator.serverId as Id<"servers">,
       storageId: args.storageId,
@@ -106,36 +86,11 @@ export const createTemplateV2 = mutation({
       character: args.character,
       level: args.level,
       createdAt: new Date().toISOString(),
-      templateId: templateId as Id<"card_templates">,
+      templateId: undefined,
     });
-
-    // Optionally grant one copy to creator on their server
-    if (args.grantToCreator && creator.serverId) {
-      const existing: Doc<"user_cards">[] = await ctx.db
-        .query("user_cards")
-        .withIndex("by_server_user", (q) =>
-          q
-            .eq("serverId", creator.serverId as Id<"servers">)
-            .eq("userId", creator._id as Id<"users">)
-        )
-        .collect();
-      const same = existing.find(
-        (uc) => String(uc.cardTemplateId) === String(templateId)
-      );
-      if (same) {
-        await ctx.db.patch(same._id, { quantity: (same.quantity ?? 0) + 1 });
-      } else {
-        await ctx.db.insert("user_cards", {
-          userId: creator._id as Id<"users">,
-          serverId: creator.serverId as Id<"servers">,
-          cardTemplateId: templateId as Id<"card_templates">,
-          quantity: 1,
-          acquiredAt: new Date().toISOString(),
-        });
-      }
-    }
-
-    return { templateId };
+    
+    // Do not grant to inventory here; workshop uploads are not global templates
+    return { workshopCardId };
   },
 });
 
@@ -301,6 +256,43 @@ export const getMyUserCards = query({
     );
 
     return enriched;
+  },
+});
+
+// V2: Get my workshop-only cards (not in global card_templates)
+export const getMyWorkshopCards = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.subject)
+      throw new Error("getMyWorkshopCards: unauthenticated");
+
+    const me = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!me) throw new Error("getMyWorkshopCards: user not found");
+
+    const mine = await ctx.db
+      .query("workshop_cards")
+      .withIndex("by_uploader", (q) => q.eq("uploaderId", me._id))
+      .order("desc")
+      .take(500);
+
+    return mine.map((w) => ({
+      _id: w._id,
+      name: w.name,
+      type: w.type,
+      description: w.description ?? "",
+      imageUrl: w.imageUrl,
+      atkPts: w.atkPts ?? 0,
+      defPts: w.defPts ?? 0,
+      attribute: w.attribute ?? null,
+      level: w.level ?? null,
+      matches: { wins: 0, total: 0 },
+      cardWin: { global: 0, local: 0 },
+      cardLose: { global: 0, local: 0 },
+    }));
   },
 });
 

@@ -43,7 +43,7 @@ export default function Workshop() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // V2: create template and optionally grant to creator
+  // V2: create workshop-only card entry
   const generateUploadUrl = useMutation(api.storage.generateUploadUrl);
   const createTemplate = useMutation(api.cards.createTemplateV2);
 
@@ -165,11 +165,11 @@ export default function Workshop() {
         class: formData.class || undefined,
         character: formData.character || undefined,
         level: formData.type === "monster" ? Number(formData.level) : undefined,
-        grantToCreator: true,
+        grantToCreator: false,
       });
 
-      if (!created?.templateId) throw new Error("Card creation failed");
-      toast.success("Card created successfully and added to your inventory!");
+      if (!created?.workshopCardId) throw new Error("Card creation failed");
+      toast.success("Card submitted to Workshop.");
       
       // Reset form after successful creation
       setFormData({

@@ -13,11 +13,10 @@ export default function ShopPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
-  const [buying, setBuying] = useState<Record<Id<"cards">, boolean>>({})
+  const [buying, setBuying] = useState<Record<Id<"listings">, boolean>>({})
 
   const { user } = useUser();
   const listings = useQuery(api.cards.getServerListingsV2, { scope: "active" });
-  const isLoading = !listings;
   const purchaseListing = useMutation(api.cards.purchaseListingV2);
   const me = useQuery(api.users.getMe);
   // Only show sale listings (created from Listing page). Exclude my own listings.
@@ -32,7 +31,7 @@ export default function ShopPage() {
       toast.error("You must be signed in to buy cards.");
       return;
     }
-    setBuying((prev) => ({ ...prev, [listingId as unknown as Id<"cards">]: true }));
+    setBuying((prev) => ({ ...prev, [listingId]: true }));
     try {
       const result = await purchaseListing({ listingId });
       if (!result?.success) throw new Error("Purchase failed");
@@ -45,7 +44,7 @@ export default function ShopPage() {
         toast.error(message);
       }
     } finally {
-      setBuying((prev) => ({ ...prev, [listingId as unknown as Id<"cards">]: false }));
+      setBuying((prev) => ({ ...prev, [listingId]: false }));
     }
   };
 
@@ -117,7 +116,7 @@ export default function ShopPage() {
         {/* Main Content Area */}
         <div className="px-8 pb-8">
           <div className="bg-black/40 backdrop-blur-sm rounded-xl p-6 border border-white/20 min-h-96">
-            {isLoading ? (
+            {listings === undefined ? (
               <div className="text-white text-center py-20">Loading...</div>
             ) : shopListings.length === 0 ? (
               <div className="text-white text-center py-20">No results found</div>
@@ -153,9 +152,9 @@ export default function ShopPage() {
                       <button
                         onClick={() => handlePurchase(l._id as Id<"listings">)}
                         className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm w-full"
-                        disabled={!user || !!buying[l._id as unknown as Id<"cards">]}
+                        disabled={!user || !!buying[l._id as Id<"listings">]}
                       >
-                        {buying[l._id as unknown as Id<"cards">] ? "Buying..." : "Buy"}
+                        {buying[l._id as Id<"listings">] ? "Buying..." : "Buy"}
                       </button>
                     </div>
                   </div>

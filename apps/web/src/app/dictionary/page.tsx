@@ -66,7 +66,7 @@ export default function DictionaryPage() {
     [freshUserInventory, user?.id]
   );
 
-  const { cachedData: cachedUserData, isCacheLoaded: userDataCacheLoaded } =
+  const { cachedData: cachedUserData } =
     useDataCache(
       freshUserData,
       { key: `user_data_${user?.id || "anonymous"}`, ttl: 15 * 60 * 1000 },
@@ -83,7 +83,6 @@ export default function DictionaryPage() {
     return Array.from(map.values());
   })();
   const userInventory: any[] = (cachedUserInventory || freshUserInventory) as any;
-  const userData = cachedUserData || freshUserData;
 
   // calculate winrate
   const winRate = useMemo(() => {
@@ -92,9 +91,6 @@ export default function DictionaryPage() {
     if (!wins || !total) return "0%";
     return ((wins / total) * 100).toFixed(2) + "%";
   }, [selectedCard]);
-
-  // calculate ROI with color formatting
-  const formattedROI = useMemo(() => <span>0</span>, []);
 
   // filter and sort cards
   const filteredCards = useMemo(() => {

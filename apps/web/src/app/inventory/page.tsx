@@ -36,6 +36,7 @@ export default function InventoryPage() {
   // fetch data from convex (V2)
   const freshUserData = useQuery(api.users.current);
   const myUserCards = useQuery(api.cards.getMyUserCards);
+  const myWorkshopCards = useQuery(api.cards.getMyWorkshopCards);
   const activeListings = useQuery(api.cards.getServerListingsV2, { scope: "active" }) ?? [];
   const createListing = useMutation(api.cards.createListingV2);
 
@@ -50,12 +51,18 @@ export default function InventoryPage() {
     { key: `user_inventory_v2_${user?.id || "anonymous"}`, ttl: 5 * 60 * 1000 },
     [myUserCards, user?.id]
   );
+  const { cachedData: cachedMyWorkshopCards } = useDataCache(
+    myWorkshopCards,
+    { key: `user_workshop_cards_${user?.id || "anonymous"}`, ttl: 5 * 60 * 1000 },
+    [myWorkshopCards, user?.id]
+  );
 
   const userData = cachedUserData || freshUserData;
   const goldCount = userData?.goldCount ?? 0;
   const v2 = (cachedMyUserCards || myUserCards || []) as Array<{ userCardId: string; quantity: number; estimatedValue?: number | null; boughtFor?: number; template: any }>;
+  const workshop = (cachedMyWorkshopCards || myWorkshopCards || []) as Array<CardData>;
   const activeUserCardIds = new Set<string>((activeListings as any[]).map(l => String((l as any)?.userCardId ?? "")));
-  const inventoryCards: CardData[] = v2
+  const inventoryFromTemplates: CardData[] = v2
     .filter((x) => !!x.template)
     .map((x) => ({
       _id: x.userCardId,
@@ -73,6 +80,16 @@ export default function InventoryPage() {
       estimatedValue: x.estimatedValue ?? null,
       boughtFor: x.boughtFor ?? 0,
     }));
+
+  // Tag workshop cards so UI can disable listing
+  const inventoryFromWorkshop: CardData[] = workshop.map((w) => ({
+    ...w,
+    _id: String(w._id),
+    estimatedValue: null,
+    boughtFor: 0,
+  }));
+
+  const inventoryCards: CardData[] = [...inventoryFromTemplates, ...inventoryFromWorkshop];
 
   // filter based on search
   const filteredCards = useMemo(() => {

@@ -21,8 +21,6 @@ export default function TradePage() {
 
   // for main area
   const { user } = useUser();
-  const [selectedTradeListing, setSelectedTradeListing] =
-    useState<Id<"listings"> | null>(null);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [selectedListCard, setSelectedListCard] = useState<Id<"user_cards"> | null>(
     null
@@ -217,7 +215,7 @@ export default function TradePage() {
                           <button
                             onClick={async () => {
                               try {
-                                await purchaseListing({ listingId: l._id as Id<"listings"> });
+                                await purchaseListing({ listingId: l._id });
                                 toast.success("Purchased!");
                               } catch (e: unknown) {
                                 const m = e instanceof Error ? e.message : "Purchase failed";

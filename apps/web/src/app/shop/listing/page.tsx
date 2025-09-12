@@ -10,14 +10,15 @@ import { type Id } from "@backend/convex/_generated/dataModel";
 import { toast } from "sonner";
 
 export default function ListingPage() {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [mainSearchQuery, setMainSearchQuery] = useState("");
+  const [modalSearchQuery, setModalSearchQuery] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
-
-  const isLoading = false;
-
   const { user } = useUser();
-  const myListingsRaw = useQuery(api.cards.getServerListingsV2, { scope: "active" }) ?? [];
+  const myListingsQuery = useQuery(api.cards.getServerListingsV2, { scope: "active" });
+  const inventory = useQuery(api.cards.getMyUserCards);
+  const isLoading = myListingsQuery === undefined || inventory === undefined;
+  const myListingsRaw = myListingsQuery ?? [];
   const allActive = myListingsRaw as any[];
   const myListings = allActive.filter(l => (l as any)?.category === "sale");
   const myActiveTrade = new Set<string>(allActive
@@ -28,7 +29,6 @@ export default function ListingPage() {
   const [unlisting, setUnlisting] = useState<Record<Id<"listings">, boolean>>({});
   const unlistListing = useMutation(api.cards.unlistListingV2);
   const createListing = useMutation(api.cards.createListingV2);
-  const inventory = useQuery(api.cards.getMyUserCards);
   const eligibleForSale = useMemo(() => {
     const items = (inventory as any[]) ?? [];
     const myActiveSaleUserCards = new Set<string>((myListings as any[]).map(l => String((l as any)?.userCardId ?? "")));
@@ -39,6 +39,15 @@ export default function ListingPage() {
     });
     return filtered.slice(0, 100);
   }, [inventory, myListings, myActiveTrade]);
+  const filteredEligibleForSale = useMemo(() => {
+    const query = modalSearchQuery.trim().toLowerCase();
+    const items = (eligibleForSale as any[]) ?? [];
+    if (!query) return items;
+    return items.filter((uc: any) => {
+      const name = String(uc?.template?.name ?? "").toLowerCase();
+      return name.includes(query);
+    });
+  }, [eligibleForSale, modalSearchQuery]);
   const [selectedListCard, setSelectedListCard] = useState<string | null>(
     null
   );
@@ -73,6 +82,7 @@ export default function ListingPage() {
     setSelectedListCard(null);
     setPrice("");
     setSubmitting(false);
+    setModalSearchQuery("");
   };
 
   const handleListForSale = async () => {
@@ -127,8 +137,8 @@ export default function ListingPage() {
                 <input
                   type="text"
                   placeholder="Search by name..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={mainSearchQuery}
+                  onChange={(e) => setMainSearchQuery(e.target.value)}
                   className="w-full px-3 py-1.5 text-sm bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
                 />
               </div>
@@ -261,8 +271,8 @@ export default function ListingPage() {
                 <input
                   type="text"
                   placeholder="Search my cards..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={modalSearchQuery}
+                  onChange={(e) => setModalSearchQuery(e.target.value)}
                   className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
                 />
               </div>
@@ -273,7 +283,7 @@ export default function ListingPage() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {eligibleForSale.map((card: any) => (
+                    {filteredEligibleForSale.map((card: any) => (
                       <button
                         key={card.userCardId}
                         onClick={() => setSelectedListCard(card.userCardId as string)}
