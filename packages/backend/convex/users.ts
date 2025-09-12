@@ -627,6 +627,56 @@ export const markShowcaseCompleted = mutation({
   },
 });
 
+export const assignServerOnFirstAuth = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.subject) throw new Error("assignServerOnFirstAuth: Not authenticated");
+
+    const user = await userByExternalId(ctx, identity.subject);
+    if (!user) throw new Error("assignServerOnFirstAuth: User not found");
+
+    // If already assigned, no-op
+    if (user.serverId) return { serverId: user.serverId, alreadyAssigned: true };
+
+    // Find the least-full active server
+    let server = await ctx.db
+      .query("servers")
+      .withIndex("by_status_memberCount", (q) => q.eq("status", "active"))
+      .order("asc")
+      .first();
+
+    // Create a new server if none or full
+    if (!server || typeof server.capacity !== "number" || server.memberCount >= server.capacity) {
+      const activeCount = await ctx.db
+        .query("servers")
+        .withIndex("by_status_createdAt", (q) => q.eq("status", "active"))
+        .collect();
+      const name = `server-${(activeCount?.length ?? 0) + 1}`;
+      const serverId = await ctx.db.insert("servers", {
+        name,
+        capacity: 10,
+        memberCount: 0,
+        status: "active",
+        createdAt: new Date().toISOString(),
+      });
+      server = await ctx.db.get(serverId);
+    }
+
+    if (!server) throw new Error("assignServerOnFirstAuth: Failed to resolve server");
+    const nextCount = (server.memberCount ?? 0) + 1;
+    if (!Number.isFinite(nextCount) || nextCount < 1) {
+      throw new Error("assignServerOnFirstAuth: Invalid memberCount increment");
+    }
+
+    // Atomically update server count and user assignment
+    await ctx.db.patch(server._id, { memberCount: nextCount });
+    await ctx.db.patch(user._id, { serverId: server._id });
+
+    return { serverId: server._id, alreadyAssigned: false };
+  },
+});
+
 export const snapshotAllUsersInternal = internalMutation({
   args: {},
   handler: async (ctx) => {
