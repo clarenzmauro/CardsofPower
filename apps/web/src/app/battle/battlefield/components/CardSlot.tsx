@@ -9,6 +9,8 @@ interface CardSlotProps {
   isDragOver?: boolean;
   isSelected?: boolean;
   onGraveyardClick?: () => void;
+  onAttackClick?: () => void;
+  onEffectClick?: () => void;
   faceDown?: boolean;
   showPositionBadge?: boolean;
 }
@@ -21,6 +23,8 @@ export const CardSlot: React.FC<CardSlotProps> = ({
   isDragOver = false, 
   isSelected = false, 
   onGraveyardClick,
+  onAttackClick,
+  onEffectClick,
   faceDown = false,
   showPositionBadge = false,
 }) => (
@@ -56,18 +60,35 @@ export const CardSlot: React.FC<CardSlotProps> = ({
                 {card.position === 'defense' ? 'DEF' : 'ATK'}
               </div>
             )}
-            {/* Graveyard Button */}
-            {isSelected && onGraveyardClick && (
-              <div className="absolute top-2 right-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onGraveyardClick();
-                  }}
-                  className="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded shadow-lg transition-colors"
-                >
-                  Graveyard
-                </button>
+            {/* Action Buttons */}
+            {isSelected && (
+              <div className="absolute top-2 right-2 flex flex-col gap-1">
+                {/* Attack Button - only for monster cards */}
+                {card.type === 'monster' && onAttackClick && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAttackClick();
+                    }}
+                    className="bg-orange-600 hover:bg-orange-700 text-white text-xs px-2 py-1 rounded shadow-lg transition-colors"
+                  >
+                    Attack
+                  </button>
+                )}
+                
+                {/* Effect Button - only for monster cards with character == "effect" */}
+                {card.type === 'monster' && card.character === 'effect' && onEffectClick && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEffectClick();
+                    }}
+                    className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-2 py-1 rounded shadow-lg transition-colors"
+                  >
+                    Effect
+                  </button>
+                )}
+                
               </div>
             )}
           </div>

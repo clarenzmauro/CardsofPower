@@ -25,45 +25,50 @@ const http = httpRouter();
  * - Logs errors for failed operations
  */
 http.route({
-    path: "/clerkWebhook",
-    method: "POST",
-    handler: httpAction(async (ctx, request) => {
-        const event = await validateRequest(request);
-        if (!event) {
-            return new Response("Error occurred", { status: 400 });
+  path: "/clerkWebhook",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const event = await validateRequest(request);
+    if (!event) {
+      return new Response("Error occurred", { status: 400 });
+    }
+
+    switch (event.type) {
+      case "user.created": // intentional fallthrough
+      case "user.updated":
+        try {
+          await ctx.runMutation(api.users.upsertFromClerk, {
+            data: {
+              clerkId: event.data.id,
+              first_name: event.data.first_name || "",
+              last_name: event.data.last_name || "",
+              username:
+                event.data.username || event.data.first_name || "Player",
+              email: event.data.email_addresses?.[0]?.email_address || "",
+            },
+          });
+          // Ensure server assignment on first auth
+          await ctx.runMutation(api.users.assignServerOnFirstAuth, {});
+        } catch (error) {
+          console.error("User upsert failed:", error);
         }
+        break;
 
-        switch (event.type) {
-            case "user.created": // intentional fallthrough
-            case "user.updated":
-                try {
-                    await ctx.runMutation(api.users.upsertFromClerk, {
-                        data: {
-                            clerkId: event.data.id,
-                            first_name: event.data.first_name || "",
-                            last_name: event.data.last_name || "",
-                            username: event.data.username || event.data.first_name || "Player",
-                            email: event.data.email_addresses?.[0]?.email_address || "",
-                        },
-                    });
-                } catch (error) {
-                    console.error("User upsert failed:", error);
-                }
-                break;
-
-            case "user.deleted": {
-                const clerkUserId = event.data.id!;
-                try {
-                    await ctx.runMutation(api.users.deleteFromClerk, { clerkUserId: clerkUserId });
-                } catch (error) {
-                    console.error("User deletion failed:", error);
-                }
-                break;
-            }
+      case "user.deleted": {
+        const clerkUserId = event.data.id!;
+        try {
+          await ctx.runMutation(api.users.deleteFromClerk, {
+            clerkUserId: clerkUserId,
+          });
+        } catch (error) {
+          console.error("User deletion failed:", error);
         }
+        break;
+      }
+    }
 
-        return new Response(null, { status: 200 });
-    }),
+    return new Response(null, { status: 200 });
+  }),
 });
 
 // /**
@@ -103,18 +108,18 @@ http.route({
  * - Logs validation errors for debugging
  */
 async function validateRequest(req: Request): Promise<WebhookEvent | null> {
-    const payloadString = await req.text();
-    const svixHeaders = {
-        "svix-id": req.headers.get("svix-id")!,
-        "svix-timestamp": req.headers.get("svix-timestamp")!,
-        "svix-signature": req.headers.get("svix-signature")!,
-    };
-    const wh = new Webhook(process.env.CLERK_WEBHOOK_SECRET!);
-    try {
-        return wh.verify(payloadString, svixHeaders) as unknown as WebhookEvent;
-    } catch (error) {
-        return null;
-    }
+  const payloadString = await req.text();
+  const svixHeaders = {
+    "svix-id": req.headers.get("svix-id")!,
+    "svix-timestamp": req.headers.get("svix-timestamp")!,
+    "svix-signature": req.headers.get("svix-signature")!,
+  };
+  const wh = new Webhook(process.env.CLERK_WEBHOOK_SECRET!);
+  try {
+    return wh.verify(payloadString, svixHeaders) as unknown as WebhookEvent;
+  } catch (error) {
+    return null;
+  }
 }
 
 export default http;

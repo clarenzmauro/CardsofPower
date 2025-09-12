@@ -34,6 +34,7 @@ export default function Home() {
     );
     
     const upsertUser = useMutation(api.users.upsertFromClerk);
+    const assignServer = useMutation(api.users.assignServerOnFirstAuth);
 
     useEffect(() => {
         if (!isLoaded) return;
@@ -74,7 +75,8 @@ export default function Home() {
             };
 
             upsertUser({ data: userData })
-                .then((result) => {
+                .then(async (result) => {
+                    try { await assignServer(); } catch {}
                     setIsCreating(false);
                     
                     // Check if this is a new user

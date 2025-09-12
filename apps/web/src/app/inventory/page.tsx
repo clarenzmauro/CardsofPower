@@ -2,11 +2,12 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useUser } from "@clerk/nextjs";
-import { api } from "@cards-of-power/backend/convex/_generated/api";
+import { api } from "@backend/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { useDataCache } from "@/hooks/useCachedQuery";
+import { type Id } from "@backend/convex/_generated/dataModel";
 
 type CardData = {
   _id: string;
@@ -16,38 +17,28 @@ type CardData = {
   imageUrl: string;
   atkPts?: number;
   defPts?: number;
-  inGameAtkPts?: number;
-  inGameDefPts?: number;
-  attribute?: string;
-  class?: string;
-  character?: string;
-  level?: number;
-  isOwned: boolean;
-  isListed?: boolean;
-  currentOwnerId?: string;
-  currentOwnerUsername?: string;
-  boughtFor?: number;
-  marketValue?: number;
-  marketCount?: number;
-  roi?: number;
-  passCount?: number;
+  attribute?: string | null;
+  level?: number | null;
   matches?: { wins: number; total: number };
   cardWin?: { global: number; local: number };
   cardLose?: { global: number; local: number };
+  estimatedValue?: number | null;
+  boughtFor?: number;
 };
 
 export default function InventoryPage() {
   const { user } = useUser();
   const [selectedCard, setSelectedCard] = useState<CardData | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [listPrice, setListPrice] = useState<string>("");
   const gold = "/assets/icons/gold.png";
 
-  // fetch data from convex
+  // fetch data from convex (V2)
   const freshUserData = useQuery(api.users.current);
-  const freshUserInventory = useQuery(
-    api.cards.getUserInventory,
-    user?.id ? { userId: user.id } : { userId: "" }
-  );
+  const myUserCards = useQuery(api.cards.getMyUserCards);
+  const myWorkshopCards = useQuery(api.cards.getMyWorkshopCards);
+  const activeListings = useQuery(api.cards.getServerListingsV2, { scope: "active" }) ?? [];
+  const createListing = useMutation(api.cards.createListingV2);
 
   // cache
   const { cachedData: cachedUserData } = useDataCache(
@@ -55,15 +46,50 @@ export default function InventoryPage() {
     { key: `user_data_${user?.id || "anonymous"}`, ttl: 5 * 60 * 1000 },
     [freshUserData]
   );
-  const { cachedData: cachedUserInventory } = useDataCache(
-    freshUserInventory,
-    { key: `user_inventory_${user?.id || "anonymous"}`, ttl: 5 * 60 * 1000 },
-    [freshUserInventory, user?.id]
+  const { cachedData: cachedMyUserCards } = useDataCache(
+    myUserCards,
+    { key: `user_inventory_v2_${user?.id || "anonymous"}`, ttl: 5 * 60 * 1000 },
+    [myUserCards, user?.id]
+  );
+  const { cachedData: cachedMyWorkshopCards } = useDataCache(
+    myWorkshopCards,
+    { key: `user_workshop_cards_${user?.id || "anonymous"}`, ttl: 5 * 60 * 1000 },
+    [myWorkshopCards, user?.id]
   );
 
   const userData = cachedUserData || freshUserData;
   const goldCount = userData?.goldCount ?? 0;
-  const inventoryCards: CardData[] = (cachedUserInventory || freshUserInventory || []) as CardData[];
+  const v2 = (cachedMyUserCards || myUserCards || []) as Array<{ userCardId: string; quantity: number; estimatedValue?: number | null; boughtFor?: number; template: any }>;
+  const workshop = (cachedMyWorkshopCards || myWorkshopCards || []) as Array<CardData>;
+  const activeUserCardIds = new Set<string>((activeListings as any[]).map(l => String((l as any)?.userCardId ?? "")));
+  const inventoryFromTemplates: CardData[] = v2
+    .filter((x) => !!x.template)
+    .map((x) => ({
+      _id: x.userCardId,
+      name: x.template.name,
+      type: x.template.type,
+      description: x.template.description ?? "",
+      imageUrl: x.template.imageUrl,
+      atkPts: x.template.atkPts,
+      defPts: x.template.defPts,
+      attribute: x.template.attribute ?? null,
+      level: x.template.level ?? null,
+      matches: x.template.matches ?? { wins: 0, total: 0 },
+      cardWin: x.template.cardWin ?? { global: 0, local: 0 },
+      cardLose: x.template.cardLose ?? { global: 0, local: 0 },
+      estimatedValue: x.estimatedValue ?? null,
+      boughtFor: x.boughtFor ?? 0,
+    }));
+
+  // Tag workshop cards so UI can disable listing
+  const inventoryFromWorkshop: CardData[] = workshop.map((w) => ({
+    ...w,
+    _id: String(w._id),
+    estimatedValue: null,
+    boughtFor: 0,
+  }));
+
+  const inventoryCards: CardData[] = [...inventoryFromTemplates, ...inventoryFromWorkshop];
 
   // filter based on search
   const filteredCards = useMemo(() => {
@@ -76,8 +102,8 @@ export default function InventoryPage() {
   // calculate winrate
   const winRate = useMemo(() => {
     if (!selectedCard) return "N/A";
-    const wins = selectedCard.cardWin?.local || 0;
     const total = selectedCard.matches?.total || 0;
+    const wins = selectedCard.cardWin?.local || 0;
     if (!total) return "0%";
     return ((wins / total) * 100).toFixed(2) + "%";
   }, [selectedCard]);
@@ -94,17 +120,27 @@ export default function InventoryPage() {
   // ROI calculation
   const formattedROI = useMemo(() => {
     if (!selectedCard) return <span>0</span>;
-    const marketValue = selectedCard.marketValue || 0;
+    const marketValue = selectedCard.estimatedValue || 0;
     const boughtFor = selectedCard.boughtFor || 0;
     const roi = marketValue - boughtFor;
-    if (roi > 0) {
-      return <span className="text-green-500">+{roi}</span>;
-    } else if (roi < 0) {
-      return <span className="text-red-600">-{Math.abs(roi)}</span>;
-    } else {
-      return <span>{roi}</span>;
-    }
+    if (roi > 0) return <span className="text-green-500">+{roi}</span>;
+    if (roi < 0) return <span className="text-red-600">-{Math.abs(roi)}</span>;
+    return <span>{roi}</span>;
   }, [selectedCard]);
+
+  const handleListForSale = async () => {
+    if (!selectedCard) return;
+    if (activeUserCardIds.has(String(selectedCard._id))) {
+      alert("This card is already listed.");
+      return;
+    }
+    const priceNum = Number(listPrice);
+    if (!Number.isFinite(priceNum) || priceNum <= 0) return;
+    try {
+      await createListing({ userCardId: selectedCard._id as unknown as Id<"user_cards">, price: priceNum });
+      setListPrice("");
+    } catch {}
+  };
 
   return (
     <main
@@ -212,10 +248,10 @@ export default function InventoryPage() {
                     <span className="font-medium">Win Rate:</span>
                     <span className="font-bold">{winRate}</span>
                   </div>
-                  {selectedCard.marketValue !== undefined && (
+                  {selectedCard.estimatedValue !== undefined && selectedCard.estimatedValue !== null && (
                     <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
                       <span className="font-medium">Value:</span>
-                      <span>{selectedCard.marketValue}</span>
+                      <span>{selectedCard.estimatedValue}</span>
                     </div>
                   )}
                   {selectedCard.boughtFor !== undefined && (

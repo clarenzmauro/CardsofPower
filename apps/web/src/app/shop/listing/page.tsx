@@ -10,69 +10,67 @@ import { type Id } from "@backend/convex/_generated/dataModel";
 import { toast } from "sonner";
 
 export default function ListingPage() {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [mainSearchQuery, setMainSearchQuery] = useState("");
+  const [modalSearchQuery, setModalSearchQuery] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
-
-  const cards =
-    useQuery(api.cards.getListings, {
-      scope: "shop",
-      searchQuery,
-      minPrice: minPrice ? Number(minPrice) : undefined,
-      maxPrice: maxPrice ? Number(maxPrice) : undefined,
-      currentUserId: useUser().user?.id ?? "",
-    }) ?? [];
-  const isLoading = cards === undefined;
-
   const { user } = useUser();
-  const myListings =
-    useQuery(api.cards.getListings, {
-      scope: "mine",
-      currentUserId: user?.id ?? "",
-      minPrice: minPrice ? Number(minPrice) : undefined,
-      maxPrice: maxPrice ? Number(maxPrice) : undefined,
-      searchQuery,
-    }) ?? [];
-  const setListing = useMutation(api.cards.setListingStatus);
+  const myListingsQuery = useQuery(api.cards.getServerListingsV2, { scope: "active" });
+  const inventory = useQuery(api.cards.getMyUserCards);
+  const isLoading = myListingsQuery === undefined || inventory === undefined;
+  const myListingsRaw = myListingsQuery ?? [];
+  const allActive = myListingsRaw as any[];
+  const myListings = allActive.filter(l => (l as any)?.category === "sale");
+  const myActiveTrade = new Set<string>(allActive
+    .filter(l => (l as any)?.category === "trade")
+    .map(l => String((l as any)?.userCardId ?? ""))
+  );
   const [isListingModalOpen, setIsListingModalOpen] = useState(false);
-  const [unlisting, setUnlisting] = useState<Record<Id<"cards">, boolean>>({});
-  const unlistCard = useMutation(api.cards.setListingStatus);
-  const inventory = useQuery(api.cards.getUserInventory, {
-    userId: user?.id ?? "",
-  });
+  const [unlisting, setUnlisting] = useState<Record<Id<"listings">, boolean>>({});
+  const unlistListing = useMutation(api.cards.unlistListingV2);
+  const createListing = useMutation(api.cards.createListingV2);
   const eligibleForSale = useMemo(() => {
     const items = (inventory as any[]) ?? [];
-    return items
-      .filter((card) => !card.isListed && !card.isForTrade)
-      .slice(0, 100);
-  }, [inventory]);
-  const [selectedListCard, setSelectedListCard] = useState<Id<"cards"> | null>(
+    const myActiveSaleUserCards = new Set<string>((myListings as any[]).map(l => String((l as any)?.userCardId ?? "")));
+    // Exclude user_cards already listed for sale or trade by me
+    const filtered = items.filter((uc: any) => {
+      const id = String(uc?.userCardId ?? "");
+      return !myActiveSaleUserCards.has(id) && !myActiveTrade.has(id);
+    });
+    return filtered.slice(0, 100);
+  }, [inventory, myListings, myActiveTrade]);
+  const filteredEligibleForSale = useMemo(() => {
+    const query = modalSearchQuery.trim().toLowerCase();
+    const items = (eligibleForSale as any[]) ?? [];
+    if (!query) return items;
+    return items.filter((uc: any) => {
+      const name = String(uc?.template?.name ?? "").toLowerCase();
+      return name.includes(query);
+    });
+  }, [eligibleForSale, modalSearchQuery]);
+  const [selectedListCard, setSelectedListCard] = useState<string | null>(
     null
   );
   const [price, setPrice] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [confirmUnlistId, setConfirmUnlistId] = useState<Id<"cards"> | null>(
+  const [confirmUnlistId, setConfirmUnlistId] = useState<Id<"listings"> | null>(
     null
   );
   const [confirmListOpen, setConfirmListOpen] = useState(false);
 
-  const handleUnlist = async (cardId: string) => {
+  const handleUnlist = async (_listingId: string) => {
     if (!user?.id) {
       toast.error("You must be signed in to modify listings.");
       return;
     }
-    const id = cardId as Id<"cards">;
+    const id = _listingId as Id<"listings">;
     setUnlisting((prev) => ({ ...prev, [id]: true }));
     try {
-      const res = await unlistCard({
-        cardId: id,
-        ownerId: user.id,
-        mode: "unlist",
-      });
+      const res = await unlistListing({ listingId: id });
       if (!res?.success) throw new Error("Unlist failed");
       toast.success("Unlisted successfully");
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Unlist failed";
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Unlist failed";
       toast.error(message);
     } finally {
       setUnlisting((prev) => ({ ...prev, [id]: false }));
@@ -84,6 +82,7 @@ export default function ListingPage() {
     setSelectedListCard(null);
     setPrice("");
     setSubmitting(false);
+    setModalSearchQuery("");
   };
 
   const handleListForSale = async () => {
@@ -102,13 +101,8 @@ export default function ListingPage() {
     }
     setSubmitting(true);
     try {
-      const res = await setListing({
-        cardId: selectedListCard,
-        ownerId: user.id,
-        mode: "sale",
-        price: numericPrice,
-      });
-      if (!res?.success) throw new Error("Listing failed");
+      // Create listing via V2
+      await createListing({ userCardId: selectedListCard as any, price: numericPrice });
       toast.success("Card listed for sale");
       closeListingModal();
     } catch (error: unknown) {
@@ -143,8 +137,8 @@ export default function ListingPage() {
                 <input
                   type="text"
                   placeholder="Search by name..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={mainSearchQuery}
+                  onChange={(e) => setMainSearchQuery(e.target.value)}
                   className="w-full px-3 py-1.5 text-sm bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
                 />
               </div>
@@ -214,37 +208,37 @@ export default function ListingPage() {
                       >
                         <div className="h-60 flex items-center justify-center mb-2">
                           <img
-                            src={card.imageUrl ?? "/assets/cards/blank.png"}
-                            alt={card.name}
+                            src={card.template?.imageUrl ?? "/assets/cards/blank.png"}
+                            alt={card.template?.name ?? ""}
                             className="h-full w-auto object-contain"
                           />
                         </div>
                         <div className="text-white font-bold mb-1">
-                          {card.name}
+                          {card.template?.name}
                         </div>
                         <div className="text-sm text-white/80 space-y-1 mb-2">
                           <div>
                             Description:{" "}
-                            {card.description ?? "No description available"}
+                            {card.template?.description ?? "No description available"}
                           </div>
                           <div className="text-white font-bold mb-1">
                             Card Stats
                           </div>
-                          <div>Type: {card.type ?? "N/A"}</div>
-                          <div>Attribute: {card.attribute ?? "N/A"}</div>
-                          <div>Level: {card.level ?? "N/A"}</div>
-                          <div>ATK: {card.atkPts ?? "N/A"}</div>
-                          <div>DEF: {card.defPts ?? "N/A"}</div>
+                          <div>Type: {card.template?.type ?? "N/A"}</div>
+                          <div>Attribute: {card.template?.attribute ?? "N/A"}</div>
+                          <div>Level: {card.template?.level ?? "N/A"}</div>
+                          <div>ATK: {card.template?.atkPts ?? "N/A"}</div>
+                          <div>DEF: {card.template?.defPts ?? "N/A"}</div>
                         </div>
                         <div className="text-yellow-400 font-bold mb-2">
-                          {card.marketValue} gold
+                          {card.price} gold
                         </div>
                         <button
-                          onClick={() => setConfirmUnlistId(card._id)}
-                          disabled={!!unlisting[card._id]}
+                          onClick={() => setConfirmUnlistId(card._id as Id<"listings">)}
+                          disabled={!!unlisting[card._id as Id<"listings">]}
                           className="bg-red-500 hover:bg-red-600 disabled:bg-red-400 text-white px-3 py-1 rounded text-sm w-full"
                         >
-                          {unlisting[card._id] ? "Unlisting..." : "Unlist"}
+                          {unlisting[card._id as Id<"listings">] ? "Unlisting..." : "Unlist"}
                         </button>
                       </div>
                     ))}
@@ -277,8 +271,8 @@ export default function ListingPage() {
                 <input
                   type="text"
                   placeholder="Search my cards..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={modalSearchQuery}
+                  onChange={(e) => setModalSearchQuery(e.target.value)}
                   className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
                 />
               </div>
@@ -289,21 +283,21 @@ export default function ListingPage() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {eligibleForSale.map((card) => (
+                    {filteredEligibleForSale.map((card: any) => (
                       <button
-                        key={card._id}
-                        onClick={() => setSelectedListCard(card._id as Id<"cards">)}
-                        className={`rounded border p-2 bg-black/40 hover:border-orange-400 text-left ${selectedListCard === card._id ? "border-orange-500 ring-2 ring-orange-300" : "border-white/20"}`}
+                        key={card.userCardId}
+                        onClick={() => setSelectedListCard(card.userCardId as string)}
+                        className={`rounded border p-2 bg-black/40 hover:border-orange-400 text-left ${selectedListCard === card.userCardId ? "border-orange-500 ring-2 ring-orange-300" : "border-white/20"}`}
                       >
                         <div className="h-28 flex items-center justify-center mb-2">
                           <img
-                            src={card.imageUrl ?? "/assets/cards/blank.png"}
-                            alt={card.name}
+                            src={card.template?.imageUrl ?? "/assets/cards/blank.png"}
+                            alt={card.template?.name ?? "Card"}
                             className="h-full w-auto object-contain"
                           />
                         </div>
                         <div className="font-medium text-sm text-white">
-                          {card.name}
+                          {card.template?.name ?? "Unnamed"}
                         </div>
                       </button>
                     ))}
@@ -314,8 +308,8 @@ export default function ListingPage() {
                 <div className="mt-4 p-3 border border-white/20 rounded bg-black/20">
                   <div className="text-sm text-white/80">Selected card:</div>
                   <div className="font-semibold text-white">
-                    {eligibleForSale.find((c) => c._id === selectedListCard)
-                      ?.name ?? "Unknown card"}
+                    {eligibleForSale.find((c: any) => String(c.userCardId) === String(selectedListCard))
+                      ?.template?.name ?? "Unknown card"}
                   </div>
                   <div className="mt-2">
                     <label className="block text-sm text-white/80 mb-1">

@@ -31,6 +31,7 @@ export default function SignUpPage() {
     const { user, isLoaded } = useUser();
     const currentUser = useQuery(api.users.current);
     const upsertUser = useMutation(api.users.upsertFromClerk);
+    const assignServer = useMutation(api.users.assignServerOnFirstAuth);
     const router = useRouter();
     const [hasAttemptedCreation, setHasAttemptedCreation] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
@@ -70,7 +71,8 @@ export default function SignUpPage() {
             };
 
             upsertUser({ data: userData })
-                .then(() => {
+                .then(async () => {
+                    try { await assignServer(); } catch {}
                     setIsCreating(false);
                     router.push("/showcase");
                 })

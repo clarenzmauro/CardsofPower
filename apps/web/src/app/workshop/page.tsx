@@ -3,12 +3,12 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useMutation } from "convex/react";
-import { useUser } from "@clerk/nextjs";
 import { api } from "@cards-of-power/backend/convex/_generated/api";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+
 
 export default function Workshop() {
-  const { user } = useUser();
 
   interface CardFormData {
     name: string;
@@ -23,15 +23,6 @@ export default function Workshop() {
     class: string;
     character: string;
     level?: number;
-    isOwned: boolean;
-    isListed?: boolean;
-    currentOwnerId?: string;
-    currentOwnerUsername?: string;
-    boughtFor?: number | undefined;
-    marketValue?: number | undefined;
-    marketCount?: number | undefined;
-    roi?: number | undefined;
-    passCount?: number | undefined;
     imageFile: File | null;
   }
 
@@ -47,23 +38,14 @@ export default function Workshop() {
     class: "",
     character: "",
     level: 1,
-    isOwned: true,
-    isListed: false,
-    currentOwnerId: "",
-    currentOwnerUsername: "",
-    boughtFor: 0,
-    marketValue: 0,
-    marketCount: 0,
-    roi: 0,
-    passCount: 0,
     imageFile: null,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const createCard = useMutation(api.cards.addCardWithImage);
+  // V2: create workshop-only card entry
   const generateUploadUrl = useMutation(api.storage.generateUploadUrl);
-  const addCardToUserInventory = useMutation(api.users.addCardToInventory);
+  const createTemplate = useMutation(api.cards.createTemplateV2);
 
   const validateForm = () => {
     const {
@@ -125,14 +107,9 @@ export default function Workshop() {
       "level",
       "inGameAtkPts",
       "inGameDefPts",
-      "boughtFor",
-      "marketValue",
-      "marketCount",
-      "roi",
-      "passCount",
-    ];
-    const parsedValue = numericNames.includes(name) ? Number(value) : value;
-    setFormData({ ...formData, [name]: parsedValue as any });
+    ] as const;
+    const parsedValue = (numericNames as readonly string[]).includes(name) ? Number(value) : value;
+    setFormData({ ...formData, [name]: parsedValue as unknown as string & number });
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -177,40 +154,22 @@ export default function Workshop() {
         }
       }
 
-      const cardData = {
-        // Basic Info
+      const created = await createTemplate({
+        storageId,
         name: formData.name,
         type: formData.type,
-        description: formData.description,
-        storageId: storageId,
-
-        // Monster Stats
+        description: formData.description || undefined,
         atkPts: formData.type === "monster" ? Number(formData.atkPts) : undefined,
         defPts: formData.type === "monster" ? Number(formData.defPts) : undefined,
-
-        // Monster Properties
         attribute: formData.attribute || undefined,
         class: formData.class || undefined,
         character: formData.character || undefined,
         level: formData.type === "monster" ? Number(formData.level) : undefined,
+        grantToCreator: false,
+      });
 
-        // Ownership & Market
-        isOwned: true,
-        isListed: false,
-        currentOwnerId: user?.id,
-        currentOwnerUsername: user?.username || "",
-      };
-
-      const createResult = await createCard(cardData);
-
-      if (user?.id && createResult?.cardId) {
-        await addCardToUserInventory({
-          userId: user.id,
-          cardId: createResult.cardId,
-        });
-      }
-
-      alert("Card created successfully, check your inventory!");
+      if (!created?.workshopCardId) throw new Error("Card creation failed");
+      toast.success("Card submitted to Workshop.");
       
       // Reset form after successful creation
       setFormData({
@@ -219,12 +178,13 @@ export default function Workshop() {
         type: "",
         atkPts: 0,
         defPts: 0,
+        inGameAtkPts: 0,
+        inGameDefPts: 0,
         level: 1,
         attribute: "",
         character: "",
         class: "",
         imageFile: null,
-        isOwned: true,
       });
     } catch (error) {
       console.error("Failed to create card: ", error);

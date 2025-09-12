@@ -1,7 +1,8 @@
 import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getCurrentUser } from "./users";
-import { type Id } from "./_generated/dataModel";
+import { type Id, type Doc } from "./_generated/dataModel";
+import { executeCardEffect } from "./effects/cardEffects";
 
 // Turn/presence constants
 const DEFAULT_TURN_DURATION_SEC = 30; // server default; client may override at creation
@@ -149,6 +150,9 @@ export const getBattle = query({
 
     const battle = await ctx.db.get(battleId);
     if (!battle) throw new Error("Battle not found");
+    if (!user.serverId || !battle.serverId || String(user.serverId) !== String(battle.serverId)) {
+      throw new Error("Cross-server access denied");
+    }
 
     const isPlayerA = battle.playerA.userId === user._id;
     const isPlayerB = battle.playerB.userId === user._id;
@@ -157,9 +161,13 @@ export const getBattle = query({
     const player = isPlayerA ? battle.playerA : battle.playerB;
     const enemy = isPlayerA ? battle.playerB : battle.playerA;
 
-    const normalizeField = (field: any[]) => {
+    // Field cards already store display data in battle doc; just pass through
+    const normalizeField = async (field: any[]) => {
       const normalized = Array(5).fill(null);
-      field.slice(0, 5).forEach((card, i) => (normalized[i] = card));
+      for (let i = 0; i < Math.min(field.length, 5); i++) {
+        const card = field[i];
+        if (card) normalized[i] = card;
+      }
       return normalized;
     };
 
@@ -170,8 +178,12 @@ export const getBattle = query({
     const iAmReady = isPlayerA ? !!battle.preparation?.playerAReady : !!battle.preparation?.playerBReady;
     const opponentReady = isPlayerA ? !!battle.preparation?.playerBReady : !!battle.preparation?.playerAReady;
 
+    // Normalize fields with complete card data
+    const playerField = await normalizeField(player.field);
+    const enemyFieldNormalized = await normalizeField(enemy.field);
+    
     // Build enemyField with masking for defense position
-    const maskedEnemyField = normalizeField(enemy.field).map((c: any) => {
+    const maskedEnemyField = enemyFieldNormalized.map((c: any) => {
       if (c && c.position === "defense") {
         return {
           id: c.id,
@@ -191,7 +203,7 @@ export const getBattle = query({
         name: 'Hidden Card',
         type: card.type
       })),
-      playerField: normalizeField(player.field),
+      playerField,
       enemyField: maskedEnemyField,
       playerGraveyard: player.graveyard.slice(0, 100),
       enemyGraveyard: enemy.graveyard.slice(0, 100),
@@ -301,9 +313,15 @@ export const listOpenBattles = query({
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Not authenticated");
 
+    if (!user.serverId) return [];
+
     const battles = await ctx.db
       .query("battles")
-      .filter(q => q.eq(q.field("status"), "waiting"))
+      .withIndex("by_server_status_createdAt", (q: any) => q
+        .eq("serverId", user.serverId)
+        .eq("status", "waiting")
+      )
+      .order("desc")
       .collect();
 
     return battles.map(battle => ({
@@ -321,9 +339,15 @@ export const listJoinableBattles = query({
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Not authenticated");
 
+    if (!user.serverId) return [];
+
     const waiting = await ctx.db
       .query("battles")
-      .filter((q) => q.eq(q.field("status"), "waiting"))
+      .withIndex("by_server_status_createdAt", (q: any) => q
+        .eq("serverId", user.serverId)
+        .eq("status", "waiting")
+      )
+      .order("desc")
       .collect();
 
     const activeAsHost = await ctx.db
@@ -362,28 +386,41 @@ export const createBattle = mutation({
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Not authenticated");
     if (turnDurationSec <= 0) throw new Error("Invalid turn duration");
+    if (!user.serverId) throw new Error("User not assigned to a server");
 
     const now = new Date().toISOString();
     const turnEndsAt = new Date(Date.now() + turnDurationSec * 1000).toISOString();
 
-    // Build initial hand from user's actual inventory
+    // Build initial hand from user's user_cards + card_templates
     const MAX_HAND_SIZE = 10;
-    const inventoryIds = Array.isArray(user.inventory) ? user.inventory.slice(0, MAX_HAND_SIZE) : [];
-    const inventoryCards = await Promise.all(
-      inventoryIds.map(async (cardId: any) => await ctx.db.get(cardId))
-    );
-    const initialHand = inventoryCards
-      .filter((c: any) => !!c)
+    const userCards: Doc<"user_cards">[] = await ctx.db
+      .query("user_cards")
+      .withIndex("by_server_user", (q: any) => q.eq("serverId", user.serverId).eq("userId", user._id))
+      .take(MAX_HAND_SIZE);
+    const templates = await Promise.all(userCards.map(uc => ctx.db.get(uc.cardTemplateId as Id<"card_templates">)));
+    const initialHand = templates
+      .filter((t): t is Doc<"card_templates"> => !!t)
+      .filter((t) => t.isBattleEligible !== false)
       .slice(0, MAX_HAND_SIZE)
-      .map((c: any) => ({
-        id: c._id as Id<"cards">,
-        name: String(c.name ?? "Unknown"),
-        type: (c.type === "monster" || c.type === "spell" || c.type === "trap") ? c.type : "monster",
-        image: c.imageUrl as string | undefined,
+      .map((t) => ({
+        id: String(t._id),
+        name: String(t.name ?? "Unknown"),
+        type: ((): "monster" | "spell" | "trap" => {
+          const tl = String(t.type).toLowerCase();
+          return tl === "monster" || tl === "spell" || tl === "trap" ? (tl as any) : "monster";
+        })(),
+        image: t.imageUrl as string | undefined,
+        atkPts: t.atkPts,
+        defPts: t.defPts,
+        level: t.level,
+        character: t.character,
+        class: t.class,
+        description: t.description,
       }));
 
     const FIELD_SIZE = 5;
     const battleId = await ctx.db.insert("battles", {
+      serverId: user.serverId,
       status: "waiting",
       createdAt: now,
       lastActionAt: now,
@@ -435,6 +472,9 @@ export const joinBattle = mutation({
     const battle = await ctx.db.get(battleId);
     if (!battle) throw new Error("Battle not found");
     if (!user) throw new Error("Not authenticated");
+    if (!user.serverId || !battle.serverId || String(user.serverId) !== String(battle.serverId)) {
+      throw new Error("Cross-server join denied");
+    }
     if (battle.hostId === user._id) throw new Error("Cannot join your own battle");
     if (battle.status !== "waiting") throw new Error("Battle not joinable");
 
@@ -443,19 +483,30 @@ export const joinBattle = mutation({
     const now = new Date();
     const turnEndsAt = new Date(now.getTime() + battle.turnDurationSec * 1000).toISOString();
 
-    // Build opponent initial hand from their actual inventory
-    const opponentInventoryIds = Array.isArray(user.inventory) ? user.inventory.slice(0, MAX_HAND_SIZE) : [];
-    const opponentInventoryCards = await Promise.all(
-      opponentInventoryIds.map(async (cardId: any) => await ctx.db.get(cardId))
-    );
-    const initialHand = opponentInventoryCards
-      .filter((c: any) => !!c)
+    // Build opponent initial hand from their user_cards + card_templates
+    const userCards: Doc<"user_cards">[] = await ctx.db
+      .query("user_cards")
+      .withIndex("by_server_user", (q: any) => q.eq("serverId", user.serverId).eq("userId", user._id))
+      .take(MAX_HAND_SIZE);
+    const templates = await Promise.all(userCards.map(uc => ctx.db.get(uc.cardTemplateId as Id<"card_templates">)));
+    const initialHand = templates
+      .filter((t): t is Doc<"card_templates"> => !!t)
+      .filter((t) => t.isBattleEligible !== false)
       .slice(0, MAX_HAND_SIZE)
-      .map((c: any) => ({
-        id: c._id as Id<"cards">,
-        name: String(c.name ?? "Unknown"),
-        type: (c.type === "monster" || c.type === "spell" || c.type === "trap") ? c.type : "monster",
-        image: c.imageUrl as string | undefined,
+      .map((t) => ({
+        id: String(t._id),
+        name: String(t.name ?? "Unknown"),
+        type: ((): "monster" | "spell" | "trap" => {
+          const tl = String(t.type).toLowerCase();
+          return tl === "monster" || tl === "spell" || tl === "trap" ? (tl as any) : "monster";
+        })(),
+        image: t.imageUrl as string | undefined,
+        atkPts: t.atkPts,
+        defPts: t.defPts,
+        level: t.level,
+        character: t.character,
+        class: t.class,
+        description: t.description,
       }));
 
     await ctx.db.patch(battleId, {
@@ -948,6 +999,138 @@ export const cleanupAbandonedBattlesInternal = internalMutation({
     
     console.log(`Cleaned up ${cleanedCount} abandoned battles at ${now.toISOString()}`);
     return { cleanedCount, timestamp: now.toISOString() };
+  },
+});
+
+export const attack = mutation({
+  args: {
+    battleId: v.id("battles"),
+    attackerSlotIndex: v.number(),
+    targetSlotIndex: v.number(),
+    idempotencyKey: v.optional(v.string()),
+  },
+  handler: async (ctx, { battleId, attackerSlotIndex, targetSlotIndex, idempotencyKey }) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Not authenticated");
+
+    const battle = await autoAdvanceTurnIfExpired(ctx, battleId);
+    if (!battle) throw new Error("Battle not found");
+    if (battle.status !== "active") throw new Error("Battle is not active");
+    if (battle.currentTurnPlayerId !== user._id) throw new Error("Not your turn");
+    if (battle.isPaused) throw new Error("Battle is paused");
+
+    // Prevent duplicate actions with idempotency
+    if (idempotencyKey && battle.lastActionIdempotencyKey === idempotencyKey) {
+      return { success: true, message: "Action already processed" };
+    }
+
+    const isPlayerA = battle.playerA.userId === user._id;
+    const attacker = isPlayerA ? battle.playerA : battle.playerB;
+    const defender = isPlayerA ? battle.playerB : battle.playerA;
+
+    // Validate attacker slot
+    if (attackerSlotIndex < 0 || attackerSlotIndex >= 5) {
+      throw new Error("Invalid attacker slot index");
+    }
+    const attackerCard = attacker.field[attackerSlotIndex];
+    if (!attackerCard) throw new Error("No card in attacker slot");
+    if (attackerCard.type !== "monster") throw new Error("Only monsters can attack");
+
+    // Validate target slot
+    if (targetSlotIndex < 0 || targetSlotIndex >= 5) {
+      throw new Error("Invalid target slot index");
+    }
+    const targetCard = defender.field[targetSlotIndex];
+    if (!targetCard) throw new Error("No card in target slot");
+    if (targetCard.type !== "monster") throw new Error("Can only attack monsters");
+
+    // Use in-battle snapshot on the battle doc (no DB reads to legacy cards)
+    const attackerATK = Number(attacker.atkPts ?? 0);
+    const targetDEF = Number(targetCard.defPts ?? 0);
+
+    // Calculate damage: DEF - ATK
+    const newDefPts = targetDEF - attackerATK;
+    
+    let updatedDefender = { ...defender };
+    
+    // If target DEF <= 0, move to graveyard
+    if (newDefPts <= 0) {
+      // Remove from field
+      updatedDefender.field[targetSlotIndex] = null;
+      
+      // Add to graveyard
+      updatedDefender.graveyard.push({
+        id: targetCard.id,
+        name: targetCard.name,
+        type: targetCard.type,
+        image: targetCard.image,
+      });
+    }
+
+    // Update battle with new defender state
+    const updateField = isPlayerA ? "playerB" : "playerA";
+    await ctx.db.patch(battleId, {
+      [updateField]: updatedDefender,
+      lastActionAt: new Date().toISOString(),
+      lastActionIdempotencyKey: idempotencyKey,
+    });
+
+    return {
+      success: true,
+      attackerATK,
+      originalTargetDEF: targetDEF,
+      newTargetDEF: newDefPts,
+      targetDestroyed: newDefPts <= 0,
+    };
+  },
+});
+
+export const useCardEffect = mutation({
+  args: {
+    battleId: v.id("battles"),
+    cardName: v.string(),
+  },
+  handler: async (ctx, { battleId, cardName }) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Not authenticated");
+
+    const battle = await ctx.db.get(battleId);
+    if (!battle) throw new Error("Battle not found");
+    if (battle.status !== "active") throw new Error("Battle is not active");
+
+    // Check if it's the user's turn
+    const isPlayerA = battle.playerA?.userId === user._id;
+    const isPlayerB = battle.playerB?.userId === user._id;
+    if (!isPlayerA && !isPlayerB) throw new Error("Not a participant in this battle");
+
+    const isMyTurn = battle.currentTurnPlayerId === user._id;
+    if (!isMyTurn) throw new Error("Not your turn");
+
+    // Convert card name to file path format
+    // "Forgemaster of Creation" -> "Forgemaster_of_Creation"
+    const effectFileName = cardName.replace(/\s+/g, '_');
+    
+    try {
+      // Execute the effect using static import
+      const result = executeCardEffect(ctx, battleId, user._id, cardName);
+      
+      // Update battle with last action timestamp
+      await ctx.db.patch(battleId, {
+        lastActionAt: new Date().toISOString(),
+      });
+
+      return {
+        success: true,
+        message: result.message,
+        effectFileName,
+        logs: result.logs,
+        effectResult: result
+      };
+    } catch (error) {
+      console.error(`Failed to execute effect for ${cardName}:`, error);
+      const errorMessage = error instanceof Error ? error.message : `Effect failed for card: ${cardName}`;
+      throw new Error(errorMessage);
+    }
   },
 });
 

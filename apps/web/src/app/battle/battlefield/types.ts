@@ -3,7 +3,12 @@ export interface Card {
   name: string;
   image?: string;
   type: 'monster' | 'spell' | 'trap';
+  character?: string;
   position?: 'attack' | 'defense';
+  atkPts?: number;
+  defPts?: number;
+  inGameAtkPts?: number;
+  inGameDefPts?: number;
 }
 
 export interface Player {
