@@ -2,6 +2,91 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  servers: defineTable({
+    name: v.string(),
+    capacity: v.number(),
+    memberCount: v.number(),
+    status: v.union(v.literal("active"), v.literal("archived")),
+    createdAt: v.string(),
+  })
+    .index("by_status_memberCount", ["status", "memberCount"]) 
+    .index("by_status_createdAt", ["status", "createdAt"]),
+
+  // Card templates are global definitions, not owned by users
+  card_templates: defineTable({
+    // Basic Info
+    name: v.string(),
+    type: v.string(),
+    description: v.optional(v.string()),
+    imageUrl: v.string(),
+
+    // Monster Stats
+    atkPts: v.optional(v.number()),
+    defPts: v.optional(v.number()),
+    inGameAtkPts: v.optional(v.number()),
+    inGameDefPts: v.optional(v.number()),
+
+    // Monster Properties
+    attribute: v.optional(v.string()),
+    class: v.optional(v.string()),
+    character: v.optional(v.string()),
+    level: v.optional(v.number()),
+
+    // Statistics (template-level, aggregated elsewhere)
+    matches: v.optional(
+      v.object({
+        wins: v.number(),
+        total: v.number(),
+      })
+    ),
+    cardWin: v.optional(
+      v.object({
+        global: v.number(),
+        local: v.number(),
+      })
+    ),
+    cardLose: v.optional(
+      v.object({
+        global: v.number(),
+        local: v.number(),
+      })
+    ),
+  })
+    .index("by_type", ["type"]) 
+    .index("by_attribute", ["attribute"]) 
+    .index("by_class", ["class"]) 
+    .index("by_character", ["character"]) 
+    .index("by_level", ["level"]),
+
+  // Per-user ownership of card templates, scoped to a server
+  user_cards: defineTable({
+    userId: v.id("users"),
+    serverId: v.id("servers"),
+    cardTemplateId: v.id("card_templates"),
+    quantity: v.number(),
+    acquiredAt: v.string(),
+  })
+    .index("by_user", ["userId"]) 
+    .index("by_server_user", ["serverId", "userId"]) 
+    .index("by_template", ["cardTemplateId"]),
+
+  // Server-scoped listings for marketplace transactions
+  listings: defineTable({
+    serverId: v.id("servers"),
+    sellerId: v.id("users"),
+    userCardId: v.id("user_cards"),
+    price: v.number(),
+    status: v.union(
+      v.literal("active"),
+      v.literal("sold"),
+      v.literal("cancelled")
+    ),
+    createdAt: v.string(),
+  })
+    .index("by_server_createdAt", ["serverId", "createdAt"]) 
+    .index("by_server_status", ["serverId", "status"]) 
+    .index("by_seller_status", ["sellerId", "status"]),
+
   cards: defineTable({
     // Basic Info
     name: v.string(),
@@ -68,6 +153,7 @@ export default defineSchema({
     clerkId: v.optional(v.string()),
     username: v.optional(v.string()),
     email: v.optional(v.string()),
+    serverId: v.optional(v.id("servers")),
     goldCount: v.number(),
     highestGoldCount: v.number(),
     inventory: v.array(v.string()),
@@ -88,6 +174,7 @@ export default defineSchema({
   })
     .index("byExternalId", ["externalId"])
     .index("by_clerk_id", ["clerkId"])
+    .index("by_serverId", ["serverId"])
     .searchIndex("by_username", {
       searchField: "username",
     })
@@ -95,6 +182,7 @@ export default defineSchema({
     .index("by_current_card_count", ["currentCardCount"]),
 
   friends: defineTable({
+    serverId: v.optional(v.id("servers")),
     userOneId: v.id("users"),
     userTwoId: v.id("users"),
     status: v.union(
@@ -118,9 +206,22 @@ export default defineSchema({
       "userTwoId",
       "status",
       "lastMessageTimestamp",
+    ])
+    .index("by_server_userOne_status_timestamp", [
+      "serverId",
+      "userOneId",
+      "status",
+      "lastMessageTimestamp",
+    ])
+    .index("by_server_userTwo_status_timestamp", [
+      "serverId",
+      "userTwoId",
+      "status",
+      "lastMessageTimestamp",
     ]),
 
   mails: defineTable({
+    serverId: v.optional(v.id("servers")),
     recipientId: v.optional(v.id("users")),
     subject: v.string(),
     content: v.string(),
@@ -130,17 +231,22 @@ export default defineSchema({
     isSystem: v.optional(v.boolean()),
   })
     .index("by_recipientId_sentAt", ["recipientId", "sentAt"])
-    .index("by_isSystem_sentAt", ["isSystem", "sentAt"]),
+    .index("by_isSystem_sentAt", ["isSystem", "sentAt"]) 
+    .index("by_server_sentAt", ["serverId", "sentAt"]),
 
   messages: defineTable({
+    serverId: v.optional(v.id("servers")),
     conversationId: v.id("friends"),
     senderId: v.id("users"),
     content: v.string(),
     timestamp: v.string(),
     isSystem: v.optional(v.boolean()),
     isRead: v.optional(v.boolean()),
-  }).index("by_conversationId_timestamp", ["conversationId", "timestamp"]),
+  })
+    .index("by_conversationId_timestamp", ["conversationId", "timestamp"]) 
+    .index("by_server_conversation_timestamp", ["serverId", "conversationId", "timestamp"]),
   trades: defineTable({
+    serverId: v.optional(v.id("servers")),
     offerorId: v.id("users"),
     offerorCardId: v.id("cards"),
     receiverId: v.id("users"),
@@ -155,7 +261,9 @@ export default defineSchema({
     .index("by_offeror_status", ["offerorId", "status"])
     .index("by_receiver_status", ["receiverId", "status"])
     .index("by_offeror_receiver", ["offerorId", "receiverId"])
-    .index("by_createdAt", ["createdAt"]),
+    .index("by_createdAt", ["createdAt"]) 
+    .index("by_server_status", ["serverId", "status"]) 
+    .index("by_server_createdAt", ["serverId", "createdAt"]),
   user_snapshots: defineTable({
     userId: v.string(),
     ts: v.string(),
@@ -165,6 +273,7 @@ export default defineSchema({
     .index("by_user_ts", ["userId", "ts"]),
 
   battles: defineTable({
+    serverId: v.optional(v.id("servers")),
     status: v.union(v.literal("waiting"), v.literal("active"), v.literal("completed")),
     createdAt: v.string(),
     lastActionAt: v.string(),
@@ -245,7 +354,8 @@ export default defineSchema({
       })),
     }),
   })
-    .index("by_status_createdAt", ["status", "createdAt"])
+    .index("by_status_createdAt", ["status", "createdAt"]) 
+    .index("by_server_status_createdAt", ["serverId", "status", "createdAt"])
     .index("by_hostId_status", ["hostId", "status"])
     .index("by_opponentId_status", ["opponentId", "status"]),
 
