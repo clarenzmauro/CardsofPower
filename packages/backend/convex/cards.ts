@@ -494,10 +494,28 @@ export const getMyUserCards = query({
 
     const enriched = await Promise.all(
       userCards.map(async (uc) => {
-        const tmpl = await ctx.db.get(uc.cardTemplateId as unknown as Id<"card_templates">);
+        const tmpl = await ctx.db.get(uc.cardTemplateId as Id<"card_templates">);
+        // Compute an estimated value: median of active listings for this template on this server
+        let estimatedValue: number | null = null;
+        const listings = await ctx.db
+          .query("listings")
+          .withIndex("by_server_status", (q) => q.eq("serverId", uc.serverId).eq("status", "active"))
+          .collect();
+        const prices = listings
+          .filter((l) => String(l.userCardId) !== String(uc._id))
+          .map((l) => l.price)
+          .filter((p) => typeof p === "number");
+        if (prices.length > 0) {
+          const sorted = prices.slice().sort((a, b) => a - b);
+          const mid = Math.floor(sorted.length / 2);
+          estimatedValue = sorted.length % 2 === 0 ? Math.round((sorted[mid - 1] + sorted[mid]) / 2) : sorted[mid];
+        }
+
         return {
           userCardId: uc._id,
           quantity: uc.quantity,
+          estimatedValue,
+          boughtFor: 0,
           template: tmpl
             ? {
                 id: tmpl._id,
@@ -508,6 +526,9 @@ export const getMyUserCards = query({
                 defPts: tmpl.defPts ?? 0,
                 attribute: tmpl.attribute ?? null,
                 level: tmpl.level ?? null,
+                matches: tmpl.matches ?? { wins: 0, total: 0 },
+                cardWin: tmpl.cardWin ?? { global: 0, local: 0 },
+                cardLose: tmpl.cardLose ?? { global: 0, local: 0 },
               }
             : null,
         };
