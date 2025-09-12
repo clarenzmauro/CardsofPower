@@ -47,6 +47,7 @@ export default function ShowcasePage() {
     };
     
     const markShowcaseCompleted = useMutation(api.users.markShowcaseCompleted);
+    const assignServer = useMutation(api.users.assignServerOnFirstAuth);
     
     // Get current user data
     const currentUser = useQuery(
@@ -55,7 +56,10 @@ export default function ShowcasePage() {
     );
     
     // Get user's server-scoped cards
-    const userCards = useQuery(api.cards.getMyUserCards);
+    const userCards = useQuery(
+        api.cards.getMyUserCards,
+        user ? {} : "skip"
+    );
 
     useEffect(() => {
         if (!isLoaded) return;
@@ -99,6 +103,9 @@ export default function ShowcasePage() {
     }
 
     if (userCards.length === 0) {
+        // Kick server assignment + starter provisioning if needed
+        // Fire-and-forget; the query will refetch automatically
+        void assignServer().catch(() => {});
         return (
             <div 
                 className="min-h-screen bg-cover bg-center flex items-center justify-center"

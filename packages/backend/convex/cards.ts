@@ -190,7 +190,8 @@ export const getMyUserCards = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity?.subject) throw new Error("getMyUserCards: unauthenticated");
+    // Be lenient during client bootstrapping; let frontend skip until ready
+    if (!identity?.subject) return [];
 
     const me = await ctx.db
       .query("users")

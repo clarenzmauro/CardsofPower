@@ -402,50 +402,139 @@ export const assignServerOnFirstAuth = mutation({
     const user = await userByExternalId(ctx, identity.subject);
     if (!user) throw new Error("assignServerOnFirstAuth: User not found");
 
-    // If already assigned, no-op
-    if (user.serverId)
-      return { serverId: user.serverId, alreadyAssigned: true };
+    let serverAssigned = false;
+    let server = user.serverId ? await ctx.db.get(user.serverId) : null;
 
-    // Find the least-full active server
-    let server = await ctx.db
-      .query("servers")
-      .withIndex("by_status_memberCount", (q) => q.eq("status", "active"))
-      .order("asc")
-      .first();
-
-    // Create a new server if none or full
-    if (
-      !server ||
-      typeof server.capacity !== "number" ||
-      server.memberCount >= server.capacity
-    ) {
-      const activeCount = await ctx.db
+    if (!server) {
+      // Find the least-full active server
+      server = await ctx.db
         .query("servers")
-        .withIndex("by_status_createdAt", (q) => q.eq("status", "active"))
-        .collect();
-      const name = `server-${(activeCount?.length ?? 0) + 1}`;
-      const serverId = await ctx.db.insert("servers", {
-        name,
-        capacity: 10,
-        memberCount: 0,
-        status: "active",
-        createdAt: new Date().toISOString(),
-      });
-      server = await ctx.db.get(serverId);
+        .withIndex("by_status_memberCount", (q) => q.eq("status", "active"))
+        .order("asc")
+        .first();
+
+      // Create a new server if none or full
+      if (
+        !server ||
+        typeof server.capacity !== "number" ||
+        server.memberCount >= server.capacity
+      ) {
+        const activeCount = await ctx.db
+          .query("servers")
+          .withIndex("by_status_createdAt", (q) => q.eq("status", "active"))
+          .collect();
+        const name = `server-${(activeCount?.length ?? 0) + 1}`;
+        const serverId = await ctx.db.insert("servers", {
+          name,
+          capacity: 10,
+          memberCount: 0,
+          status: "active",
+          createdAt: new Date().toISOString(),
+        });
+        server = await ctx.db.get(serverId);
+      }
+
+      if (!server)
+        throw new Error("assignServerOnFirstAuth: Failed to resolve server");
+      const nextCount = (server.memberCount ?? 0) + 1;
+      if (!Number.isFinite(nextCount) || nextCount < 1) {
+        throw new Error(
+          "assignServerOnFirstAuth: Invalid memberCount increment"
+        );
+      }
+
+      // Atomically update server count and user assignment
+      await ctx.db.patch(server._id, { memberCount: nextCount });
+      await ctx.db.patch(user._id, { serverId: server._id });
+      serverAssigned = true;
     }
 
-    if (!server)
-      throw new Error("assignServerOnFirstAuth: Failed to resolve server");
-    const nextCount = (server.memberCount ?? 0) + 1;
-    if (!Number.isFinite(nextCount) || nextCount < 1) {
-      throw new Error("assignServerOnFirstAuth: Invalid memberCount increment");
+    // After ensuring a server, grant starter cards if user has none
+    // Safety: cap selections and inserts
+    const existingUserCards = await ctx.db
+      .query("user_cards")
+      .withIndex("by_server_user", (q) =>
+        q.eq("serverId", server!._id).eq("userId", user._id)
+      )
+      .take(1);
+
+    if (!Array.isArray(existingUserCards)) {
+      throw new Error("assignServerOnFirstAuth: user_cards query failed");
     }
 
-    // Atomically update server count and user assignment
-    await ctx.db.patch(server._id, { memberCount: nextCount });
-    await ctx.db.patch(user._id, { serverId: server._id });
+    if (existingUserCards.length === 0) {
+      // Fetch recent templates and balance: 5 monster, 3 trap, 2 spell
+      const allTemplates = await ctx.db
+        .query("card_templates")
+        .order("desc")
+        .take(100);
 
-    return { serverId: server._id, alreadyAssigned: false };
+      if (Array.isArray(allTemplates) && allTemplates.length > 0) {
+        const normalizeType = (t: unknown) =>
+          typeof t === "string" ? t.toLowerCase() : "";
+        const monsters = allTemplates.filter(
+          (t) => normalizeType(t.type) === "monster"
+        );
+        const traps = allTemplates.filter(
+          (t) => normalizeType(t.type) === "trap"
+        );
+        const spells = allTemplates.filter(
+          (t) => normalizeType(t.type) === "spell"
+        );
+
+        const selected: Array<{ _id: Id<"card_templates"> }> = [];
+        const pushSome = (
+          src: Array<{ _id: Id<"card_templates"> }>,
+          need: number
+        ) => {
+          for (let i = 0; i < src.length && selected.length < 10 && need > 0; i++) {
+            const cand = src[i];
+            if (!cand?._id) continue;
+            const exists = selected.some((s) => String(s._id) === String(cand._id));
+            if (exists) continue;
+            selected.push({ _id: cand._id });
+            need -= 1;
+          }
+        };
+
+        // Primary balanced picks
+        pushSome(monsters as any, 5);
+        pushSome(traps as any, 3);
+        pushSome(spells as any, 2);
+
+        // Backfill to 10 if categories were short, with remaining recency order
+        if (selected.length < 10) {
+          const remaining = allTemplates.filter(
+            (t) => !selected.some((s) => String(s._id) === String(t._id))
+          );
+          pushSome(remaining as any, 10 - selected.length);
+        }
+
+        if (selected.length > 0) {
+          const nowIso = new Date().toISOString();
+          for (const pick of selected) {
+            await ctx.db.insert("user_cards", {
+              userId: user._id as Id<"users">,
+              serverId: server!._id as Id<"servers">,
+              cardTemplateId: pick._id as Id<"card_templates">,
+              quantity: 1,
+              acquiredAt: nowIso,
+            });
+          }
+
+          const nextCardCount = (user.currentCardCount ?? 0) + selected.length;
+          await ctx.db.patch(user._id, {
+            currentCardCount: nextCardCount,
+            highestCardCount: Math.max(
+              user.highestCardCount ?? 0,
+              nextCardCount
+            ),
+          });
+        }
+      }
+    }
+
+    return { serverId: server!._id, alreadyAssigned: !serverAssigned };
   },
 });
 
