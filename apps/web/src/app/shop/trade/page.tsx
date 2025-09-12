@@ -14,58 +14,60 @@ export default function TradePage() {
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
 
-  const cards =
-    useQuery(api.cards.getListings, {
-      scope: "trade",
-      searchQuery,
-      minPrice: minPrice ? Number(minPrice) : undefined,
-      maxPrice: maxPrice ? Number(maxPrice) : undefined,
-      currentUserId: useUser().user?.id ?? "",
-    }) ?? [];
-  const isLoading = !cards;
+  // Server-scoped listings (active)
+  const listingsAll = useQuery(api.cards.getServerListingsV2, { scope: "active" }) ?? [];
+  const listings = (listingsAll as any[]).filter(l => (l as any)?.category === "trade");
+  const isLoading = !listings;
 
   // for main area
   const { user } = useUser();
-  const [selectedTradeCard, setSelectedTradeCard] =
-    useState<Id<"cards"> | null>(null);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
-  const [selectedListCard, setSelectedListCard] = useState<Id<"cards"> | null>(
+  const [selectedListCard, setSelectedListCard] = useState<Id<"user_cards"> | null>(
     null
   );
   const [listing, setListing] = useState(false);
-  const [removing, setRemoving] = useState<Record<Id<"cards">, boolean>>({});
-  const [confirmUnlistId, setConfirmUnlistId] = useState<Id<"cards"> | null>(
+  const [removing, setRemoving] = useState<Record<Id<"listings">, boolean>>({});
+  const [confirmUnlistId, setConfirmUnlistId] = useState<Id<"listings"> | null>(
     null
   );
   const [confirmListOpen, setConfirmListOpen] = useState(false);
 
-  const myTradeableCards =
-    useQuery(api.cards.getListings, {
-      scope: "my-trade",
-      currentUserId: user?.id ?? "",
-    }) ?? [];
+  // Identify my listings by filtering server listings
+  const me = useQuery(api.users.getMe);
+  const myTradeableCards = useMemo(() => {
+    const mine = (listings as any[])?.filter(l => String(l?.seller?.id ?? "") === String(me?._id ?? "")) ?? [];
+    return mine;
+  }, [listings, me?._id]);
 
-  const tradeableCards =
-    useQuery(api.cards.getListings, {
-      scope: "trade",
-      searchQuery,
-      minPrice: minPrice ? Number(minPrice) : undefined,
-      maxPrice: maxPrice ? Number(maxPrice) : undefined,
-      currentUserId: user?.id ?? "",
-    }) ?? [];
+  const tradeableCards = useMemo(() => {
+    const items = (listings as any[]) ?? [];
+    // Basic client-side filter by name/price if template present
+    const filtered = items.filter((l) => {
+      const name: string = l?.template?.name ?? "";
+      const price: number = Number(l?.price ?? 0);
+      // Exclude my own listings from Available Trades
+      if (String(l?.seller?.id ?? "") === String(me?._id ?? "")) return false;
+      if (searchQuery && !name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      if (minPrice && Number(minPrice) > 0 && price < Number(minPrice)) return false;
+      if (maxPrice && Number(maxPrice) > 0 && price > Number(maxPrice)) return false;
+      return true;
+    });
+    return filtered;
+  }, [listings, searchQuery, minPrice, maxPrice, me?._id]);
 
-  const unlistCard = useMutation(api.cards.setListingStatus);
-  const listForTrade = useMutation(api.cards.setListingStatus);
+  const unlistListing = useMutation(api.cards.unlistListingV2);
+  const createListing = useMutation(api.cards.createListingV2);
+  const purchaseListing = useMutation(api.cards.purchaseListingV2);
 
-  const handleUnlist = async (cardId: string) => {
+  const handleUnlist = async (listingId: string) => {
     if (!user?.id) {
       toast.error("You must be signed in to modify listings.");
       return;
     }
-    const id = cardId as Id<"cards">;
+    const id = listingId as Id<"listings">;
     setRemoving((prev) => ({ ...prev, [id]: true }));
     try {
-      const res = await unlistCard({ cardId: id, ownerId: user.id, mode: "unlist" });
+      const res = await unlistListing({ listingId: id });
       if (!res?.success) throw new Error("Unlist failed");
       toast.success("Removed from trade");
     } catch (error: unknown) {
@@ -76,15 +78,18 @@ export default function TradePage() {
     }
   };
 
-  const inventory = useQuery(api.cards.getUserInventory, {
-    userId: user?.id ?? "",
-  });
+  const inventory = useQuery(api.cards.getMyUserCards);
   const eligibleForTrade = useMemo(() => {
     const items = (inventory as any[]) ?? [];
-    return items
-      .filter((card) => !card.isListed && !card.isForTrade)
-      .slice(0, 100);
-  }, [inventory]);
+    const myActiveListings = new Set<string>(
+      ((listings as any[]) ?? [])
+        .filter(l => String(l?.seller?.id ?? "") === String(me?._id ?? ""))
+        .map(l => String(l?.userCardId ?? ""))
+    );
+    // Exclude user_cards that are already listed by me
+    const filtered = items.filter((uc: any) => !myActiveListings.has(String(uc?.userCardId ?? "")));
+    return filtered.slice(0, 100);
+  }, [inventory, listings, me?._id]);
 
   const closeListModal = () => {
     setIsListModalOpen(false);
@@ -103,12 +108,8 @@ export default function TradePage() {
     }
     setListing(true);
     try {
-      const res = await listForTrade({
-        cardId: selectedListCard,
-        ownerId: user.id,
-        mode: "trade",
-      });
-      if (!res?.success) throw new Error("Listing failed");
+      const res = await createListing({ userCardId: selectedListCard as any, price: 1 });
+      if (!res?.listingId) throw new Error("Listing failed");
       toast.success("Card listed for trade");
       closeListModal();
     } catch (error: unknown) {
@@ -204,20 +205,26 @@ export default function TradePage() {
                     </p>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {tradeableCards.map((card) => (
+                      {tradeableCards.map((l: any) => (
                         <div
-                          key={card._id}
+                          key={l._id}
                           className="bg-black/40 rounded-lg p-4 border border-white/20 hover:border-white/40 transition-colors"
                         >
-                          <div className="text-white mb-2">{card.name}</div>
-                          <div className="text-yellow-400 mb-2">
-                            Owner: {card.currentOwnerUsername}
-                          </div>
+                          <div className="text-white mb-2">{l?.template?.name ?? "Unnamed"}</div>
+                          <div className="text-white/80 mb-2">Seller: {l?.seller?.name ?? "Player"}</div>
                           <button
-                            onClick={() => setSelectedTradeCard(card._id)}
+                            onClick={async () => {
+                              try {
+                                await purchaseListing({ listingId: l._id });
+                                toast.success("Purchased!");
+                              } catch (e: unknown) {
+                                const m = e instanceof Error ? e.message : "Purchase failed";
+                                toast.error(m);
+                              }
+                            }}
                             className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm w-full mb-2"
                           >
-                            Initiate Trade
+                            Buy
                           </button>
                         </div>
                       ))}
@@ -246,41 +253,36 @@ export default function TradePage() {
                     </p>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {myTradeableCards.map((card) => (
+                      {myTradeableCards.map((l: any) => (
                         <div
-                          key={card._id}
+                          key={l._id}
                           className="bg-black/40 rounded-lg p-4 border border-white/20 hover:border-white/40 transition-colors"
                         >
                           <div className="h-60 flex items-center justify-center mb-2">
                             <img
-                              src={card.imageUrl ?? "/assets/cards/blank.png"}
-                              alt={card.name}
+                              src={l?.template?.imageUrl ?? "/assets/cards/blank.png"}
+                              alt={l?.template?.name ?? "Card"}
                               className="h-full w-auto object-contain"
                             />
                           </div>
                           <div className="text-white font-bold mb-1">
-                            {card.name}
+                            {l?.template?.name ?? "Unnamed"}
                           </div>
                           <div className="text-sm text-white/80 space-y-1 mb-2">
-                            <div>
-                              Description:{" "}
-                              {card.description ?? "No description available"}
-                            </div>
                             <div className="text-white font-bold mb-1">
                               Card Stats
                             </div>
-                            <div>Type: {card.type ?? "N/A"}</div>
-                            <div>Attribute: {card.attribute ?? "N/A"}</div>
-                            <div>Level: {card.level ?? "N/A"}</div>
-                            <div>ATK: {card.atkPts ?? "N/A"}</div>
-                            <div>DEF: {card.defPts ?? "N/A"}</div>
+                            <div>Type: {l?.template?.type ?? "N/A"}</div>
+                            <div>Level: {l?.template?.level ?? "N/A"}</div>
+                            <div>ATK: {l?.template?.atkPts ?? "N/A"}</div>
+                            <div>DEF: {l?.template?.defPts ?? "N/A"}</div>
                           </div>
                           <button
-                            onClick={() => setConfirmUnlistId(card._id)}
-                            disabled={!!removing[card._id]}
+                            onClick={() => setConfirmUnlistId(l._id as Id<"listings">)}
+                            disabled={!!removing[l._id as Id<"listings">]}
                             className="bg-red-500 hover:bg-red-600 disabled:bg-red-400 text-white px-3 py-1 rounded text-sm w-full"
                           >
-                            {removing[card._id]
+                            {removing[l._id as Id<"listings">]
                               ? "Removing..."
                               : "Remove from Trade"}
                           </button>
@@ -329,21 +331,21 @@ export default function TradePage() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {eligibleForTrade.map((card) => (
+                    {eligibleForTrade.map((uc: any) => (
                       <button
-                        key={card._id}
-                        onClick={() => setSelectedListCard(card._id as Id<"cards">)}
-                        className={`rounded border p-2 bg-black/40 hover:border-orange-400 text-left ${selectedListCard === card._id ? "border-orange-500 ring-2 ring-orange-300" : "border-white/20"}`}
+                        key={uc.userCardId}
+                        onClick={() => setSelectedListCard(uc.userCardId as Id<"user_cards">)}
+                        className={`rounded border p-2 bg-black/40 hover:border-orange-400 text-left ${selectedListCard === uc.userCardId ? "border-orange-500 ring-2 ring-orange-300" : "border-white/20"}`}
                       >
                         <div className="h-28 flex items-center justify-center mb-2">
                           <img
-                            src={card.imageUrl ?? "/assets/cards/blank.png"}
-                            alt={card.name}
+                            src={uc?.template?.imageUrl ?? "/assets/cards/blank.png"}
+                            alt={uc?.template?.name ?? "Card"}
                             className="h-full w-auto object-contain"
                           />
                         </div>
                         <div className="font-medium text-sm text-white">
-                          {card.name}
+                          {uc?.template?.name ?? "Unnamed"}
                         </div>
                       </button>
                     ))}
@@ -354,8 +356,8 @@ export default function TradePage() {
                 <div className="mt-4 p-3 border border-white/20 rounded bg-black/20">
                   <div className="text-sm text-white/80">Selected card:</div>
                   <div className="font-semibold text-white">
-                    {eligibleForTrade.find((c) => c._id === selectedListCard)
-                      ?.name ?? "Unknown card"}
+                    {eligibleForTrade.find((c: any) => String(c.userCardId) === String(selectedListCard))
+                      ?.template?.name ?? "Unknown card"}
                   </div>
                 </div>
               )}

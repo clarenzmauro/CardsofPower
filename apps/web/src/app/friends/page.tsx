@@ -10,9 +10,7 @@ import {
   Search,
   Send,
   MoreVertical,
-  UserX,
   Flag,
-  LogOut,
   UserPlus,
 } from "lucide-react";
 import {
@@ -51,6 +49,7 @@ export default function FriendsPage() {
   const sendFriendRequest = useMutation(api.friends.sendFriendRequest);
   const pendingRequests = useQuery(api.friends.getPendingFriendRequests);
   const acceptFriendRequest = useMutation(api.friends.acceptFriendRequest);
+  const sendMessageMutation = useMutation(api.friends.sendMessage);
 
   const handleSendFriendRequest = async (friendId: Id<"users">) => {
     try {
@@ -76,15 +75,23 @@ export default function FriendsPage() {
     friend.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleSendMessage = () => {
-    if (newMessage.trim()) {
-      // Handle sending message
-      setNewMessage("");
-    }
-  };
+  // Send a chat message to the selected friend
+  const handleSendMessage = async () => {
+    if (activeTab !== "friends") return; // guard: only friends tab can send
+    const content = newMessage.trim();
+    if (!content) return; // assertion 1: non-empty
+    if (content.length > 1000) return; // assertion 2: enforce backend cap
+    if (!selectedConversation) return; // guard: must have a conversation
 
-  const getSelectedFriend = () => {
-    return friends.find((f) => f.id === selectedConversation);
+    try {
+      await sendMessageMutation({
+        friendId: selectedConversation as Id<"users">,
+        content,
+      });
+      setNewMessage("");
+    } catch (error) {
+      console.error("Failed to send message:", error);
+    }
   };
 
   return (
@@ -318,21 +325,27 @@ export default function FriendsPage() {
                 <div className="flex items-center gap-3">
                   {activeTab === "friends" && (
                     <>
-                      <div className="w-10 h-10 bg-[rgb(69,26,3)] rounded-full flex items-center justify-center">
-                        <span className="text-white font-[var(--font-pirata-one)] text-sm">
-                          {getSelectedFriend()?.name.charAt(0)}
-                        </span>
-                      </div>
-                      <div>
-                        <h2 className="font-[var(--font-pirata-one)] text-black">
-                          {getSelectedFriend()?.name}
-                        </h2>
-                        <p className="text-black/60 text-xs">
-                          {getSelectedFriend()?.isOnline
-                            ? "Online"
-                            : "Last seen 1h ago"}
-                        </p>
-                      </div>
+                      {(() => {
+                        const friend = friends.find(f => f.id === selectedConversation);
+                        if (!friend) return null;
+                        return (
+                          <>
+                            <div className="w-10 h-10 bg-[rgb(69,26,3)] rounded-full flex items-center justify-center">
+                              <span className="text-white font-[var(--font-pirata-one)] text-sm">
+                                {friend.name.charAt(0)}
+                              </span>
+                            </div>
+                            <div>
+                              <h2 className="font-[var(--font-pirata-one)] text-black">
+                                {friend.name}
+                              </h2>
+                              <p className="text-black/60 text-xs">
+                                {friend.isOnline ? "Online" : "Last seen 1h ago"}
+                              </p>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </>
                   )}
 

@@ -13,28 +13,27 @@ export default function ShopPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
-  const [buying, setBuying] = useState<Record<Id<"cards">, boolean>>({})
+  const [buying, setBuying] = useState<Record<Id<"listings">, boolean>>({})
 
   const { user } = useUser();
-  const cards = useQuery(api.cards.getListings, {
-    scope: "shop",
-    searchQuery,
-    minPrice: minPrice ? Number(minPrice) : undefined,
-    maxPrice: maxPrice ? Number(maxPrice) : undefined,
-    currentUserId: user?.id ?? "",
+  const listings = useQuery(api.cards.getServerListingsV2, { scope: "active" });
+  const purchaseListing = useMutation(api.cards.purchaseListingV2);
+  const me = useQuery(api.users.getMe);
+  // Only show sale listings (created from Listing page). Exclude my own listings.
+  const shopListings = (listings ?? []).filter((l) => {
+    const isSale = (l as any)?.category === "sale";
+    const isMine = String((l as any)?.seller?.id ?? "") === String(me?._id ?? "");
+    return isSale && !isMine;
   });
-  const isLoading = !cards;
-  const purchaseCard = useMutation(api.cards.purchaseCard);
-  const shopListings = cards ?? [];
 
-  const handlePurchase = async (cardId: Id<"cards">) => {
+  const handlePurchase = async (listingId: Id<"listings">) => {
     if (!user?.id) {
       toast.error("You must be signed in to buy cards.");
       return;
     }
-    setBuying((prev) => ({ ...prev, [cardId]: true }));
+    setBuying((prev) => ({ ...prev, [listingId]: true }));
     try {
-      const result = await purchaseCard({ cardId });
+      const result = await purchaseListing({ listingId });
       if (!result?.success) throw new Error("Purchase failed");
       toast.success("Purchase successful");
     } catch (error: unknown) {
@@ -45,7 +44,7 @@ export default function ShopPage() {
         toast.error(message);
       }
     } finally {
-      setBuying((prev) => ({ ...prev, [cardId]: false }));
+      setBuying((prev) => ({ ...prev, [listingId]: false }));
     }
   };
 
@@ -117,45 +116,45 @@ export default function ShopPage() {
         {/* Main Content Area */}
         <div className="px-8 pb-8">
           <div className="bg-black/40 backdrop-blur-sm rounded-xl p-6 border border-white/20 min-h-96">
-            {isLoading ? (
+            {listings === undefined ? (
               <div className="text-white text-center py-20">Loading...</div>
             ) : shopListings.length === 0 ? (
               <div className="text-white text-center py-20">No results found</div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {shopListings.map((card) => (
+                {shopListings.map((l) => (
                   <div
-                    key={card._id}
+                    key={l._id}
                     className="bg-black/40 rounded-lg p-4 border border-white/20 hover:border-white/40 transition-colors flex flex-col"
                   >
                     <div className="h-60 flex items-center justify-center mb-2">
                       <img
-                        src={card.imageUrl ?? "/assets/cards/blank.png"}
-                        alt={card.name}
+                        src={l.template?.imageUrl ?? "/assets/cards/blank.png"}
+                        alt={l.template?.name ?? ""}
                         className="h-full w-auto object-contain"
                       />
                     </div>
-                    <div className="text-white font-bold mb-1">{card.name}</div>
+                    <div className="text-white font-bold mb-1">{l.template?.name}</div>
                     <div className="text-sm text-white/80 space-y-1 mb-2">
-                      <div>Description: {card.description ?? 'No description available'}</div>
+                      <div>Description: {l.template?.description ?? 'No description available'}</div>
                       <div className="text-white font-bold mb-1">Card Stats</div>
-                      <div>Type: {card.type ?? 'N/A'}</div>
-                      <div>Attribute: {card.attribute ?? 'N/A'}</div>
-                      <div>Level: {card.level ?? 'N/A'}</div>
-                      <div>ATK: {card.atkPts ?? 'N/A'}</div>
-                      <div>DEF: {card.defPts ?? 'N/A'}</div>
-                      <div>Owner: {card.currentOwnerUsername ?? 'Unknown'}</div>
+                      <div>Type: {l.template?.type ?? 'N/A'}</div>
+                      <div>Attribute: {l.template?.attribute ?? 'N/A'}</div>
+                      <div>Level: {l.template?.level ?? 'N/A'}</div>
+                      <div>ATK: {l.template?.atkPts ?? 'N/A'}</div>
+                      <div>DEF: {l.template?.defPts ?? 'N/A'}</div>
+                      <div>Seller: {l.seller?.name ?? 'Unknown'}</div>
                     </div>
                     <div className="text-yellow-400 font-bold mb-2">
-                      {card.marketValue ?? 0} gold
+                      {l.price ?? 0} gold
                     </div>
                     <div className="mt-auto">
                       <button
-                        onClick={() => handlePurchase(card._id)}
+                        onClick={() => handlePurchase(l._id as Id<"listings">)}
                         className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm w-full"
-                        disabled={!user || !!buying[card._id]}
+                        disabled={!user || !!buying[l._id as Id<"listings">]}
                       >
-                        {buying[card._id] ? "Buying..." : "Buy"}
+                        {buying[l._id as Id<"listings">] ? "Buying..." : "Buy"}
                       </button>
                     </div>
                   </div>

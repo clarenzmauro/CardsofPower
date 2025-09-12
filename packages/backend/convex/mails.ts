@@ -65,7 +65,8 @@ export const getSystemMailContent = query({
 
     const mail = await ctx.db.get(mailId);
     if (!mail) throw new Error("getSystemMailContent: mail not found");
-    if (!mail.isSystem) throw new Error("getSystemMailContent: not a system mail");
+    if (!mail.isSystem)
+      throw new Error("getSystemMailContent: not a system mail");
 
     // Runtime assertions
     if (typeof mail.subject !== "string" || typeof mail.content !== "string") {
@@ -113,7 +114,10 @@ export const markMailAsRead = mutation({
     if (!mail) throw new Error("markMailAsRead: mail not found");
 
     // Ensure the mail is either a system mail or addressed to the current user
-    const user = await ctx.db.query("users").withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject)).first();
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
     if (!user) throw new Error("markMailAsRead: user not found");
 
     if (!mail.isSystem && String(mail.recipientId) !== String(user._id)) {

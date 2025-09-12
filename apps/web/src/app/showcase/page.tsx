@@ -54,11 +54,8 @@ export default function ShowcasePage() {
         user ? {} : "skip"
     );
     
-    // Get user's cards from inventory
-    const userCards = useQuery(
-        api.cards.getByIds,
-        currentUser?.inventory ? { cardIds: currentUser.inventory as any } : "skip"
-    );
+    // Get user's server-scoped cards
+    const userCards = useQuery(api.cards.getMyUserCards);
 
     useEffect(() => {
         if (!isLoaded) return;
@@ -113,6 +110,7 @@ export default function ShowcasePage() {
     }
 
     const currentCard = userCards[currentCardIndex];
+    const currentTemplate = currentCard?.template ?? null;
 
     const handleContinue = () => {
         if (currentCardIndex < userCards.length - 1) {
@@ -247,8 +245,8 @@ export default function ShowcasePage() {
                         {/* Card Front */}
                         <div className="absolute inset-0 w-full h-full backface-hidden">
                             <Image 
-                                src={currentCard.imageUrl} 
-                                alt={currentCard.name}
+                                src={currentTemplate?.imageUrl ?? "/assets/cards/blank.png"} 
+                                alt={currentTemplate?.name ?? "Card"}
                                 width={400}
                                 height={500}
                                 className="w-full h-full object-contain rounded-xl"
@@ -275,40 +273,37 @@ export default function ShowcasePage() {
                                 */}
                                 
                                 <div className="space-y-3 w-full max-w-sm">
-                                    {currentCard.type && (
+                                    {currentTemplate?.type && (
                                         <div className="flex justify-center items-center p-3 bg-black/20 rounded-lg backdrop-blur-sm font-[family-name:var(--font-pirata-one)]">
-                                            <span className="capitalize text-base">{currentCard.type} Card</span>
+                                            <span className="capitalize text-base">{currentTemplate.type} Card</span>
                                         </div>
                                     )}
-                                    {(currentCard.type === "trap" || currentCard.type === "spell") && (
+                                    {(currentTemplate?.type === "trap" || currentTemplate?.type === "spell") && (
                                         <div className="p-3 bg-yellow-900/30 rounded-lg backdrop-blur-sm font-[family-name:var(--font-pirata-one)]">
                                             <span className="text-sm text-yellow-200">
-                                                {currentCard.type === "trap" ? "Trap" : "Spell"} cards have minimal stats
+                                                {currentTemplate.type === "trap" ? "Trap" : "Spell"} cards have minimal stats
                                             </span>
                                         </div>
                                     )}
-                                    {currentCard.attribute && (
+                                    {currentTemplate?.attribute && (
                                         <div className="flex justify-between items-center p-3 bg-black/20 rounded-lg backdrop-blur-sm font-[family-name:var(--font-pirata-one)]">
                                             <span className="font-medium text-base">Attribute:</span>
-                                            <span className="capitalize text-base">{currentCard.attribute}</span>
+                                            <span className="capitalize text-base">{currentTemplate.attribute}</span>
                                         </div>
                                     )}
-                                    {currentCard.class && (
+                                    {currentTemplate && (currentTemplate as any).class && (
                                         <div className="flex justify-between items-center p-3 bg-black/20 rounded-lg backdrop-blur-sm font-[family-name:var(--font-pirata-one)]">
                                             <span className="font-medium text-base">Class:</span>
-                                            <span className="capitalize text-base">{currentCard.class}</span>
+                                            <span className="capitalize text-base">{(currentTemplate as any).class}</span>
                                         </div>
                                     )}
-                                    {currentCard.level && (
+                                    {currentTemplate?.level && (
                                         <div className="flex justify-between items-center p-3 bg-black/20 rounded-lg backdrop-blur-sm font-[family-name:var(--font-pirata-one)]">
                                             <span className="font-medium text-base">Level:</span>
-                                            <span className="text-base">{currentCard.level}</span>
+                                            <span className="text-base">{currentTemplate.level}</span>
                                         </div>
                                     )}
-                                    <div className="flex justify-between items-center p-3 bg-black/20 rounded-lg backdrop-blur-sm font-[family-name:var(--font-pirata-one)]">
-                                        <span className="font-medium text-base">Market Value:</span>
-                                        <span className="text-base">{currentCard.marketValue} gold</span>
-                                    </div>
+                                    {/* Market value removed in V2 */}
                                 </div>
                             </div>
                         </div>
