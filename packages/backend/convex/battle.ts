@@ -150,6 +150,9 @@ export const getBattle = query({
 
     const battle = await ctx.db.get(battleId);
     if (!battle) throw new Error("Battle not found");
+    if (!user.serverId || !battle.serverId || String(user.serverId) !== String(battle.serverId)) {
+      throw new Error("Cross-server access denied");
+    }
 
     const isPlayerA = battle.playerA.userId === user._id;
     const isPlayerB = battle.playerB.userId === user._id;
@@ -336,9 +339,15 @@ export const listOpenBattles = query({
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Not authenticated");
 
+    if (!user.serverId) return [];
+
     const battles = await ctx.db
       .query("battles")
-      .filter(q => q.eq(q.field("status"), "waiting"))
+      .withIndex("by_server_status_createdAt", (q: any) => q
+        .eq("serverId", user.serverId)
+        .eq("status", "waiting")
+      )
+      .order("desc")
       .collect();
 
     return battles.map(battle => ({
@@ -356,9 +365,15 @@ export const listJoinableBattles = query({
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Not authenticated");
 
+    if (!user.serverId) return [];
+
     const waiting = await ctx.db
       .query("battles")
-      .filter((q) => q.eq(q.field("status"), "waiting"))
+      .withIndex("by_server_status_createdAt", (q: any) => q
+        .eq("serverId", user.serverId)
+        .eq("status", "waiting")
+      )
+      .order("desc")
       .collect();
 
     const activeAsHost = await ctx.db
@@ -397,6 +412,7 @@ export const createBattle = mutation({
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Not authenticated");
     if (turnDurationSec <= 0) throw new Error("Invalid turn duration");
+    if (!user.serverId) throw new Error("User not assigned to a server");
 
     const now = new Date().toISOString();
     const turnEndsAt = new Date(Date.now() + turnDurationSec * 1000).toISOString();
@@ -419,6 +435,7 @@ export const createBattle = mutation({
 
     const FIELD_SIZE = 5;
     const battleId = await ctx.db.insert("battles", {
+      serverId: user.serverId,
       status: "waiting",
       createdAt: now,
       lastActionAt: now,
@@ -470,6 +487,9 @@ export const joinBattle = mutation({
     const battle = await ctx.db.get(battleId);
     if (!battle) throw new Error("Battle not found");
     if (!user) throw new Error("Not authenticated");
+    if (!user.serverId || !battle.serverId || String(user.serverId) !== String(battle.serverId)) {
+      throw new Error("Cross-server join denied");
+    }
     if (battle.hostId === user._id) throw new Error("Cannot join your own battle");
     if (battle.status !== "waiting") throw new Error("Battle not joinable");
 

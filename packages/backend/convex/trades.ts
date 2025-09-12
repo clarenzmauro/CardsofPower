@@ -24,8 +24,12 @@ export const initiateTrade = mutation({
       ctx.db.query("users").withIndex("by_clerk_id", q => q.eq("clerkId", args.receiverId)).unique(),
     ]);
     if (!offeror || !receiver) throw new Error("Users not found");
+    if (!offeror.serverId || !receiver.serverId || String(offeror.serverId) !== String(receiver.serverId)) {
+      throw new Error("Cross-server trade denied");
+    }
 
     const tradeId = await ctx.db.insert("trades", {
+      serverId: offeror.serverId,
       offerorId: offeror._id,
       offerorCardId: args.offerorCardId,
       receiverId: receiver._id,

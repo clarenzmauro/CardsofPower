@@ -22,6 +22,7 @@ export const getUserAccount = query({
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
       .first();
     if (!user) throw new Error("User not found");
+    if (!user.serverId) throw new Error("User has no server");
 
     // Validate critical fields
     const goldCount = Number(user.goldCount ?? 0);
@@ -148,8 +149,20 @@ export const getLeaderboards = query({
     const rawLimit = args.limit ?? 10;
     const limit = Math.max(1, Math.min(20, Math.floor(rawLimit)));
 
+    // scope to current user's server
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.subject) throw new Error("getLeaderboards: unauthenticated");
+    const me = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!me?.serverId) throw new Error("getLeaderboards: user has no server");
+
     // strategist (requires full compute)
-    const users = await ctx.db.query("users").collect();
+    const users = await ctx.db
+      .query("users")
+      .withIndex("by_serverId", (q) => q.eq("serverId", me.serverId))
+      .collect();
     const strategist = users
       .map((u) => {
         const games = u.gamesPlayed ?? 0;
@@ -163,7 +176,7 @@ export const getLeaderboards = query({
     // king midas (indexed)
     const kingMidas = await ctx.db
       .query("users")
-      .withIndex("by_highest_gold_count")
+      .withIndex("by_serverId", (q) => q.eq("serverId", me.serverId))
       .order("desc")
       .take(limit)
       .then((users) =>
@@ -176,7 +189,7 @@ export const getLeaderboards = query({
     // card master (indexed)
     const cardMaster = await ctx.db
       .query("users")
-      .withIndex("by_current_card_count")
+      .withIndex("by_serverId", (q) => q.eq("serverId", me.serverId))
       .order("desc")
       .take(limit)
       .then((users) =>

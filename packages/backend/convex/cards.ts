@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { type Id, type Doc } from "./_generated/dataModel";
 
 const ListingsScope = v.union(
     v.literal("shop"),
@@ -27,10 +28,6 @@ export const getAll = query({
     },
 });
 
-/**
- * @description
- * Debug query to check unowned cards count
- */
 export const getUnownedCount = query({
     handler: async (ctx: any) => {
         const unownedCards = await ctx.db
@@ -346,6 +343,11 @@ export const getListings = query({
   },
   handler: async (ctx, args) => {
     let cards: any[] = [];
+    const me = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", args.currentUserId))
+      .unique();
+    if (!me?.serverId) return [];
 
     if (args.scope === "shop") {
       cards = await ctx.db
@@ -358,6 +360,15 @@ export const getListings = query({
         )
         .collect();
       cards = cards.filter((card) => card.currentOwnerId !== args.currentUserId);
+      // Server scoping: only show listings from same server
+      const sellerIds = [...new Set(cards.map((c) => c.currentOwnerId).filter(Boolean))];
+      const sellers = await Promise.all(
+        sellerIds.map((cid) => ctx.db.query("users").withIndex("byExternalId", (q: any) => q.eq("externalId", String(cid))).unique())
+      );
+      const sameServerSellerIds = new Set(
+        sellers.filter((u: any) => u?.serverId && String(u.serverId) === String(me.serverId)).map((u: any) => String(u.clerkId ?? u.externalId))
+      );
+      cards = cards.filter((c) => sameServerSellerIds.has(String(c.currentOwnerId)));
     } else if (args.scope === "trade") {
       cards = await ctx.db
         .query("cards")
@@ -369,6 +380,14 @@ export const getListings = query({
         )
         .collect();
       cards = cards.filter((card) => card.currentOwnerId !== args.currentUserId);
+      const sellerIds = [...new Set(cards.map((c) => c.currentOwnerId).filter(Boolean))];
+      const sellers = await Promise.all(
+        sellerIds.map((cid) => ctx.db.query("users").withIndex("byExternalId", (q: any) => q.eq("externalId", String(cid))).unique())
+      );
+      const sameServerSellerIds = new Set(
+        sellers.filter((u: any) => u?.serverId && String(u.serverId) === String(me.serverId)).map((u: any) => String(u.clerkId ?? u.externalId))
+      );
+      cards = cards.filter((c) => sameServerSellerIds.has(String(c.currentOwnerId)));
     } else if (args.scope === "mine") {
       cards = await ctx.db
         .query("cards")
@@ -470,6 +489,9 @@ export const purchaseCard = mutation({
     ]);
 
     if (!buyer || !seller) throw new Error("purchaseCard: User not found");
+    if (!buyer.serverId || !seller.serverId || String(buyer.serverId) !== String(seller.serverId)) {
+      throw new Error("purchaseCard: cross-server purchase denied");
+    }
     if (buyer.goldCount < (card.marketValue ?? 0)) throw new Error("purchaseCard: Insufficient funds");
 
     const price = card.marketValue ?? 0;
@@ -498,6 +520,167 @@ export const purchaseCard = mutation({
         currentOwnerUsername: buyer.username,
         boughtFor: price,
       })
+    ]);
+
+    return { success: true };
+  },
+});
+
+// V2: Server-scoped marketplace using listings/user_cards/card_templates
+export const getServerListingsV2 = query({
+  args: {
+    scope: v.optional(v.union(v.literal("active"), v.literal("sold"), v.literal("cancelled"))),
+    limit: v.optional(v.number()),
+    cursor: v.optional(v.string()),
+  },
+  handler: async (ctx, { scope = "active", limit = 50 }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.subject) throw new Error("getServerListingsV2: unauthenticated");
+    const me: Doc<"users"> | null = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!me?.serverId) return [];
+
+    const listings: Doc<"listings">[] = await ctx.db
+      .query("listings")
+      .withIndex("by_server_status", (q) => q.eq("serverId", me.serverId as Id<"servers">).eq("status", scope))
+      .order("desc")
+      .take(Math.max(1, Math.min(100, limit)));
+
+    const results = await Promise.all(
+      listings.map(async (l: Doc<"listings">) => {
+        const [userCard, seller]: [Doc<"user_cards"> | null, Doc<"users"> | null] = await Promise.all([
+          ctx.db.get(l.userCardId as Id<"user_cards">),
+          ctx.db.get(l.sellerId as Id<"users">),
+        ]);
+        const templateId: Id<"card_templates"> | undefined = userCard?.cardTemplateId as Id<"card_templates"> | undefined;
+        const template: Doc<"card_templates"> | null = templateId ? await ctx.db.get(templateId) : null;
+        const sellerName: string | null = seller ? (seller.username ?? seller.name ?? "Player") : null;
+        return {
+          _id: l._id,
+          price: l.price,
+          status: l.status,
+          createdAt: l.createdAt,
+          seller: seller ? { id: seller._id, name: sellerName! } : null,
+          template: template
+            ? {
+                id: template._id,
+                name: template.name,
+                type: template.type,
+                imageUrl: template.imageUrl,
+                atkPts: template.atkPts,
+                defPts: template.defPts,
+                attribute: template.attribute,
+                level: template.level,
+              }
+            : null,
+        };
+      })
+    );
+
+    return results;
+  },
+});
+
+export const createListingV2 = mutation({
+  args: {
+    userCardId: v.id("user_cards"),
+    price: v.number(),
+  },
+  handler: async (ctx, { userCardId, price }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.subject) throw new Error("createListingV2: unauthenticated");
+    if (!Number.isFinite(price) || price <= 0) throw new Error("createListingV2: invalid price");
+
+    const me: Doc<"users"> | null = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!me?.serverId) throw new Error("createListingV2: user has no server");
+
+    const userCard: Doc<"user_cards"> | null = await ctx.db.get(userCardId as Id<"user_cards">);
+    if (!userCard) throw new Error("createListingV2: user card not found");
+    if (String(userCard.userId) !== String(me._id)) throw new Error("createListingV2: not owner");
+    if (String(userCard.serverId) !== String(me.serverId)) throw new Error("createListingV2: cross-server listing denied");
+    if (!Number.isFinite(userCard.quantity) || userCard.quantity <= 0) throw new Error("createListingV2: no quantity to list");
+
+    const listingId = await ctx.db.insert("listings", {
+      serverId: me.serverId as Id<"servers">,
+      sellerId: me._id as Id<"users">,
+      userCardId: userCardId as Id<"user_cards">,
+      price,
+      status: "active",
+      createdAt: new Date().toISOString(),
+    });
+
+    return { listingId };
+  },
+});
+
+export const purchaseListingV2 = mutation({
+  args: {
+    listingId: v.id("listings"),
+  },
+  handler: async (ctx, { listingId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.subject) throw new Error("purchaseListingV2: unauthenticated");
+    const me: Doc<"users"> | null = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!me?.serverId) throw new Error("purchaseListingV2: user has no server");
+
+    const listing: Doc<"listings"> | null = await ctx.db.get(listingId as Id<"listings">);
+    if (!listing) throw new Error("purchaseListingV2: listing not found");
+    if (listing.status !== "active") throw new Error("purchaseListingV2: listing not active");
+    if (String(listing.serverId) !== String(me.serverId)) throw new Error("purchaseListingV2: cross-server purchase denied");
+    if (String(listing.sellerId) === String(me._id)) throw new Error("purchaseListingV2: cannot buy own listing");
+
+    const [seller, userCard]: [Doc<"users"> | null, Doc<"user_cards"> | null] = await Promise.all([
+      ctx.db.get(listing.sellerId as Id<"users">),
+      ctx.db.get(listing.userCardId as Id<"user_cards">),
+    ]);
+    if (!seller || !userCard) throw new Error("purchaseListingV2: seller or user card missing");
+    if (me.goldCount < listing.price) throw new Error("purchaseListingV2: insufficient gold");
+
+    // Transfer: decrement seller quantity, increment or create buyer user_card
+    const templateId: Id<"card_templates"> = userCard.cardTemplateId as Id<"card_templates">;
+    const buyerExisting: Doc<"user_cards">[] = await ctx.db
+      .query("user_cards")
+      .withIndex("by_server_user", (q) => q.eq("serverId", me.serverId as Id<"servers">).eq("userId", me._id as Id<"users">))
+      .collect();
+    const sameTemplate = buyerExisting.find((uc) => String(uc.cardTemplateId) === String(templateId));
+
+    await Promise.all([
+      ctx.db.patch(me._id, {
+        goldCount: me.goldCount - listing.price,
+        highestGoldCount: Math.max(me.highestGoldCount, me.goldCount - listing.price),
+        currentCardCount: me.currentCardCount + 1,
+        highestCardCount: Math.max(me.highestCardCount, me.currentCardCount + 1),
+        cardsBought: (me.cardsBought ?? 0) + 1,
+      }),
+      ctx.db.patch(seller._id, {
+        goldCount: seller.goldCount + listing.price,
+        highestGoldCount: Math.max(seller.highestGoldCount, seller.goldCount + listing.price),
+        currentCardCount: Math.max(0, seller.currentCardCount - 1),
+        cardsSold: (seller.cardsSold ?? 0) + 1,
+      }),
+      ctx.db.patch(listingId as Id<"listings">, { status: "sold" }),
+      ctx.db.patch(userCard._id as Id<"user_cards">, { quantity: Math.max(0, (userCard.quantity ?? 0) - 1) }),
+      (async () => {
+        if (sameTemplate) {
+          await ctx.db.patch(sameTemplate._id as Id<"user_cards">, { quantity: (sameTemplate.quantity ?? 0) + 1 });
+        } else {
+          await ctx.db.insert("user_cards", {
+            userId: me._id as Id<"users">,
+            serverId: me.serverId as Id<"servers">,
+            cardTemplateId: templateId as Id<"card_templates">,
+            quantity: 1,
+            acquiredAt: new Date().toISOString(),
+          });
+        }
+      })(),
     ]);
 
     return { success: true };
