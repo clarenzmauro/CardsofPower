@@ -9,23 +9,19 @@ import { api } from "@cards-of-power/backend/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { useDataCache, cacheManager } from "@/hooks/useCachedQuery";
 
-type CardData = {
+type CardTemplate = {
   _id: string;
   name: string;
-  description: string;
+  description?: string;
   type: string;
-  attribute?: string;
-  class?: string;
-  character?: string;
-  level?: number;
-  marketValue?: number;
-  boughtFor?: number;
+  attribute?: string | null;
+  class?: string | null;
+  character?: string | null;
+  level?: number | null;
+  atkPts?: number | null;
+  defPts?: number | null;
   imageUrl: string;
-  isOwned: boolean;
-  matches?: {
-    wins: number;
-    total: number;
-  };
+  matches?: { wins: number; total: number };
 };
 
 /**
@@ -51,14 +47,11 @@ export default function DictionaryPage() {
   const [selectedClass, setSelectedClass] = useState("");
   const [selectedCharacter, setSelectedCharacter] = useState("");
   const [selectedLevel, setSelectedLevel] = useState("");
-  const [selectedCard, setSelectedCard] = useState<CardData | null>(null);
+  const [selectedCard, setSelectedCard] = useState<CardTemplate | null>(null);
 
-  // fetch data from convex
-  const freshCards = useQuery(api.cards.getAll);
-  const freshUserInventory = useQuery(
-    api.cards.getUserInventory,
-    user?.id ? { userId: user.id } : { userId: "" }
-  );
+  // fetch data from convex (server-scoped)
+  const freshCards = useQuery(api.cards.getAllTemplates);
+  const freshUserInventory = useQuery(api.cards.getMyUserCards);
   const freshUserData = useQuery(api.users.current);
 
   // cache data with TTL
@@ -81,8 +74,8 @@ export default function DictionaryPage() {
     );
 
   // prefer cached data, fall back to fresh data
-  const cards = cachedCards || freshCards;
-  const userInventory = cachedUserInventory || freshUserInventory;
+  const cards: CardTemplate[] = (cachedCards || freshCards) as any;
+  const userInventory: any[] = (cachedUserInventory || freshUserInventory) as any;
   const userData = cachedUserData || freshUserData;
 
   // calculate winrate
@@ -94,36 +87,25 @@ export default function DictionaryPage() {
   }, [selectedCard]);
 
   // calculate ROI with color formatting
-  const formattedROI = useMemo(() => {
-    if (!selectedCard?.marketValue || !selectedCard?.boughtFor)
-      return <span>0</span>;
-    const roi = selectedCard.marketValue - selectedCard.boughtFor;
-    if (roi > 0) {
-      return <span className="text-green-500">+{roi}</span>;
-    } else if (roi < 0) {
-      return <span className="text-red-600">-{Math.abs(roi)}</span>;
-    } else {
-      return <span>{roi}</span>;
-    }
-  }, [selectedCard]);
+  const formattedROI = useMemo(() => <span>0</span>, []);
 
   // filter and sort cards
   const filteredCards = useMemo(() => {
-    if (!cards) return [];
+    if (!cards) return [] as CardTemplate[];
 
-    return cards
-      .filter((card: CardData) => {
+    return (cards as CardTemplate[])
+      .filter((card: CardTemplate) => {
         const matchesSearch = card.name
           .toLowerCase()
           .includes(searchQuery.toLowerCase());
         const matchesType = !selectedCardType || card.type === selectedCardType;
         const matchesAttribute =
-          !selectedAttribute || card.attribute === selectedAttribute;
-        const matchesClass = !selectedClass || card.class === selectedClass;
+          !selectedAttribute || String(card.attribute ?? "") === selectedAttribute;
+        const matchesClass = !selectedClass || String(card.class ?? "") === selectedClass;
         const matchesCharacter =
-          !selectedCharacter || card.character === selectedCharacter;
+          !selectedCharacter || String(card.character ?? "") === selectedCharacter;
         const matchesLevel =
-          !selectedLevel || card.level === parseInt(selectedLevel);
+          !selectedLevel || Number(card.level ?? 0) === parseInt(selectedLevel);
 
         return (
           matchesSearch &&
@@ -134,7 +116,7 @@ export default function DictionaryPage() {
           matchesLevel
         );
       })
-      .sort((a: CardData, b: CardData) => a.name.localeCompare(b.name));
+      .sort((a: CardTemplate, b: CardTemplate) => a.name.localeCompare(b.name));
   }, [
     cards,
     searchQuery,
@@ -146,12 +128,15 @@ export default function DictionaryPage() {
   ]);
 
   // isOwned by user?
-  const isCardOwned = (cardId: string) => {
-    return userInventory?.some((card) => card._id === cardId) || false;
+  const isCardOwned = (cardTemplateId: string) => {
+    const ownedTemplates = new Set(
+      (userInventory as any[])?.map((uc: any) => String(uc?.template?.id ?? ""))
+    );
+    return ownedTemplates.has(String(cardTemplateId));
   };
 
   // handle card selection
-  const handleCardClick = (card: CardData) => {
+  const handleCardClick = (card: CardTemplate) => {
     setSelectedCard(card);
   };
 
@@ -405,8 +390,8 @@ export default function DictionaryPage() {
                 <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-white/30 scrollbar-track-transparent max-h-[60vh]">
                   <div className="flex flex-wrap gap-3 justify-start">
                     {filteredCards
-                      .filter((card: CardData) => isCardOwned(card._id))
-                      .map((card: CardData) => (
+                      .filter((card: CardTemplate) => isCardOwned(card._id))
+                      .map((card: CardTemplate) => (
                         <div
                           key={card._id}
                           className="group cursor-pointer transition-all duration-200 hover:scale-110 hover:z-10"
@@ -426,8 +411,8 @@ export default function DictionaryPage() {
                       ))}
 
                     {filteredCards
-                      .filter((card: CardData) => !isCardOwned(card._id))
-                      .map((card: CardData) => (
+                      .filter((card: CardTemplate) => !isCardOwned(card._id))
+                      .map((card: CardTemplate) => (
                         <div
                           key={card._id}
                           className="group cursor-pointer transition-all duration-200 hover:scale-110 hover:z-10"
@@ -489,9 +474,7 @@ export default function DictionaryPage() {
                       {selectedCard.attribute && (
                         <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
                           <span className="font-medium">Attribute:</span>
-                          <span className="capitalize">
-                            {selectedCard.attribute}
-                          </span>
+                          <span className="capitalize">{selectedCard.attribute}</span>
                         </div>
                       )}
 
@@ -512,19 +495,7 @@ export default function DictionaryPage() {
                         <span className="font-bold">{winRate}</span>
                       </div>
 
-                      {selectedCard.marketValue && (
-                        <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
-                          <span className="font-medium">Value:</span>
-                          <span>{selectedCard.marketValue}</span>
-                        </div>
-                      )}
-
-                      {selectedCard.boughtFor !== undefined && (
-                        <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
-                          <span className="font-medium">ROI:</span>
-                          <span className="font-bold">{formattedROI}</span>
-                        </div>
-                      )}
+                      {/* Value/ROI removed in server-scoped V2 */}
                     </div>
                   </>
                 ) : (

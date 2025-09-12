@@ -7,6 +7,7 @@ import { useUser } from "@clerk/nextjs";
 import { api } from "@backend/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { useDataCache } from "@/hooks/useCachedQuery";
+import { type Id } from "@backend/convex/_generated/dataModel";
 
 type CardData = {
   _id: string;
@@ -35,6 +36,7 @@ export default function InventoryPage() {
   // fetch data from convex (V2)
   const freshUserData = useQuery(api.users.current);
   const myUserCards = useQuery(api.cards.getMyUserCards);
+  const activeListings = useQuery(api.cards.getServerListingsV2, { scope: "active" }) ?? [];
   const createListing = useMutation(api.cards.createListingV2);
 
   // cache
@@ -52,6 +54,7 @@ export default function InventoryPage() {
   const userData = cachedUserData || freshUserData;
   const goldCount = userData?.goldCount ?? 0;
   const v2 = (cachedMyUserCards || myUserCards || []) as Array<{ userCardId: string; quantity: number; estimatedValue?: number | null; boughtFor?: number; template: any }>;
+  const activeUserCardIds = new Set<string>((activeListings as any[]).map(l => String((l as any)?.userCardId ?? "")));
   const inventoryCards: CardData[] = v2
     .filter((x) => !!x.template)
     .map((x) => ({
@@ -110,10 +113,14 @@ export default function InventoryPage() {
 
   const handleListForSale = async () => {
     if (!selectedCard) return;
+    if (activeUserCardIds.has(String(selectedCard._id))) {
+      alert("This card is already listed.");
+      return;
+    }
     const priceNum = Number(listPrice);
     if (!Number.isFinite(priceNum) || priceNum <= 0) return;
     try {
-      await createListing({ userCardId: selectedCard._id as unknown as any, price: priceNum });
+      await createListing({ userCardId: selectedCard._id as unknown as Id<"user_cards">, price: priceNum });
       setListPrice("");
     } catch {}
   };
@@ -236,25 +243,6 @@ export default function InventoryPage() {
                       <span className="font-bold">{formattedROI}</span>
                     </div>
                   )}
-                  <div className="flex items-center gap-2 p-2 bg-white/10 rounded-lg">
-                    <input
-                      type="text"
-                      value={listPrice}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === '' || /^\d+$/.test(val)) setListPrice(val);
-                      }}
-                      placeholder="Price"
-                      className="w-full px-3 py-1.5 text-sm bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
-                    />
-                    <button
-                      onClick={handleListForSale}
-                      className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm"
-                      disabled={!selectedCard || !listPrice}
-                    >
-                      List for Sale
-                    </button>
-                  </div>
                 </div>
               </>
             ) : (

@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { type Doc, type Id } from "./_generated/dataModel";
 
 /**
  * @description
@@ -38,65 +39,51 @@ export const getUserAccount = query({
     if (!Number.isFinite(gamesLost) || gamesLost < 0) throw new Error("Invalid gamesLost");
     if (gamesWon + gamesLost > gamesPlayed) throw new Error("Invalid game stats");
 
-    const ownerExternalId = String(user.clerkId ?? identity.subject);
-    const ownerInternalId = String(user._id);
+    // Build top cards from server-scoped user_cards joined to card_templates
+    // Limit to 3 for UI
+    const userCards: Doc<"user_cards">[] = await ctx.db
+      .query("user_cards")
+      .withIndex("by_server_user", (q) => q.eq("serverId", user.serverId! as Id<"servers">).eq("userId", user._id as Id<"users">))
+      .collect();
 
-    // Support both legacy (internal _id) and current (Clerk subject) ownership
-    const [cardsByExternal, cardsByInternal] = await Promise.all([
-      ctx.db
-        .query("cards")
-        .withIndex("by_owner", (q) => q.eq("currentOwnerId", ownerExternalId))
-        .collect(),
-      ctx.db
-        .query("cards")
-        .withIndex("by_owner", (q) => q.eq("currentOwnerId", ownerInternalId))
-        .collect(),
-    ]);
+    const templates: Array<{ uc: Doc<"user_cards">; tmpl: Doc<"card_templates"> | null }> = await Promise.all(
+      userCards.slice(0, 100).map(async (uc: Doc<"user_cards">) => {
+        const tmpl = await ctx.db.get(uc.cardTemplateId as Id<"card_templates">);
+        return { uc, tmpl };
+      })
+    );
 
-    const seen = new Set<string>();
-    const userCards = [...cardsByExternal, ...cardsByInternal].filter((c: any) => {
-      const id = String(c?._id ?? "");
-      if (!id || seen.has(id)) return false;
-      seen.add(id);
-      return true;
-    });
+    const scored = templates
+      .filter((t) => t.tmpl !== null)
+      .map(({ tmpl }) => {
+        const templateDoc = tmpl as Doc<"card_templates">;
+        const matches = Math.max(0, Number(templateDoc.matches?.total ?? 0));
+        const wins = Math.max(0, Number(templateDoc.matches?.wins ?? 0));
+        const winRate = matches > 0 ? (wins / matches) * 100 : 0;
+        const typeString = String(templateDoc.type ?? "").toLowerCase();
+        const normalizedType = ["monster", "spell", "trap"].includes(typeString)
+          ? typeString
+          : "monster";
+        return {
+          id: templateDoc._id,
+          name: String(templateDoc.name ?? "Unnamed Card"),
+          type: normalizedType,
+          matches,
+          winRate,
+          imageUrl: templateDoc.imageUrl ?? null,
+        };
+      })
+      .sort((a, b) => b.matches - a.matches)
+      .slice(0, 3);
 
-    // Enforce true ownership: must be marked owned and ownerId must match
-    const ownedCards = userCards.filter((c: any) => {
-      const owner = String(c?.currentOwnerId ?? "");
-      const isOwned = c?.isOwned === true;
-      return isOwned && (owner === ownerExternalId || owner === ownerInternalId);
-    });
+    const topCards = scored;
 
-    const cardsListed = userCards.filter((card) => card.isListed).length;
-
-    const hasInventory = Array.isArray(user.inventory) && user.inventory.length > 0;
-
-    // If user has no inventory or owns no cards, return an empty topCards list
-    const topCards = !hasInventory || ownedCards.length === 0
-      ? []
-      : ownedCards
-          .slice()
-          .sort((a, b) => (b.matches?.total ?? 0) - (a.matches?.total ?? 0))
-          .slice(0, 3)
-          .map((card) => {
-            const matches = card.matches?.total ?? 0;
-            const name = card.name ?? "Unnamed Card";
-            const type = ["monster", "spell", "trap"].includes(card.type?.toLowerCase())
-              ? card.type.toLowerCase()
-              : "monster";
-
-            // console.assert(typeof name === "string" && name.length > 0, "Invalid card name");
-            // console.assert(Number.isFinite(matches) && matches >= 0, "Invalid matches count");
-
-            return {
-              id: card._id,
-              name,
-              type,
-              matches,
-              imageUrl: card.imageUrl,
-            };
-          });
+    // Listed count migrated to listings table for server-scoped marketplace
+    const myListings: Doc<"listings">[] = await ctx.db
+      .query("listings")
+      .withIndex("by_server_status", (q) => q.eq("serverId", user.serverId! as Id<"servers">).eq("status", "active"))
+      .collect();
+    const cardsListed = myListings.filter((l) => String(l.sellerId) === String(user._id)).length;
 
     const basePerLevel = 1000;
     const wealth = Math.floor(goldCount / basePerLevel) + 1;
@@ -297,30 +284,27 @@ export const getTopCardsGlobal = query({
     const limit = Math.max(1, Math.min(100, Math.floor(rawLimit)));
     const metric = (args.metric ?? "matches").toString();
 
-    const cards = await ctx.db.query("cards").collect();
+    const templates = await ctx.db.query("card_templates").collect();
 
-    const computed = cards.map((c: any) => {
-      const matchesTotal = Math.max(0, Number(c.matches?.total ?? 0));
-      const wins = Math.max(0, Number(c.matches?.wins ?? 0));
+    const computed = templates.map((t: any) => {
+      const matchesTotal = Math.max(0, Number(t.matches?.total ?? 0));
+      const wins = Math.max(0, Number(t.matches?.wins ?? 0));
       const winRate = matchesTotal > 0 ? (wins / matchesTotal) * 100 : 0;
-      const normalizedType = ['monster', 'spell', 'trap'].includes(c.type?.toLowerCase()) 
-        ? c.type.toLowerCase() 
+      const normalizedType = ['monster', 'spell', 'trap'].includes(String(t.type ?? '').toLowerCase()) 
+        ? String(t.type).toLowerCase() 
         : 'monster';
 
-      if (typeof c.name !== 'string' || c.name.trim().length === 0) {
-        throw new Error('Invalid card name');
-      }
-      if (!Number.isFinite(matchesTotal) || matchesTotal < 0) {
-        throw new Error('Invalid matches count');
-      }
+      const name = String(t.name ?? '').trim();
+      if (name.length === 0) throw new Error('Invalid card template name');
+      if (!Number.isFinite(matchesTotal) || matchesTotal < 0) throw new Error('Invalid matches count');
 
       return {
-        id: c._id,
-        name: c.name.trim(),
+        id: t._id,
+        name,
         type: normalizedType,
         matches: matchesTotal,
         winRate,
-        imageUrl: c.imageUrl ?? null,
+        imageUrl: t.imageUrl ?? null,
       };
     });
 

@@ -86,7 +86,8 @@ export default defineSchema({
   })
     .index("by_server_createdAt", ["serverId", "createdAt"]) 
     .index("by_server_status", ["serverId", "status"]) 
-    .index("by_seller_status", ["sellerId", "status"]),
+    .index("by_seller_status", ["sellerId", "status"]) 
+    .index("by_userCard_status", ["userCardId", "status"]),
 
   cards: defineTable({
     // Basic Info
@@ -234,11 +235,11 @@ export default defineSchema({
     .index("by_conversationId_timestamp", ["conversationId", "timestamp"]) 
     .index("by_server_conversation_timestamp", ["serverId", "conversationId", "timestamp"]),
   trades: defineTable({
-    serverId: v.optional(v.id("servers")),
+    serverId: v.id("servers"),
     offerorId: v.id("users"),
-    offerorCardId: v.id("cards"),
+    offerorCardId: v.id("user_cards"),
     receiverId: v.id("users"),
-    receiverCardId: v.id("cards"),
+    receiverCardId: v.id("user_cards"),
     status: v.union(
       v.literal("pending"),
       v.literal("accepted"),
@@ -352,4 +353,27 @@ export default defineSchema({
     updatedAt: v.string(),
   })
     .index("by_user", ["user"]),
+
+  // Workshop submissions: raw uploads and metadata captured from the Workshop UI
+  workshop_cards: defineTable({
+    uploaderId: v.id("users"),
+    serverId: v.optional(v.id("servers")),
+    storageId: v.string(),
+    imageUrl: v.string(),
+    name: v.string(),
+    type: v.string(),
+    description: v.optional(v.string()),
+    // Monster stats (optional except for monster type)
+    atkPts: v.optional(v.number()),
+    defPts: v.optional(v.number()),
+    attribute: v.optional(v.string()),
+    class: v.optional(v.string()),
+    character: v.optional(v.string()),
+    level: v.optional(v.number()),
+    createdAt: v.string(),
+    templateId: v.optional(v.id("card_templates")),
+  })
+    .index("by_uploader", ["uploaderId"]) 
+    .index("by_server_createdAt", ["serverId", "createdAt"]) 
+    .index("by_name_type", ["name", "type"]),
 });

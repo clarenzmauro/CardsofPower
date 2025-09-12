@@ -112,48 +112,7 @@ export const current = query({
  * - Assigns 10 random unowned cards to user
  * - Updates user stats and card ownership
  */
-async function setupInitialCards(ctx: any, userId: any, username: string) {
-  // Get all unowned cards
-  const unownedCards = await ctx.db
-    .query("cards")
-    .filter((q: any) => q.eq(q.field("isOwned"), false))
-    .collect();
-    
-  console.log(`setupInitialCards: Found ${unownedCards.length} unowned cards`);
-  
-  // Use available cards (minimum 1, maximum 10)
-  const cardsToGive = Math.min(Math.max(unownedCards.length, 1), 10);
-  
-  if (unownedCards.length === 0) {
-    throw new Error("No unowned cards available for new user");
-  }
-  
-  // Randomly select available cards
-  const shuffled = unownedCards.sort(() => 0.5 - Math.random());
-  const selectedCards = shuffled.slice(0, cardsToGive);
-  const cardIds = selectedCards.map((card: any) => card._id);
-  
-  console.log(`setupInitialCards: Giving ${cardsToGive} cards to new user`);
-  
-  // Update user with cards
-  await ctx.db.patch(userId, {
-    currentCardCount: cardsToGive,
-    highestCardCount: cardsToGive,
-    inventory: cardIds,
-  });
-  
-  // Update each card as owned
-  for (const card of selectedCards) {
-    await ctx.db.patch(card._id, {
-      isOwned: true,
-      currentOwnerId: userId,
-      currentOwnerUsername: username,
-      marketValue: 2000,
-    });
-  }
-  
-  return cardIds;
-}
+// Removed legacy: setupInitialCards (inventory/cards ownership)
 
 /**
  * Select starter cards using a balanced distribution per type.
@@ -165,102 +124,7 @@ async function setupInitialCards(ctx: any, userId: any, username: string) {
  * NOTE: Once the pre-seeded pool is depleted, newly uploaded cards via workshop
  * will be used as the source of unowned cards as they appear in the database.
  */
-async function selectStarterCardsBalanced(
-  ctx: any,
-  targetDistribution: { monster: number; trap: number; spell: number } = {
-    monster: 5,
-    trap: 3,
-    spell: 2,
-  },
-  totalTarget: number = 10
-) {
-  const allUnowned = await ctx.db
-    .query("cards")
-    .filter((q: any) => q.eq(q.field("isOwned"), false))
-    .collect();
-
-  const byType: Record<string, any[]> = {
-    monster: [],
-    trap: [],
-    spell: [],
-  };
-  for (const c of allUnowned) {
-    if (c?.type === "monster") byType.monster.push(c);
-    else if (c?.type === "trap") byType.trap.push(c);
-    else if (c?.type === "spell") byType.spell.push(c);
-  }
-
-  const shuffle = <T,>(arr: T[]) => arr.sort(() => 0.5 - Math.random());
-  shuffle(byType.monster);
-  shuffle(byType.trap);
-  shuffle(byType.spell);
-
-  const takeUpTo = (arr: any[], n: number) => arr.slice(0, Math.max(0, n));
-
-  // First pass: take per-type up to target
-  const initial: Record<"monster" | "trap" | "spell", any[]> = {
-    monster: takeUpTo(byType.monster, targetDistribution.monster),
-    trap: takeUpTo(byType.trap, targetDistribution.trap),
-    spell: takeUpTo(byType.spell, targetDistribution.spell),
-  };
-
-  const shortages: Record<"monster" | "trap" | "spell", number> = {
-    monster: targetDistribution.monster - initial.monster.length,
-    trap: targetDistribution.trap - initial.trap.length,
-    spell: targetDistribution.spell - initial.spell.length,
-  };
-  const totalInitial = initial.monster.length + initial.trap.length + initial.spell.length;
-  const remainingNeeded = Math.max(0, Math.min(totalTarget, allUnowned.length) - totalInitial);
-
-  // Build surplus pools excluding already taken cards
-  const usedIds = new Set([
-    ...initial.monster.map((c) => String(c._id)),
-    ...initial.trap.map((c) => String(c._id)),
-    ...initial.spell.map((c) => String(c._id)),
-  ]);
-  const surplusByType = {
-    monster: byType.monster.filter((c) => !usedIds.has(String(c._id))),
-    trap: byType.trap.filter((c) => !usedIds.has(String(c._id))),
-    spell: byType.spell.filter((c) => !usedIds.has(String(c._id))),
-  };
-
-  // Prioritize fill order: monster first due to higher supply, then whichever has the most surplus
-  const fillPoolOrdered = [
-    ...surplusByType.monster,
-    ...shuffle(
-      [...surplusByType.trap, ...surplusByType.spell].sort(
-        (a, b) => (b?.marketCount ?? 0) - (a?.marketCount ?? 0)
-      )
-    ),
-  ];
-
-  const extras = takeUpTo(fillPoolOrdered, remainingNeeded);
-
-  const selected = [...initial.monster, ...initial.trap, ...initial.spell, ...extras].slice(
-    0,
-    Math.min(totalTarget, allUnowned.length)
-  );
-
-  // Assertions
-  if (!Array.isArray(selected) || selected.length === 0) {
-    throw new Error("selectStarterCardsBalanced: No unowned cards available");
-  }
-  const uniqueCount = new Set(selected.map((c) => String(c._id))).size;
-  if (uniqueCount !== selected.length) {
-    throw new Error("selectStarterCardsBalanced: Duplicate cards selected");
-  }
-  if (selected.some((c) => c?.isOwned === true)) {
-    throw new Error("selectStarterCardsBalanced: Selected a card that is already owned");
-  }
-
-  const counts = {
-    monster: selected.filter((c) => c.type === "monster").length,
-    trap: selected.filter((c) => c.type === "trap").length,
-    spell: selected.filter((c) => c.type === "spell").length,
-  };
-
-  return { selectedCards: selected, counts };
-}
+// Removed legacy: selectStarterCardsBalanced (inventory/cards ownership)
 
 /**
  * @description
@@ -319,41 +183,18 @@ export const upsertFromClerk = mutation({
     console.log(`upsertFromClerk: Looking for user with clerkId: ${data.clerkId}`);
     console.log(`upsertFromClerk: Found user:`, user ? "YES" : "NO");
 
-    // Defensive: inventory must be an array of strings (card IDs)
-    if (!Array.isArray(userAttributes.inventory)) {
-      throw new Error("upsertFromClerk: inventory must be an array");
-    }
-    if (userAttributes.inventory.some((id) => typeof id !== "string")) {
-      throw new Error("upsertFromClerk: all inventory items must be strings");
-    }
+    // Defensive: legacy inventory retained as empty array, but not used further
+    if (!Array.isArray(userAttributes.inventory)) throw new Error("upsertFromClerk: inventory must be an array");
+    if (userAttributes.inventory.some((id) => typeof id !== "string")) throw new Error("upsertFromClerk: all inventory items must be strings");
 
     if (user === null) {
       console.log(`upsertFromClerk: Creating NEW user for clerkId: ${data.clerkId}`);
-      // Select starter cards using balanced distribution (5-3-2) with fallback fill.
-      const { selectedCards, counts } = await selectStarterCardsBalanced(ctx);
-      const cardIds = selectedCards.map((card: any) => card._id);
-
       const newUserId = await ctx.db.insert("users", {
         ...userAttributes,
-        currentCardCount: cardIds.length,
-        highestCardCount: cardIds.length,
-        inventory: cardIds,
+        currentCardCount: 0,
+        highestCardCount: 0,
+        inventory: [],
       });
-
-      // Update each selected card ownership
-      for (const card of selectedCards) {
-        await ctx.db.patch(card._id, {
-          isOwned: true,
-          currentOwnerId: newUserId,
-          currentOwnerUsername: userAttributes.username,
-          marketValue: 2000,
-        });
-      }
-
-      console.log(
-        `upsertFromClerk: Inserted new user with starter cards — total: ${cardIds.length}, breakdown: monster=${counts.monster}, trap=${counts.trap}, spell=${counts.spell}`
-      );
-
       return { userId: newUserId, isNewUser: true };
     } else {
       console.log(`upsertFromClerk: Updating EXISTING user for clerkId: ${data.clerkId}`);
@@ -517,38 +358,7 @@ async function userByExternalId(ctx: QueryCtx, clerkId: string) {
  * - Adds cardId to user's inventory array
  * - Increments currentCardCount and cardsCreated for the user
  */
-export const addCardToInventory = mutation({
-  args: {
-    userId: v.string(),
-    cardId: v.id("cards"),
-  },
-  handler: async (ctx, { userId, cardId }) => {
-    const user = await userByExternalId(ctx, userId);
-
-    if (!user) {
-      throw new Error("addCardToInventory: User not found");
-    }
-
-    // Ensure inventory is an array before pushing
-    const currentInventory = Array.isArray(user.inventory)
-      ? user.inventory
-      : [];
-
-    // Ensure the card is not already in the inventory (defensive check)
-    if (currentInventory.includes(cardId)) {
-      console.warn(`Card ${cardId} already in user ${userId}'s inventory.`);
-      return user._id; // Return user ID even if card already exists
-    }
-
-    await ctx.db.patch(user._id, {
-      inventory: [...currentInventory, cardId],
-      currentCardCount: user.currentCardCount + 1,
-      cardsCreated: user.cardsCreated + 1,
-    });
-
-    return user._id;
-  },
-});
+// Removed legacy: addCardToInventory
 
 /**
  * @description
@@ -564,31 +374,7 @@ export const addCardToInventory = mutation({
  * - Removes cardId from user's inventory array
  * - Decrements currentCardCount for the user
  */
-export const removeCardFromInventory = mutation({
-  args: {
-    userId: v.string(),
-    cardId: v.id("cards"),
-  },
-  handler: async (ctx, { userId, cardId }) => {
-    const user = await userByExternalId(ctx, userId);
-    if (!user) throw new Error("removeCardFromInventory: User not found");
-
-    const currentInventory = Array.isArray(user.inventory) 
-      ? user.inventory 
-      : [];
-    if (!currentInventory.includes(cardId)) {
-      console.warn(`Card ${cardId} not found in user ${userId}'s inventory`);
-      return { success: false };
-    }
-
-    await ctx.db.patch(user._id, {
-      inventory: currentInventory.filter(id => id !== cardId),
-      currentCardCount: Math.max(0, user.currentCardCount - 1),
-    });
-
-    return { success: true };
-  },
-});
+// Removed legacy: removeCardFromInventory
 
 export const updateProfPicUrl = mutation({
   args: {

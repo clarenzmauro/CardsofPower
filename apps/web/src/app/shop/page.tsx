@@ -19,7 +19,13 @@ export default function ShopPage() {
   const listings = useQuery(api.cards.getServerListingsV2, { scope: "active" });
   const isLoading = !listings;
   const purchaseListing = useMutation(api.cards.purchaseListingV2);
-  const shopListings = listings ?? [];
+  const me = useQuery(api.users.getMe);
+  // Only show sale listings (created from Listing page). Exclude my own listings.
+  const shopListings = (listings ?? []).filter((l) => {
+    const isSale = (l as any)?.category === "sale";
+    const isMine = String((l as any)?.seller?.id ?? "") === String(me?._id ?? "");
+    return isSale && !isMine;
+  });
 
   const handlePurchase = async (listingId: Id<"listings">) => {
     if (!user?.id) {

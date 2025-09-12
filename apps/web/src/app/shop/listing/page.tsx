@@ -17,15 +17,28 @@ export default function ListingPage() {
   const isLoading = false;
 
   const { user } = useUser();
-  const myListings = useQuery(api.cards.getServerListingsV2, { scope: "active" }) ?? [];
+  const myListingsRaw = useQuery(api.cards.getServerListingsV2, { scope: "active" }) ?? [];
+  const allActive = myListingsRaw as any[];
+  const myListings = allActive.filter(l => (l as any)?.category === "sale");
+  const myActiveTrade = new Set<string>(allActive
+    .filter(l => (l as any)?.category === "trade")
+    .map(l => String((l as any)?.userCardId ?? ""))
+  );
   const [isListingModalOpen, setIsListingModalOpen] = useState(false);
   const [unlisting, setUnlisting] = useState<Record<Id<"listings">, boolean>>({});
   const unlistListing = useMutation(api.cards.unlistListingV2);
+  const createListing = useMutation(api.cards.createListingV2);
   const inventory = useQuery(api.cards.getMyUserCards);
   const eligibleForSale = useMemo(() => {
     const items = (inventory as any[]) ?? [];
-    return items.slice(0, 100);
-  }, [inventory]);
+    const myActiveSaleUserCards = new Set<string>((myListings as any[]).map(l => String((l as any)?.userCardId ?? "")));
+    // Exclude user_cards already listed for sale or trade by me
+    const filtered = items.filter((uc: any) => {
+      const id = String(uc?.userCardId ?? "");
+      return !myActiveSaleUserCards.has(id) && !myActiveTrade.has(id);
+    });
+    return filtered.slice(0, 100);
+  }, [inventory, myListings, myActiveTrade]);
   const [selectedListCard, setSelectedListCard] = useState<string | null>(
     null
   );
@@ -79,7 +92,7 @@ export default function ListingPage() {
     setSubmitting(true);
     try {
       // Create listing via V2
-      await useMutation(api.cards.createListingV2)({ userCardId: selectedListCard as any, price: numericPrice });
+      await createListing({ userCardId: selectedListCard as any, price: numericPrice });
       toast.success("Card listed for sale");
       closeListingModal();
     } catch (error: unknown) {
@@ -260,21 +273,21 @@ export default function ListingPage() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {eligibleForSale.map((card) => (
+                    {eligibleForSale.map((card: any) => (
                       <button
-                        key={card._id}
-                        onClick={() => setSelectedListCard(card.userCardId ?? (card._id as unknown as string))}
-                        className={`rounded border p-2 bg-black/40 hover:border-orange-400 text-left ${selectedListCard === card._id ? "border-orange-500 ring-2 ring-orange-300" : "border-white/20"}`}
+                        key={card.userCardId}
+                        onClick={() => setSelectedListCard(card.userCardId as string)}
+                        className={`rounded border p-2 bg-black/40 hover:border-orange-400 text-left ${selectedListCard === card.userCardId ? "border-orange-500 ring-2 ring-orange-300" : "border-white/20"}`}
                       >
                         <div className="h-28 flex items-center justify-center mb-2">
                           <img
-                            src={card.imageUrl ?? "/assets/cards/blank.png"}
-                            alt={card.name}
+                            src={card.template?.imageUrl ?? "/assets/cards/blank.png"}
+                            alt={card.template?.name ?? "Card"}
                             className="h-full w-auto object-contain"
                           />
                         </div>
                         <div className="font-medium text-sm text-white">
-                          {card.name}
+                          {card.template?.name ?? "Unnamed"}
                         </div>
                       </button>
                     ))}
@@ -285,8 +298,8 @@ export default function ListingPage() {
                 <div className="mt-4 p-3 border border-white/20 rounded bg-black/20">
                   <div className="text-sm text-white/80">Selected card:</div>
                   <div className="font-semibold text-white">
-                    {eligibleForSale.find((c) => c._id === selectedListCard)
-                      ?.name ?? "Unknown card"}
+                    {eligibleForSale.find((c: any) => String(c.userCardId) === String(selectedListCard))
+                      ?.template?.name ?? "Unknown card"}
                   </div>
                   <div className="mt-2">
                     <label className="block text-sm text-white/80 mb-1">

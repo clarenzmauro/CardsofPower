@@ -1,5 +1,6 @@
 import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import { type Doc, type Id } from "./_generated/dataModel";
 
 export const backfillServers = internalMutation({
   args: {
@@ -107,176 +108,59 @@ export const materializeCardTemplates = internalMutation({
   },
 });
 
-export const createUserCardsFromOwned = internalMutation({
+// Removed legacy: createUserCardsFromOwned (relied on legacy ownership fields)
+
+// Removed legacy: backfillLegacyListingsToV2 (legacy ownership migration)
+
+
+
+// Remove legacy fields from cards that no longer exist in the schema
+// Fields scrubbed: currentOwnerId, currentOwnerUsername, isListed, isOwned, marketCount, marketValue, passCount, roi, boughtFor
+export const scrubLegacyCardFields = internalMutation({
   args: { limit: v.optional(v.number()) },
-  handler: async (ctx, { limit = 200 }) => {
-    // Find owned cards
-    const owned = await ctx.db
-      .query("cards")
-      .withIndex("by_owner", (q) => q.gte("currentOwnerId", ""))
-      .collect();
-    const slice = owned.slice(0, limit);
-    let created = 0;
-    for (const card of slice) {
-      if (card.isOwned !== true || !card.currentOwnerId) continue;
+  handler: async (ctx, { limit = 500 }) => {
+    const MAX = Math.max(1, Math.min(1000, Math.floor(limit)));
+    const cards: Doc<"cards">[] = await ctx.db.query("cards").take(MAX);
 
-      // Resolve user by matching currentOwnerId to either externalId or _id string
-      const ownerExternal = await ctx.db
-        .query("users")
-        .withIndex("byExternalId", (q) => q.eq("externalId", String(card.currentOwnerId)))
-        .unique();
-      let user = ownerExternal;
-      if (!user) {
-        // Fallback: maybe currentOwnerId already is a users doc id string
-        try {
-          const possible = await ctx.db.get(card.currentOwnerId as any);
-          if (possible && possible._id && (possible as any).email) {
-            user = possible as any;
-          }
-        } catch {}
-      }
-      if (!user) continue;
+    let updated = 0;
+    for (const card of cards) {
+      // Build patch only for fields present to avoid extra writes
+      const patch: Partial<Record<string, unknown>> = {};
+      const legacyKeys: Array<keyof typeof card> = [
+        "currentOwnerId" as keyof typeof card,
+        "currentOwnerUsername" as keyof typeof card,
+        "isListed" as keyof typeof card,
+        "isOwned" as keyof typeof card,
+        "marketCount" as keyof typeof card,
+        "marketValue" as keyof typeof card,
+        "passCount" as keyof typeof card,
+        "roi" as keyof typeof card,
+        "boughtFor" as keyof typeof card,
+      ];
 
-      // Ensure user has serverId
-      if (!user.serverId) {
-        const active = await ctx.db
-          .query("servers")
-          .withIndex("by_status_memberCount", (q) => q.eq("status", "active"))
-          .order("asc")
-          .first();
-        if (active) {
-          await ctx.db.patch(user._id, { serverId: active._id });
-          await ctx.db.patch(active._id, { memberCount: active.memberCount + 1 });
-          user = await ctx.db.get(user._id);
+      let needsPatch = false;
+      for (const key of legacyKeys) {
+        if (Object.prototype.hasOwnProperty.call(card, key)) {
+          patch[String(key)] = undefined;
+          needsPatch = true;
         }
       }
 
-      // Find template
-      const template = await ctx.db
-        .query("card_templates")
-        .withIndex("by_name_type", (q) => q.eq("name", card.name).eq("type", card.type))
-        .unique();
-      if (!template || !user?.serverId) continue;
-
-      // Create one row per card
-      await ctx.db.insert("user_cards", {
-        userId: user._id,
-        serverId: user.serverId,
-        cardTemplateId: template._id,
-        quantity: 1,
-        acquiredAt: new Date().toISOString(),
-      });
-      created += 1;
-    }
-    return { created };
-  },
-});
-
-// Convert legacy listed cards (cards.isListed === true) into V2 listings/user_cards
-export const backfillLegacyListingsToV2 = internalMutation({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, { limit = 200 }) => {
-    const listed = await ctx.db
-      .query("cards")
-      .withIndex("by_is_listed_market_value", (q) => q.eq("isListed", true))
-      .order("desc")
-      .take(limit);
-
-    let created = 0;
-    for (const card of listed) {
-      // Resolve owner user (support both external and internal IDs)
-      const ownerKey = String(card.currentOwnerId ?? "");
-      if (!ownerKey) continue;
-      let owner = await ctx.db
-        .query("users")
-        .withIndex("by_clerk_id", (q) => q.eq("clerkId", ownerKey))
-        .unique();
-      if (!owner) {
-        owner = await ctx.db
-          .query("users")
-          .withIndex("byExternalId", (q) => q.eq("externalId", ownerKey))
-          .unique();
-      }
-      if (!owner) continue;
-
-      // Ensure owner has a server
-      if (!owner.serverId) {
-        let server = await ctx.db
-          .query("servers")
-          .withIndex("by_status_memberCount", (q) => q.eq("status", "active"))
-          .order("asc")
-          .first();
-        if (!server || server.memberCount >= server.capacity) {
-          const activeCount = await ctx.db
-            .query("servers")
-            .withIndex("by_status_createdAt", (q) => q.eq("status", "active"))
-            .collect();
-          const name = `server-${(activeCount?.length ?? 0) + 1}`;
-          const sid = await ctx.db.insert("servers", {
-            name,
-            capacity: 10,
-            memberCount: 0,
-            status: "active",
-            createdAt: new Date().toISOString(),
-          });
-          server = await ctx.db.get(sid);
+      // Normalize type to lowercase set {monster|spell|trap}
+      if (typeof (card as Record<string, unknown>)["type"] === "string") {
+        const t = String((card as Record<string, unknown>)["type"]).toLowerCase();
+        if (t !== (card as unknown as { type: string }).type) {
+          patch["type"] = t;
+          needsPatch = true;
         }
-        if (!server) continue;
-        await ctx.db.patch(server._id, { memberCount: server.memberCount + 1 });
-        await ctx.db.patch(owner._id, { serverId: server._id });
-        const updatedOwner = await ctx.db.get(owner._id);
-        if (!updatedOwner) continue;
-        owner = updatedOwner as any;
       }
 
-      // Ensure template exists by name+type
-      const template = await ctx.db
-        .query("card_templates")
-        .withIndex("by_name_type", (q) => q.eq("name", card.name).eq("type", card.type))
-        .unique();
-      if (!template) continue;
-
-      // Ensure a user_cards row exists for this owner/template on server
-      const existingUserCards = await ctx.db
-        .query("user_cards")
-        .withIndex("by_server_user", (q) => q.eq("serverId", owner!.serverId!).eq("userId", owner!._id))
-        .collect();
-      let userCard = existingUserCards.find((uc) => String(uc.cardTemplateId) === String(template._id));
-      if (!userCard) {
-        const ucId = await ctx.db.insert("user_cards", {
-          userId: owner!._id,
-          serverId: owner!.serverId!,
-          cardTemplateId: template._id,
-          quantity: 1,
-          acquiredAt: new Date().toISOString(),
-        });
-        const fetched = await ctx.db.get(ucId);
-        if (!fetched) continue;
-        userCard = fetched as any;
-      } else {
-        await ctx.db.patch(userCard._id, { quantity: (userCard.quantity ?? 0) + 1 });
+      if (needsPatch) {
+        await ctx.db.patch(card._id, patch as Record<string, unknown>);
+        updated += 1;
       }
-
-      // Create a listing if price available
-      const price = Number(card.marketValue ?? 0);
-      if (price > 0 && userCard) {
-        await ctx.db.insert("listings", {
-          serverId: owner!.serverId!,
-          sellerId: owner!._id,
-          userCardId: userCard!._id,
-          price,
-          status: "active",
-          createdAt: new Date().toISOString(),
-        });
-        created += 1;
-      }
-
-      // Unlist legacy card to prevent duplicate visibility in legacy UI
-      await ctx.db.patch(card._id, { isListed: false });
     }
 
-    return { created };
+    return { scanned: cards.length, updated };
   },
 });
-
-

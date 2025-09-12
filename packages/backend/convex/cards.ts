@@ -2,310 +2,122 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { type Id, type Doc } from "./_generated/dataModel";
 
-const ListingsScope = v.union(
-    v.literal("shop"),
-    v.literal("trade"),
-    v.literal("mine"),
-    v.literal("my-trade"),
-);
+// Removed legacy scopes and helpers
 
-/**
- * @description
- * Query to fetch all cards for the dictionary
- * 
- * @receives data from:
- * - cards table: all card documents
- * 
- * @sends data to:
- * - dictionary page: card grid display
- * 
- * @sideEffects:
- * - none
- */
-export const getAll = query({
-    handler: async (ctx: any) => {
-        return (await ctx.db.query("cards").collect()).slice(0, 100);
-    },
-});
+// Removed legacy: getByIds (use user_cards + card_templates instead)
 
-export const getUnownedCount = query({
-    handler: async (ctx: any) => {
-        const unownedCards = await ctx.db
-            .query("cards")
-            .filter((q: any) => q.eq(q.field("isOwned"), false))
-            .collect();
-        
-        const totalCards = await ctx.db.query("cards").collect();
-        
-        return {
-            totalCards: totalCards.length,
-            unownedCards: unownedCards.length,
-            ownedCards: totalCards.length - unownedCards.length
-        };
-    },
-});
+// Removed legacy: getUserInventory (use getMyUserCards)
 
-/**
- * @description
- * Query to get multiple cards by their IDs
- * 
- * @receives data from:
- * - cardIds: array of card document IDs
- * 
- * @sends data to:
- * - showcase page: card data for display
- * 
- * @sideEffects:
- * - none
- */
-export const getByIds = query({
-    args: { cardIds: v.array(v.id("cards")) },
-    handler: async (ctx, { cardIds }) => {
-        if (!Array.isArray(cardIds)) {
-            throw new Error("getByIds: cardIds must be an array");
-        }
-        
-        const cards = await Promise.all(
-            cardIds.map(async (cardId) => {
-                const card = await ctx.db.get(cardId);
-                if (!card) {
-                    throw new Error(`getByIds: Card not found: ${cardId}`);
-                }
-                return card;
-            })
-        );
-        
-        return cards;
-    },
-});
-
-/**
- * @description
- * Query to get user's inventory for filtering owned cards.
- * 
- * @receives data from:
- * - users table: inventory array for current user
- * 
- * @sends data to:
- * - dictionary page: owned card filtering
- * 
- * @sideEffects:
- * - none
- */
-export const getUserInventory = query({
-    args: { userId: v.string() },
-    handler: async (ctx, args) => {
-        if (!args.userId) return [];
-
-        const user = await ctx.db
-            .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.userId))
-            .first();
-        if (!user) return [];
-
-        if (!Array.isArray(user.inventory)) {
-            throw new Error("getUserInventory: inventory must be an array");
-        }
-
-        // Use the inventory array to get cards by their IDs
-        if (user.inventory.length === 0) return [];
-        
-        const cards = await Promise.all(
-            user.inventory.map(async (cardId: string) => ctx.db.get(cardId as unknown as Id<"cards">))
-        );
-
-        // Filter out any null results and ensure all cards exist
-        const validCards = cards.filter(card => card !== null);
-        
-        if (!Array.isArray(validCards)) throw new Error("getUserInventory: cards must be array");
-        if (validCards.length > 0 && !validCards[0]._id) throw new Error("getUserInventory: card missing _id");
-
-        return validCards;
-    },
-});
-
-/**
- * @description
- * Mutation to update card ownership when purchased/sold.
- * 
- * @receives data from:
- * - client: cardId and new owner info
- * 
- * @sends data to:
- * - cards table: updated ownership data
- * 
- * @sideEffects:
- * - updates card ownership in database
- */
 // Legacy ownership mutation removed in V2
 
-// comment these out if you want to remove uploading cards easily
-/**
- * @description
- * Mutation to add a card with all Firebase fields
- * 
- * @receives data from:
- * - client: complete card data object
- * 
- * @sends data to:
- * - cards table: new card document
- * 
- * @sideEffects:
- * - Creates new card record in database
- */
-export const addCompleteCard = mutation({
-    args: {
-        // Basic Info
-        name: v.string(),
-        type: v.string(),
-        description: v.optional(v.string()),
-        imageUrl: v.string(),
-        
-        // Monster Stats
-        atkPts: v.optional(v.number()),
-        defPts: v.optional(v.number()),
-        inGameAtkPts: v.optional(v.number()),
-        inGameDefPts: v.optional(v.number()),
-        
-        // Monster Properties
-        attribute: v.optional(v.string()),
-        class: v.optional(v.string()),
-        character: v.optional(v.string()),
-        level: v.optional(v.number()),
-        
-        // Ownership & Market
-        isOwned: v.boolean(),
-        isListed: v.optional(v.boolean()),
-        currentOwnerId: v.optional(v.string()),
-        currentOwnerUsername: v.optional(v.string()),
-        boughtFor: v.optional(v.number()),
-        marketValue: v.optional(v.number()),
-        marketCount: v.optional(v.number()),
-        roi: v.optional(v.number()),
-        passCount: v.optional(v.number()),
-        
-        // Statistics
-        matches: v.optional(v.object({
-            wins: v.number(),
-            total: v.number()
-        })),
-        cardWin: v.optional(v.object({
-            global: v.number(),
-            local: v.number()
-        })),
-        cardLose: v.optional(v.object({
-            global: v.number(),
-            local: v.number()
-        })),
-    },
-    handler: async (ctx, args) => {
-        const cardId = await ctx.db.insert("cards", args);
-        return { cardId };
-    },
+// Removed legacy: addCompleteCard (use card_templates creation instead)
+
+// Removed legacy: addCardWithImage (use card_templates with storage instead)
+
+// Removed legacy: filterCards helper
+
+// V2: Create a card template from uploaded storage image and optional metadata
+export const createTemplateV2 = mutation({
+  args: {
+    storageId: v.string(),
+    name: v.string(),
+    type: v.string(),
+    description: v.optional(v.string()),
+    atkPts: v.optional(v.number()),
+    defPts: v.optional(v.number()),
+    attribute: v.optional(v.string()),
+    class: v.optional(v.string()),
+    character: v.optional(v.string()),
+    level: v.optional(v.number()),
+    grantToCreator: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.subject) throw new Error("createTemplateV2: unauthenticated");
+
+    const creator = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!creator) throw new Error("createTemplateV2: user not found");
+
+    const imageUrl = await ctx.storage.getUrl(args.storageId);
+    if (!imageUrl || typeof imageUrl !== "string") {
+      throw new Error("createTemplateV2: invalid storageId or image url");
+    }
+
+    // Basic validations
+    const typeLower = args.type.toLowerCase();
+    if (!["monster", "spell", "trap"].includes(typeLower)) {
+      throw new Error("createTemplateV2: type must be monster|spell|trap");
+    }
+    if (typeLower === "monster") {
+      const atkOk = args.atkPts === undefined || (Number.isFinite(args.atkPts) && args.atkPts >= 0 && args.atkPts <= 5000);
+      const defOk = args.defPts === undefined || (Number.isFinite(args.defPts) && args.defPts >= 0 && args.defPts <= 5000);
+      const lvlOk = args.level === undefined || (Number.isFinite(args.level) && args.level >= 0 && args.level <= 10);
+      if (!atkOk || !defOk || !lvlOk) throw new Error("createTemplateV2: invalid monster stats");
+    }
+
+    const templateId = await ctx.db.insert("card_templates", {
+      name: args.name,
+      type: typeLower,
+      description: args.description,
+      imageUrl,
+      atkPts: args.atkPts,
+      defPts: args.defPts,
+      inGameAtkPts: undefined,
+      inGameDefPts: undefined,
+      attribute: args.attribute,
+      class: args.class,
+      character: args.character,
+      level: args.level,
+      matches: { wins: 0, total: 0 },
+      cardWin: { global: 0, local: 0 },
+      cardLose: { global: 0, local: 0 },
+    });
+
+    // Persist a workshop entry for audit/future features
+    await ctx.db.insert("workshop_cards", {
+      uploaderId: creator._id as Id<"users">,
+      serverId: creator.serverId as Id<"servers">,
+      storageId: args.storageId,
+      imageUrl,
+      name: args.name,
+      type: typeLower,
+      description: args.description,
+      atkPts: args.atkPts,
+      defPts: args.defPts,
+      attribute: args.attribute,
+      class: args.class,
+      character: args.character,
+      level: args.level,
+      createdAt: new Date().toISOString(),
+      templateId: templateId as Id<"card_templates">,
+    });
+
+    // Optionally grant one copy to creator on their server
+    if (args.grantToCreator && creator.serverId) {
+      const existing: Doc<"user_cards">[] = await ctx.db
+        .query("user_cards")
+        .withIndex("by_server_user", (q) => q.eq("serverId", creator.serverId as Id<"servers">).eq("userId", creator._id as Id<"users">))
+        .collect();
+      const same = existing.find((uc) => String(uc.cardTemplateId) === String(templateId));
+      if (same) {
+        await ctx.db.patch(same._id, { quantity: (same.quantity ?? 0) + 1 });
+      } else {
+        await ctx.db.insert("user_cards", {
+          userId: creator._id as Id<"users">,
+          serverId: creator.serverId as Id<"servers">,
+          cardTemplateId: templateId as Id<"card_templates">,
+          quantity: 1,
+          acquiredAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    return { templateId };
+  },
 });
-
-/**
- * @description
- * Mutation to add card with uploaded image
- * 
- * @receives data from:
- * - client: card data + storage ID
- * 
- * @sends data to:
- * - cards table: new card document
- * 
- * @sideEffects:
- * - Creates new card record with stored image URL
- */
-export const addCardWithImage = mutation({
-    args: {
-        // Basic Info
-        name: v.string(),
-        type: v.string(),
-        description: v.optional(v.string()),
-        storageId: v.string(), // Reference to stored image
-        
-        // Monster Stats
-        atkPts: v.optional(v.number()),
-        defPts: v.optional(v.number()),
-        inGameAtkPts: v.optional(v.number()),
-        inGameDefPts: v.optional(v.number()),
-        
-        // Monster Properties
-        attribute: v.optional(v.string()),
-        class: v.optional(v.string()),
-        character: v.optional(v.string()),
-        level: v.optional(v.number()),
-        
-        // Ownership & Market
-        isOwned: v.boolean(),
-        isListed: v.optional(v.boolean()),
-        currentOwnerId: v.optional(v.string()),
-        currentOwnerUsername: v.optional(v.string()),
-        boughtFor: v.optional(v.number()),
-        marketValue: v.optional(v.number()),
-        marketCount: v.optional(v.number()),
-        roi: v.optional(v.number()),
-        passCount: v.optional(v.number()),
-        
-        // Statistics
-        matches: v.optional(v.object({
-            wins: v.number(),
-            total: v.number()
-        })),
-        cardWin: v.optional(v.object({
-            global: v.number(),
-            local: v.number()
-        })),
-        cardLose: v.optional(v.object({
-            global: v.number(),
-            local: v.number()
-        })),
-    },
-    handler: async (ctx, args) => {
-        // Get the image URL from storage
-        const imageUrl = await ctx.storage.getUrl(args.storageId);
-        
-        if (!imageUrl) {
-            throw new Error("Failed to get image URL from storage");
-        }
-        
-        // Create card with the image URL
-        const cardData = {
-            ...args,
-            imageUrl,
-            storageId: undefined, // Remove storageId from card data
-        };
-        
-        const cardId = await ctx.db.insert("cards", cardData);
-        return { cardId, imageUrl };
-    },
-});
-
-const filterCards = (cards: any[], args: any, currentUserId: string) => {
-    let filteredCards = cards;
-
-    if (args.minPrice !== undefined) {
-        filteredCards = filteredCards.filter(
-            (card) => card.marketValue !== undefined && card.marketValue >= args.minPrice
-        );
-    }
-
-    if (args.maxPrice !== undefined) {
-        filteredCards = filteredCards.filter(
-            (card) => card.marketValue !== undefined && card.marketValue <= args.maxPrice
-        );
-    }
-
-    if (args.searchQuery) {
-        const query = args.searchQuery.toLowerCase();
-        filteredCards = filteredCards.filter((card) =>
-            card.name.toLowerCase().includes(query)
-        );
-    }
-
-    return filteredCards.slice(0, 100); // Safety limit
-};
 
 // Legacy listings query removed in V2
 
@@ -444,11 +256,14 @@ export const getServerListingsV2 = query({
         const templateId: Id<"card_templates"> | undefined = userCard?.cardTemplateId as Id<"card_templates"> | undefined;
         const template: Doc<"card_templates"> | null = templateId ? await ctx.db.get(templateId) : null;
         const sellerName: string | null = seller ? (seller.username ?? seller.name ?? "Player") : null;
+        const category: "trade" | "sale" = Number(l.price ?? 0) <= 1 ? "trade" : "sale";
         return {
           _id: l._id,
+          userCardId: l.userCardId,
           price: l.price,
           status: l.status,
           createdAt: l.createdAt,
+          category,
           seller: seller ? { id: seller._id, name: sellerName! } : null,
           template: template
             ? {
@@ -492,6 +307,13 @@ export const createListingV2 = mutation({
     if (String(userCard.userId) !== String(me._id)) throw new Error("createListingV2: not owner");
     if (String(userCard.serverId) !== String(me.serverId)) throw new Error("createListingV2: cross-server listing denied");
     if (!Number.isFinite(userCard.quantity) || userCard.quantity <= 0) throw new Error("createListingV2: no quantity to list");
+
+    // Prevent duplicate active listings for the same userCardId by the same seller
+    const dup = await ctx.db
+      .query("listings")
+      .withIndex("by_userCard_status", (q) => q.eq("userCardId", userCardId as Id<"user_cards">).eq("status", "active"))
+      .first();
+    if (dup) throw new Error("createListingV2: card already listed");
 
     const listingId = await ctx.db.insert("listings", {
       serverId: me.serverId as Id<"servers">,

@@ -1,8 +1,8 @@
 "use client";
 import { SignIn, useUser } from "@clerk/nextjs";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { api } from "@cards-of-power/backend/convex/_generated/api";
 
 /**
@@ -25,6 +25,8 @@ export default function SignInPage() {
     const { user, isLoaded } = useUser();
     const currentUser = useQuery(api.users.current);
     const router = useRouter();
+    const assignServer = useMutation(api.users.assignServerOnFirstAuth);
+    const hasAssignedRef = useRef(false);
 
     useEffect(() => {
         // only run after Clerk has loaded and user is authenticated
@@ -39,6 +41,10 @@ export default function SignInPage() {
 
         // if user exists in database, redirect appropriately
         if (currentUser) {
+            if (!hasAssignedRef.current) {
+                hasAssignedRef.current = true;
+                assignServer().catch(() => {});
+            }
             const shouldSeeShowcase = currentUser.gamesPlayed === 0 && !currentUser.hasSeenShowcase;
             router.push(shouldSeeShowcase ? "/showcase" : "/main-menu");
             return;
