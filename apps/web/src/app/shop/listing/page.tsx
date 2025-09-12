@@ -14,65 +14,41 @@ export default function ListingPage() {
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
 
-  const cards =
-    useQuery(api.cards.getListings, {
-      scope: "shop",
-      searchQuery,
-      minPrice: minPrice ? Number(minPrice) : undefined,
-      maxPrice: maxPrice ? Number(maxPrice) : undefined,
-      currentUserId: useUser().user?.id ?? "",
-    }) ?? [];
-  const isLoading = cards === undefined;
+  const isLoading = false;
 
   const { user } = useUser();
-  const myListings =
-    useQuery(api.cards.getListings, {
-      scope: "mine",
-      currentUserId: user?.id ?? "",
-      minPrice: minPrice ? Number(minPrice) : undefined,
-      maxPrice: maxPrice ? Number(maxPrice) : undefined,
-      searchQuery,
-    }) ?? [];
-  const setListing = useMutation(api.cards.setListingStatus);
+  const myListings = useQuery(api.cards.getServerListingsV2, { scope: "active" }) ?? [];
   const [isListingModalOpen, setIsListingModalOpen] = useState(false);
-  const [unlisting, setUnlisting] = useState<Record<Id<"cards">, boolean>>({});
-  const unlistCard = useMutation(api.cards.setListingStatus);
-  const inventory = useQuery(api.cards.getUserInventory, {
-    userId: user?.id ?? "",
-  });
+  const [unlisting, setUnlisting] = useState<Record<Id<"listings">, boolean>>({});
+  const unlistListing = useMutation(api.cards.unlistListingV2);
+  const inventory = useQuery(api.cards.getMyUserCards);
   const eligibleForSale = useMemo(() => {
     const items = (inventory as any[]) ?? [];
-    return items
-      .filter((card) => !card.isListed && !card.isForTrade)
-      .slice(0, 100);
+    return items.slice(0, 100);
   }, [inventory]);
-  const [selectedListCard, setSelectedListCard] = useState<Id<"cards"> | null>(
+  const [selectedListCard, setSelectedListCard] = useState<string | null>(
     null
   );
   const [price, setPrice] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [confirmUnlistId, setConfirmUnlistId] = useState<Id<"cards"> | null>(
+  const [confirmUnlistId, setConfirmUnlistId] = useState<Id<"listings"> | null>(
     null
   );
   const [confirmListOpen, setConfirmListOpen] = useState(false);
 
-  const handleUnlist = async (cardId: string) => {
+  const handleUnlist = async (_listingId: string) => {
     if (!user?.id) {
       toast.error("You must be signed in to modify listings.");
       return;
     }
-    const id = cardId as Id<"cards">;
+    const id = _listingId as Id<"listings">;
     setUnlisting((prev) => ({ ...prev, [id]: true }));
     try {
-      const res = await unlistCard({
-        cardId: id,
-        ownerId: user.id,
-        mode: "unlist",
-      });
+      const res = await unlistListing({ listingId: id });
       if (!res?.success) throw new Error("Unlist failed");
       toast.success("Unlisted successfully");
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Unlist failed";
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Unlist failed";
       toast.error(message);
     } finally {
       setUnlisting((prev) => ({ ...prev, [id]: false }));
@@ -102,13 +78,8 @@ export default function ListingPage() {
     }
     setSubmitting(true);
     try {
-      const res = await setListing({
-        cardId: selectedListCard,
-        ownerId: user.id,
-        mode: "sale",
-        price: numericPrice,
-      });
-      if (!res?.success) throw new Error("Listing failed");
+      // Create listing via V2
+      await useMutation(api.cards.createListingV2)({ userCardId: selectedListCard as any, price: numericPrice });
       toast.success("Card listed for sale");
       closeListingModal();
     } catch (error: unknown) {
@@ -214,37 +185,37 @@ export default function ListingPage() {
                       >
                         <div className="h-60 flex items-center justify-center mb-2">
                           <img
-                            src={card.imageUrl ?? "/assets/cards/blank.png"}
-                            alt={card.name}
+                            src={card.template?.imageUrl ?? "/assets/cards/blank.png"}
+                            alt={card.template?.name ?? ""}
                             className="h-full w-auto object-contain"
                           />
                         </div>
                         <div className="text-white font-bold mb-1">
-                          {card.name}
+                          {card.template?.name}
                         </div>
                         <div className="text-sm text-white/80 space-y-1 mb-2">
                           <div>
                             Description:{" "}
-                            {card.description ?? "No description available"}
+                            {card.template?.description ?? "No description available"}
                           </div>
                           <div className="text-white font-bold mb-1">
                             Card Stats
                           </div>
-                          <div>Type: {card.type ?? "N/A"}</div>
-                          <div>Attribute: {card.attribute ?? "N/A"}</div>
-                          <div>Level: {card.level ?? "N/A"}</div>
-                          <div>ATK: {card.atkPts ?? "N/A"}</div>
-                          <div>DEF: {card.defPts ?? "N/A"}</div>
+                          <div>Type: {card.template?.type ?? "N/A"}</div>
+                          <div>Attribute: {card.template?.attribute ?? "N/A"}</div>
+                          <div>Level: {card.template?.level ?? "N/A"}</div>
+                          <div>ATK: {card.template?.atkPts ?? "N/A"}</div>
+                          <div>DEF: {card.template?.defPts ?? "N/A"}</div>
                         </div>
                         <div className="text-yellow-400 font-bold mb-2">
-                          {card.marketValue} gold
+                          {card.price} gold
                         </div>
                         <button
-                          onClick={() => setConfirmUnlistId(card._id)}
-                          disabled={!!unlisting[card._id]}
+                          onClick={() => setConfirmUnlistId(card._id as Id<"listings">)}
+                          disabled={!!unlisting[card._id as Id<"listings">]}
                           className="bg-red-500 hover:bg-red-600 disabled:bg-red-400 text-white px-3 py-1 rounded text-sm w-full"
                         >
-                          {unlisting[card._id] ? "Unlisting..." : "Unlist"}
+                          {unlisting[card._id as Id<"listings">] ? "Unlisting..." : "Unlist"}
                         </button>
                       </div>
                     ))}
@@ -292,7 +263,7 @@ export default function ListingPage() {
                     {eligibleForSale.map((card) => (
                       <button
                         key={card._id}
-                        onClick={() => setSelectedListCard(card._id as Id<"cards">)}
+                        onClick={() => setSelectedListCard(card.userCardId ?? (card._id as unknown as string))}
                         className={`rounded border p-2 bg-black/40 hover:border-orange-400 text-left ${selectedListCard === card._id ? "border-orange-500 ring-2 ring-orange-300" : "border-white/20"}`}
                       >
                         <div className="h-28 flex items-center justify-center mb-2">

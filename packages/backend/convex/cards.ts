@@ -652,6 +652,7 @@ export const getServerListingsV2 = query({
                 id: template._id,
                 name: template.name,
                 type: template.type,
+                description: template.description ?? "",
                 imageUrl: template.imageUrl,
                 atkPts: template.atkPts,
                 defPts: template.defPts,
@@ -767,6 +768,28 @@ export const purchaseListingV2 = mutation({
       })(),
     ]);
 
+    return { success: true };
+  },
+});
+
+export const unlistListingV2 = mutation({
+  args: { listingId: v.id("listings") },
+  handler: async (ctx, { listingId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.subject) throw new Error("unlistListingV2: unauthenticated");
+
+    const me = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!me) throw new Error("unlistListingV2: user not found");
+
+    const listing = await ctx.db.get(listingId);
+    if (!listing) throw new Error("unlistListingV2: listing not found");
+    if (String(listing.sellerId) !== String(me._id)) throw new Error("unlistListingV2: not your listing");
+    if (listing.status !== "active") return { success: true };
+
+    await ctx.db.patch(listingId, { status: "cancelled" });
     return { success: true };
   },
 });

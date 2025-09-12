@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useUser } from "@clerk/nextjs";
 import { api } from "@backend/convex/_generated/api";
 import { Button } from "@/components/ui/button";
@@ -29,11 +29,13 @@ export default function InventoryPage() {
   const { user } = useUser();
   const [selectedCard, setSelectedCard] = useState<CardData | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [listPrice, setListPrice] = useState<string>("");
   const gold = "/assets/icons/gold.png";
 
   // fetch data from convex (V2)
   const freshUserData = useQuery(api.users.current);
   const myUserCards = useQuery(api.cards.getMyUserCards);
+  const createListing = useMutation(api.cards.createListingV2);
 
   // cache
   const { cachedData: cachedUserData } = useDataCache(
@@ -105,6 +107,16 @@ export default function InventoryPage() {
     if (roi < 0) return <span className="text-red-600">-{Math.abs(roi)}</span>;
     return <span>{roi}</span>;
   }, [selectedCard]);
+
+  const handleListForSale = async () => {
+    if (!selectedCard) return;
+    const priceNum = Number(listPrice);
+    if (!Number.isFinite(priceNum) || priceNum <= 0) return;
+    try {
+      await createListing({ userCardId: selectedCard._id as unknown as any, price: priceNum });
+      setListPrice("");
+    } catch {}
+  };
 
   return (
     <main
@@ -224,6 +236,25 @@ export default function InventoryPage() {
                       <span className="font-bold">{formattedROI}</span>
                     </div>
                   )}
+                  <div className="flex items-center gap-2 p-2 bg-white/10 rounded-lg">
+                    <input
+                      type="text"
+                      value={listPrice}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '' || /^\d+$/.test(val)) setListPrice(val);
+                      }}
+                      placeholder="Price"
+                      className="w-full px-3 py-1.5 text-sm bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                    />
+                    <button
+                      onClick={handleListForSale}
+                      className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm"
+                      disabled={!selectedCard || !listPrice}
+                    >
+                      List for Sale
+                    </button>
+                  </div>
                 </div>
               </>
             ) : (
