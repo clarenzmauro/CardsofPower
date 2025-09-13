@@ -2,7 +2,7 @@
 
 import { useUser } from "@clerk/nextjs";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@cards-of-power/backend/convex/_generated/api";
+import { api } from "@backend/convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image"
@@ -22,6 +22,26 @@ import Image from "next/image"
  * - Displays cards one by one with rotation interaction
  * - Final grid view with all cards
  */
+type InventoryCard = {
+    userCardId: string;
+    quantity: number;
+    estimatedValue?: number | null;
+    boughtFor?: number;
+    template: {
+        id: string;
+        name: string;
+        type: string;
+        imageUrl: string;
+        atkPts?: number;
+        defPts?: number;
+        attribute?: string | null;
+        level?: number | null;
+        matches?: { wins: number; total: number };
+        cardWin?: { global: number; local: number };
+        cardLose?: { global: number; local: number };
+    } | null;
+};
+
 export default function ShowcasePage() {
     const { user, isLoaded } = useUser();
     const router = useRouter();
@@ -59,7 +79,7 @@ export default function ShowcasePage() {
     const userCards = useQuery(
         api.cards.getMyUserCards,
         user ? {} : "skip"
-    );
+    ) as InventoryCard[] | undefined;
 
     useEffect(() => {
         if (!isLoaded) return;
@@ -151,8 +171,10 @@ export default function ShowcasePage() {
                         Your Complete Collection
                     </h1>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 mb-8">
-                        {userCards.map((card: any, index: number) => (
-                            <div key={card._id} className="p-1">
+                        {userCards
+                          .filter((card) => !!card?.template)
+                          .map((card) => (
+                            <div key={String(card.userCardId)} className="p-1">
                                 <div 
                                     className="relative w-full h-70 cursor-pointer transition-transform duration-300 ease-out hover:scale-110"
                                     onMouseMove={(e) => {
@@ -170,8 +192,8 @@ export default function ShowcasePage() {
                                     }}
                                 >
                                     <img 
-                                        src={card.imageUrl} 
-                                        alt={card.name}
+                                        src={card.template?.imageUrl ?? "/assets/cards/blank.png"} 
+                                        alt={card.template?.name ?? "Card"}
                                         className="w-full h-full object-contain rounded-lg shadow-lg"
                                     />
 
