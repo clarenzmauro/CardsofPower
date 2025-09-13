@@ -10,45 +10,84 @@ import { type Id } from "@backend/convex/_generated/dataModel";
 import { toast } from "sonner";
 
 export default function ListingPage() {
+  type InventoryCard = {
+    userCardId: string;
+    quantity: number;
+    estimatedValue?: number | null;
+    boughtFor?: number;
+    template: {
+      id: string;
+      name: string;
+      type: string;
+      description?: string;
+      imageUrl: string;
+      atkPts?: number;
+      defPts?: number;
+      attribute?: string | null;
+      level?: number | null;
+    } | null;
+  };
+
+  type ListingItem = {
+    _id: Id<"listings">;
+    userCardId: Id<"user_cards">;
+    price: number;
+    status: "active" | "sold" | "cancelled";
+    createdAt: string;
+    category: "trade" | "sale";
+    seller: { id: Id<"users">; name: string } | null;
+    template: {
+      id: Id<"card_templates">;
+      name: string;
+      type: string;
+      description?: string;
+      imageUrl: string;
+      atkPts?: number;
+      defPts?: number;
+      attribute?: string | null;
+      level?: number | null;
+    } | null;
+  };
   const [mainSearchQuery, setMainSearchQuery] = useState("");
   const [modalSearchQuery, setModalSearchQuery] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const { user } = useUser();
-  const myListingsQuery = useQuery(api.cards.getServerListingsV2, { scope: "active" });
-  const inventory = useQuery(api.cards.getMyUserCards);
+  const myListingsQuery = useQuery(api.cards.getServerListingsV2, { scope: "active" }) as ListingItem[] | undefined;
+  const inventory = useQuery(api.cards.getMyUserCards) as InventoryCard[] | undefined;
   const isLoading = myListingsQuery === undefined || inventory === undefined;
   const myListingsRaw = myListingsQuery ?? [];
-  const allActive = myListingsRaw as any[];
-  const myListings = allActive.filter(l => (l as any)?.category === "sale");
+  const allActive: ListingItem[] = myListingsRaw;
+  const myListings: ListingItem[] = allActive.filter(l => l?.category === "sale");
   const myActiveTrade = new Set<string>(allActive
-    .filter(l => (l as any)?.category === "trade")
-    .map(l => String((l as any)?.userCardId ?? ""))
+    .filter(l => l?.category === "trade")
+    .map(l => String(l?.userCardId ?? ""))
   );
   const [isListingModalOpen, setIsListingModalOpen] = useState(false);
   const [unlisting, setUnlisting] = useState<Record<Id<"listings">, boolean>>({});
   const unlistListing = useMutation(api.cards.unlistListingV2);
   const createListing = useMutation(api.cards.createListingV2);
   const eligibleForSale = useMemo(() => {
-    const items = (inventory as any[]) ?? [];
-    const myActiveSaleUserCards = new Set<string>((myListings as any[]).map(l => String((l as any)?.userCardId ?? "")));
-    // Exclude user_cards already listed for sale or trade by me
-    const filtered = items.filter((uc: any) => {
-      const id = String(uc?.userCardId ?? "");
-      return !myActiveSaleUserCards.has(id) && !myActiveTrade.has(id);
-    });
+    const items = inventory ?? [];
+    const myActiveSaleUserCards = new Set<string>(myListings.map(l => String(l?.userCardId ?? "")));
+    const filtered = items
+      .filter((uc) => !!uc?.template)
+      .filter((uc) => {
+        const id = String(uc.userCardId);
+        return !myActiveSaleUserCards.has(id) && !myActiveTrade.has(id);
+      });
     return filtered.slice(0, 100);
   }, [inventory, myListings, myActiveTrade]);
   const filteredEligibleForSale = useMemo(() => {
     const query = modalSearchQuery.trim().toLowerCase();
-    const items = (eligibleForSale as any[]) ?? [];
+    const items = eligibleForSale ?? [];
     if (!query) return items;
-    return items.filter((uc: any) => {
+    return items.filter((uc) => {
       const name = String(uc?.template?.name ?? "").toLowerCase();
       return name.includes(query);
     });
   }, [eligibleForSale, modalSearchQuery]);
-  const [selectedListCard, setSelectedListCard] = useState<string | null>(
+  const [selectedListCard, setSelectedListCard] = useState<Id<"user_cards"> | null>(
     null
   );
   const [price, setPrice] = useState("");
@@ -102,7 +141,7 @@ export default function ListingPage() {
     setSubmitting(true);
     try {
       // Create listing via V2
-      await createListing({ userCardId: selectedListCard as any, price: numericPrice });
+      await createListing({ userCardId: selectedListCard, price: numericPrice });
       toast.success("Card listed for sale");
       closeListingModal();
     } catch (error: unknown) {
@@ -283,10 +322,10 @@ export default function ListingPage() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {filteredEligibleForSale.map((card: any) => (
+                    {filteredEligibleForSale.map((card) => (
                       <button
                         key={card.userCardId}
-                        onClick={() => setSelectedListCard(card.userCardId as string)}
+                        onClick={() => setSelectedListCard(card.userCardId as Id<"user_cards">)}
                         className={`rounded border p-2 bg-black/40 hover:border-orange-400 text-left ${selectedListCard === card.userCardId ? "border-orange-500 ring-2 ring-orange-300" : "border-white/20"}`}
                       >
                         <div className="h-28 flex items-center justify-center mb-2">
@@ -308,7 +347,7 @@ export default function ListingPage() {
                 <div className="mt-4 p-3 border border-white/20 rounded bg-black/20">
                   <div className="text-sm text-white/80">Selected card:</div>
                   <div className="font-semibold text-white">
-                    {eligibleForSale.find((c: any) => String(c.userCardId) === String(selectedListCard))
+                    {eligibleForSale.find((c) => String(c.userCardId) === String(selectedListCard))
                       ?.template?.name ?? "Unknown card"}
                   </div>
                   <div className="mt-2">

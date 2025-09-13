@@ -10,14 +10,52 @@ import { type Id } from "@backend/convex/_generated/dataModel";
 import { toast } from "sonner";
 
 export default function TradePage() {
+  type InventoryCard = {
+    userCardId: string;
+    quantity: number;
+    estimatedValue?: number | null;
+    boughtFor?: number;
+    template: {
+      id: string;
+      name: string;
+      type: string;
+      description?: string;
+      imageUrl: string;
+      atkPts?: number;
+      defPts?: number;
+      attribute?: string | null;
+      level?: number | null;
+    } | null;
+  };
+
+  type ListingItem = {
+    _id: Id<"listings">;
+    userCardId: Id<"user_cards">;
+    price: number;
+    status: "active" | "sold" | "cancelled";
+    createdAt: string;
+    category: "trade" | "sale";
+    seller: { id: Id<"users">; name: string } | null;
+    template: {
+      id: Id<"card_templates">;
+      name: string;
+      type: string;
+      description?: string;
+      imageUrl: string;
+      atkPts?: number;
+      defPts?: number;
+      attribute?: string | null;
+      level?: number | null;
+    } | null;
+  };
   const [searchQuery, setSearchQuery] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
 
   // Server-scoped listings (active)
-  const listingsAll = useQuery(api.cards.getServerListingsV2, { scope: "active" }) ?? [];
-  const listings = (listingsAll as any[]).filter(l => (l as any)?.category === "trade");
-  const isLoading = !listings;
+  const listingsAll = (useQuery(api.cards.getServerListingsV2, { scope: "active" }) ?? []) as ListingItem[];
+  const listings: ListingItem[] = listingsAll.filter((l) => l?.category === "trade");
+  const isLoading = listingsAll === undefined;
 
   // for main area
   const { user } = useUser();
@@ -35,18 +73,19 @@ export default function TradePage() {
   // Identify my listings by filtering server listings
   const me = useQuery(api.users.getMe);
   const myTradeableCards = useMemo(() => {
-    const mine = (listings as any[])?.filter(l => String(l?.seller?.id ?? "") === String(me?._id ?? "")) ?? [];
-    return mine;
+    const sellerId = String(me?._id ?? "");
+    if (!Array.isArray(listings)) return [] as ListingItem[];
+    return listings.filter((l) => String(l?.seller?.id ?? "") === sellerId);
   }, [listings, me?._id]);
 
   const tradeableCards = useMemo(() => {
-    const items = (listings as any[]) ?? [];
-    // Basic client-side filter by name/price if template present
+    const items = listings ?? [];
+    const sellerId = String(me?._id ?? "");
     const filtered = items.filter((l) => {
-      const name: string = l?.template?.name ?? "";
-      const price: number = Number(l?.price ?? 0);
-      // Exclude my own listings from Available Trades
-      if (String(l?.seller?.id ?? "") === String(me?._id ?? "")) return false;
+      const name = l?.template?.name ?? "";
+      const price = Number(l?.price ?? 0);
+      if (!l?.template) return false;
+      if (String(l?.seller?.id ?? "") === sellerId) return false;
       if (searchQuery && !name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
       if (minPrice && Number(minPrice) > 0 && price < Number(minPrice)) return false;
       if (maxPrice && Number(maxPrice) > 0 && price > Number(maxPrice)) return false;
@@ -78,16 +117,18 @@ export default function TradePage() {
     }
   };
 
-  const inventory = useQuery(api.cards.getMyUserCards);
+  const inventory = useQuery(api.cards.getMyUserCards) as InventoryCard[] | undefined;
   const eligibleForTrade = useMemo(() => {
-    const items = (inventory as any[]) ?? [];
+    const items = inventory ?? [];
+    const sellerId = String(me?._id ?? "");
     const myActiveListings = new Set<string>(
-      ((listings as any[]) ?? [])
-        .filter(l => String(l?.seller?.id ?? "") === String(me?._id ?? ""))
+      (listings ?? [])
+        .filter(l => String(l?.seller?.id ?? "") === sellerId)
         .map(l => String(l?.userCardId ?? ""))
     );
-    // Exclude user_cards that are already listed by me
-    const filtered = items.filter((uc: any) => !myActiveListings.has(String(uc?.userCardId ?? "")));
+    const filtered = items
+      .filter((uc) => !!uc?.template)
+      .filter((uc) => !myActiveListings.has(String(uc.userCardId)));
     return filtered.slice(0, 100);
   }, [inventory, listings, me?._id]);
 
@@ -205,13 +246,26 @@ export default function TradePage() {
                     </p>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {tradeableCards.map((l: any) => (
+                      {tradeableCards.map((l) => (
                         <div
                           key={l._id}
                           className="bg-black/40 rounded-lg p-4 border border-white/20 hover:border-white/40 transition-colors"
                         >
-                          <div className="text-white mb-2">{l?.template?.name ?? "Unnamed"}</div>
-                          <div className="text-white/80 mb-2">Seller: {l?.seller?.name ?? "Player"}</div>
+                          <div className="h-60 flex items-center justify-center mb-2">
+                            <img
+                              src={l.template?.imageUrl ?? "/assets/cards/blank.png"}
+                              alt={l.template?.name ?? "Card"}
+                              className="h-full w-auto object-contain"
+                            />
+                          </div>
+                          <div className="text-white font-bold mb-1">{l.template?.name ?? "Unnamed"}</div>
+                          <div className="text-sm text-white/80 space-y-1 mb-2">
+                            <div>Type: {l.template?.type ?? "N/A"}</div>
+                            <div>Level: {l.template?.level ?? "N/A"}</div>
+                            <div>ATK: {l.template?.atkPts ?? "N/A"}</div>
+                            <div>DEF: {l.template?.defPts ?? "N/A"}</div>
+                            <div>Seller: {l.seller?.name ?? "Player"}</div>
+                          </div>
                           <button
                             onClick={async () => {
                               try {
@@ -331,7 +385,7 @@ export default function TradePage() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {eligibleForTrade.map((uc: any) => (
+                    {eligibleForTrade.map((uc) => (
                       <button
                         key={uc.userCardId}
                         onClick={() => setSelectedListCard(uc.userCardId as Id<"user_cards">)}
@@ -339,13 +393,13 @@ export default function TradePage() {
                       >
                         <div className="h-28 flex items-center justify-center mb-2">
                           <img
-                            src={uc?.template?.imageUrl ?? "/assets/cards/blank.png"}
-                            alt={uc?.template?.name ?? "Card"}
+                            src={uc.template?.imageUrl ?? "/assets/cards/blank.png"}
+                            alt={uc.template?.name ?? "Card"}
                             className="h-full w-auto object-contain"
                           />
                         </div>
                         <div className="font-medium text-sm text-white">
-                          {uc?.template?.name ?? "Unnamed"}
+                          {uc.template?.name ?? "Unnamed"}
                         </div>
                       </button>
                     ))}
@@ -356,7 +410,7 @@ export default function TradePage() {
                 <div className="mt-4 p-3 border border-white/20 rounded bg-black/20">
                   <div className="text-sm text-white/80">Selected card:</div>
                   <div className="font-semibold text-white">
-                    {eligibleForTrade.find((c: any) => String(c.userCardId) === String(selectedListCard))
+                    {eligibleForTrade.find((c) => String(c.userCardId) === String(selectedListCard))
                       ?.template?.name ?? "Unknown card"}
                   </div>
                 </div>
