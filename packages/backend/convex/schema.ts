@@ -310,6 +310,12 @@ export default defineSchema({
             v.literal("trap")
           ),
           image: v.optional(v.string()),
+          atkPts: v.optional(v.number()),
+          defPts: v.optional(v.number()),
+          level: v.optional(v.number()),
+          character: v.optional(v.string()),
+          class: v.optional(v.string()),
+          description: v.optional(v.string()),
         })
       ),
       field: v.array(
@@ -327,6 +333,12 @@ export default defineSchema({
             position: v.optional(
               v.union(v.literal("attack"), v.literal("defense"))
             ),
+            atkPts: v.optional(v.number()),
+            defPts: v.optional(v.number()),
+            level: v.optional(v.number()),
+            character: v.optional(v.string()),
+            class: v.optional(v.string()),
+            description: v.optional(v.string()),
           })
         )
       ),
@@ -340,6 +352,12 @@ export default defineSchema({
             v.literal("trap")
           ),
           image: v.optional(v.string()),
+          atkPts: v.optional(v.number()),
+          defPts: v.optional(v.number()),
+          level: v.optional(v.number()),
+          character: v.optional(v.string()),
+          class: v.optional(v.string()),
+          description: v.optional(v.string()),
         })
       ),
     }),
@@ -358,6 +376,12 @@ export default defineSchema({
             v.literal("trap")
           ),
           image: v.optional(v.string()),
+          atkPts: v.optional(v.number()),
+          defPts: v.optional(v.number()),
+          level: v.optional(v.number()),
+          character: v.optional(v.string()),
+          class: v.optional(v.string()),
+          description: v.optional(v.string()),
         })
       ),
       field: v.array(
@@ -375,6 +399,12 @@ export default defineSchema({
             position: v.optional(
               v.union(v.literal("attack"), v.literal("defense"))
             ),
+            atkPts: v.optional(v.number()),
+            defPts: v.optional(v.number()),
+            level: v.optional(v.number()),
+            character: v.optional(v.string()),
+            class: v.optional(v.string()),
+            description: v.optional(v.string()),
           })
         )
       ),
@@ -388,6 +418,12 @@ export default defineSchema({
             v.literal("trap")
           ),
           image: v.optional(v.string()),
+          atkPts: v.optional(v.number()),
+          defPts: v.optional(v.number()),
+          level: v.optional(v.number()),
+          character: v.optional(v.string()),
+          class: v.optional(v.string()),
+          description: v.optional(v.string()),
         })
       ),
     }),

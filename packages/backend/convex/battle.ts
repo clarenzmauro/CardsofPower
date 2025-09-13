@@ -1044,9 +1044,15 @@ export const attack = mutation({
     if (!targetCard) throw new Error("No card in target slot");
     if (targetCard.type !== "monster") throw new Error("Can only attack monsters");
 
-    // Use in-battle snapshot on the battle doc (no DB reads to legacy cards)
-    const attackerATK = Number(attacker.atkPts ?? 0);
-    const targetDEF = Number(targetCard.defPts ?? 0);
+    // Use in-battle snapshot from the field cards
+    const attackerATK = Number((attackerCard as any)?.atkPts ?? 0);
+    const targetDEF = Number((targetCard as any)?.defPts ?? 0);
+    if (!Number.isFinite(attackerATK) || attackerATK < 0) {
+      throw new Error("Invalid attacker ATK");
+    }
+    if (!Number.isFinite(targetDEF) || targetDEF < 0) {
+      throw new Error("Invalid target DEF");
+    }
 
     // Calculate damage: DEF - ATK
     const newDefPts = targetDEF - attackerATK;
