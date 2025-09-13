@@ -72,7 +72,7 @@ export default function SignUpPage() {
 
             upsertUser({ data: userData })
                 .then(async () => {
-                    try { await assignServer(); } catch {}
+                    try { await assignServer({}); } catch {}
                     setIsCreating(false);
                     router.push("/showcase");
                 })

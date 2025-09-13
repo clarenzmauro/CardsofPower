@@ -43,7 +43,7 @@ export default function SignInPage() {
         if (currentUser) {
             if (!hasAssignedRef.current) {
                 hasAssignedRef.current = true;
-                assignServer().catch(() => {});
+                assignServer({}).catch(() => {});
             }
             const shouldSeeShowcase = currentUser.gamesPlayed === 0 && !currentUser.hasSeenShowcase;
             router.push(shouldSeeShowcase ? "/showcase" : "/main-menu");

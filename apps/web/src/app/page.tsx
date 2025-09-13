@@ -76,7 +76,7 @@ export default function Home() {
 
             upsertUser({ data: userData })
                 .then(async (result) => {
-                    try { await assignServer(); } catch {}
+                    try { await assignServer({}); } catch {}
                     setIsCreating(false);
                     
                     // Check if this is a new user
