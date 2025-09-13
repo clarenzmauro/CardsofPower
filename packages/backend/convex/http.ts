@@ -47,8 +47,8 @@ http.route({
               email: event.data.email_addresses?.[0]?.email_address || "",
             },
           });
-          // Ensure server assignment on first auth
-          await ctx.runMutation(api.users.assignServerOnFirstAuth, {});
+          // Ensure server assignment on first auth (pass Clerk ID explicitly)
+          await ctx.runMutation(api.users.assignServerOnFirstAuth, { clerkId: event.data.id });
         } catch (error) {
           console.error("User upsert failed:", error);
         }

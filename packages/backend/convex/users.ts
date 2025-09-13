@@ -393,13 +393,14 @@ export const getMe = query({
 });
 
 export const assignServerOnFirstAuth = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { clerkId: v.optional(v.string()) },
+  handler: async (ctx, { clerkId }) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity?.subject)
+    const externalId = clerkId ?? identity?.subject ?? null;
+    if (!externalId)
       throw new Error("assignServerOnFirstAuth: Not authenticated");
 
-    const user = await userByExternalId(ctx, identity.subject);
+    const user = await userByExternalId(ctx, externalId);
     if (!user) throw new Error("assignServerOnFirstAuth: User not found");
 
     let serverAssigned = false;
@@ -463,7 +464,7 @@ export const assignServerOnFirstAuth = mutation({
     }
 
     if (existingUserCards.length === 0) {
-      // Fetch recent templates and balance: 5 monster, 3 trap, 2 spell
+      // Fetch recent templates and balance: 5 monster, 3 trap, 2 spell (randomized)
       const allTemplates = await ctx.db
         .query("card_templates")
         .order("desc")
@@ -482,32 +483,50 @@ export const assignServerOnFirstAuth = mutation({
           (t) => normalizeType(t.type) === "spell"
         );
 
-        const selected: Array<{ _id: Id<"card_templates"> }> = [];
-        const pushSome = (
-          src: Array<{ _id: Id<"card_templates"> }>,
-          need: number
-        ) => {
-          for (let i = 0; i < src.length && selected.length < 10 && need > 0; i++) {
-            const cand = src[i];
+        const shuffle = <T>(arr: T[]): T[] => {
+          const a = arr.slice();
+          for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const tmp = a[i];
+            a[i] = a[j];
+            a[j] = tmp;
+          }
+          return a;
+        };
+
+        const toPicks = (list: Array<{ _id: Id<"card_templates"> }>, count: number) => {
+          const out: Array<{ _id: Id<"card_templates"> }> = [];
+          for (let i = 0; i < list.length && out.length < count; i++) {
+            const cand = list[i];
             if (!cand?._id) continue;
+            out.push({ _id: cand._id });
+          }
+          return out;
+        };
+
+        const selected: Array<{ _id: Id<"card_templates"> }> = [];
+        const pushUnique = (
+          items: Array<{ _id: Id<"card_templates"> }>,
+        ) => {
+          for (const cand of items) {
+            if (selected.length >= 10) break;
             const exists = selected.some((s) => String(s._id) === String(cand._id));
             if (exists) continue;
             selected.push({ _id: cand._id });
-            need -= 1;
           }
         };
 
-        // Primary balanced picks
-        pushSome(monsters as any, 5);
-        pushSome(traps as any, 3);
-        pushSome(spells as any, 2);
+        // Primary balanced random picks
+        pushUnique(toPicks(shuffle(monsters as Array<{ _id: Id<"card_templates"> }>), 5));
+        pushUnique(toPicks(shuffle(traps as Array<{ _id: Id<"card_templates"> }>), 3));
+        pushUnique(toPicks(shuffle(spells as Array<{ _id: Id<"card_templates"> }>), 2));
 
         // Backfill to 10 if categories were short, with remaining recency order
         if (selected.length < 10) {
           const remaining = allTemplates.filter(
             (t) => !selected.some((s) => String(s._id) === String(t._id))
           );
-          pushSome(remaining as any, 10 - selected.length);
+          pushUnique(toPicks(shuffle(remaining as Array<{ _id: Id<"card_templates"> }>), 10 - selected.length));
         }
 
         if (selected.length > 0) {
