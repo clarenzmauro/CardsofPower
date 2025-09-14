@@ -61,15 +61,14 @@ export const useDragAndDrop = (config: DragAndDropConfig) => {
     }
   }, [dragState.isDragging]);
 
-  const startDrag = useCallback((card: Card, fromIndex: number, initialMousePos: { x: number; y: number }) => {
+  const startDrag = useCallback((card: Card, fromIndex: number, mousePos: { x: number; y: number }) => {
     if (!config.enabled) return;
-    
     setDragState({
       isDragging: true,
       draggedCard: card,
       draggedFromIndex: fromIndex,
       dragOverSlot: null,
-      mousePosition: initialMousePos,
+      mousePosition: mousePos,
     });
   }, [config.enabled]);
 

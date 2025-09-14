@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import type { Card, Player } from './types';
 import { CardDisplay, GraveyardPile, PlayerSection, EnemySection, AnimatingCard, HealthBar, Timer, PrepOverlay } from './components';
 import { useGraveyard } from './hooks/useGraveyard';
+import { useDragAndDrop } from './hooks/useDragAndDrop';
 import { useSearchParams } from 'next/navigation';
 import { type Id } from '@cards-of-power/backend/convex/_generated/dataModel';
 import { useBattle } from './hooks/useBattle';
@@ -82,12 +83,21 @@ function BattlefieldContent() {
     }
   }, [battle?.isInPreparation, battle?.status, battle?.isPaused]);
 
-  // Disable drag & drop, use click placement
-  const dragState = { isDragging: false, draggedCard: null as Card | null, draggedFromIndex: null as number | null, dragOverSlot: null as number | null, mousePosition: { x: 0, y: 0 } };
-  const getDragHandlers = undefined;
-  const getDropHandlers = undefined;
-  const logSlotContents = (..._args: any[]) => {};
-  const updateMousePosition = (_x: number, _y: number) => {};
+  // Enable drag & drop for battle phase
+  const { dragState, getDragHandlers, getDropHandlers, logSlotContents, updateMousePosition } = useDragAndDrop({
+    enabled: dragDropEnabled,
+    onCardMove: (card: Card, fromIndex: number, toSlotIndex: number) => {
+      // Only allow monster cards to be placed during battle
+      if (card.type !== 'monster') {
+        return;
+      }
+      // Use existing battle system to place card
+      if (battle?.playCard) {
+        battle.playCard(fromIndex, toSlotIndex, 'attack');
+      }
+    },
+  });
+
 
   // Graveyard functionality
   const { animationState, sendToGraveyard, logGraveyardContents } = useGraveyard({
@@ -132,7 +142,7 @@ function BattlefieldContent() {
   // Enable/disable interactions based on turn and battle state
   useEffect(() => {
     const canInteract = !!(battle && battle.status === 'active' && !battle.isPaused && !battle.isInPreparation && battle.isMyTurn);
-    setDragDropEnabled(false);
+    setDragDropEnabled(canInteract); // Enable drag & drop during battle phase
     setGraveyardEnabled(canInteract);
   }, [battle?.status, battle?.isPaused, battle?.isInPreparation, battle?.isMyTurn]);
 
@@ -273,14 +283,16 @@ function BattlefieldContent() {
             isAttackMode={isAttackMode}
           />
           <PlayerSection 
-            hand={playerHand}
-            field={playerField}
+            hand={playerHand} 
+            field={playerField} 
             onCardSelect={setSelectedCard}
-            onHandSelect={onHandSelect}
+            onHandSelect={setSelectedHandIndex}
             onSlotClick={onSlotClick}
             onFieldCardClick={onFieldCardClick}
             selectedCard={selectedCard}
             onGraveyardCard={handleGraveyardCard}
+            getDragHandlers={getDragHandlers}
+            getDropHandlers={getDropHandlers}
           />
         </div>
 
