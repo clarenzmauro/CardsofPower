@@ -4,7 +4,6 @@ import React, { useMemo } from 'react';
 import type { Card } from '../types';
 import { HandCard } from './HandCard';
 import { Timer } from './Timer';
-import { useDragAndDrop } from '../hooks/useDragAndDrop';
 
 interface PrepOverlayProps {
   hand: Card[];
@@ -35,21 +34,54 @@ export const PrepOverlay: React.FC<PrepOverlayProps> = ({
     setPrepField(field);
   }, [field]);
 
-  const { dragState, getDragHandlers, getDropHandlers } = useDragAndDrop({
-    enabled: !waitingForOpponent,
-    onCardMove: (card, fromIndex, toSlotIndex) => {
-      // Only allow monster cards to be placed during preparation
-      if (card.type !== 'monster') {
-        return;
-      }
-      setPrepHand(prev => prev.filter((_, i) => i !== fromIndex));
+  // Handle card selection/deselection
+  const handleCardClick = (card: Card) => {
+    console.log('CARD CLICKED:', card.name, 'Type:', card.type);
+    console.log('Waiting for opponent:', waitingForOpponent);
+    
+    if (waitingForOpponent) {
+      console.log('Blocked: waiting for opponent');
+      return;
+    }
+    
+    // Only allow monster cards to be placed during preparation
+    if (card.type !== 'monster') {
+      console.log('Blocked: not a monster card');
+      return;
+    }
+
+    // Check if card is already in field
+    const cardInFieldIndex = prepField.findIndex(fieldCard => fieldCard?.id === card.id);
+    console.log('Card in field index:', cardInFieldIndex);
+    console.log('Current field:', prepField.map(c => c?.name || 'empty'));
+    
+    if (cardInFieldIndex !== -1) {
+      // Card is in field, remove it (but keep in hand)
+      console.log('Removing card from field');
       setPrepField(prev => {
         const next = [...prev];
-        next[toSlotIndex] = { ...card, position: 'attack' };
+        next[cardInFieldIndex] = null;
         return next;
       });
-    },
-  });
+    } else {
+      // Card is not in field, try to add it
+      const emptySlotIndex = prepField.findIndex(slot => slot === null);
+      console.log('Empty slot index:', emptySlotIndex);
+      
+      if (emptySlotIndex !== -1) {
+        // Found empty slot, add card (but keep in hand)
+        console.log('Adding card to field at slot', emptySlotIndex);
+        setPrepField(prev => {
+          const next = [...prev];
+          next[emptySlotIndex] = { ...card, position: 'attack' };
+          console.log('New field state:', next.map(c => c?.name || 'empty'));
+          return next;
+        });
+      } else {
+        console.log('No empty slots available');
+      }
+    }
+  };
 
   const readyDisabled = useMemo(() => waitingForOpponent || countdown <= 0, [waitingForOpponent, countdown]);
 
@@ -94,7 +126,7 @@ export const PrepOverlay: React.FC<PrepOverlayProps> = ({
         <div className="bg-stone-800/80 border border-stone-600 rounded-xl p-5 w-full max-w-5xl shadow-2xl">
           <div className="text-center mb-4">
             <div className="text-stone-200 text-lg">Preparation Phase</div>
-            <div className="text-stone-400 text-sm">Drag cards to slots. Tap a slot to toggle Attack/Defense.</div>
+            <div className="text-stone-400 text-sm">Click cards to select (max 5). Tap a slot to toggle Attack/Defense.</div>
           </div>
 
           {/* Slots */}
@@ -104,7 +136,6 @@ export const PrepOverlay: React.FC<PrepOverlayProps> = ({
                 <div
                   key={`prep-slot-${index}`}
                   onClick={() => togglePosition(index)}
-                  {...(getDropHandlers ? getDropHandlers(index, !card && (dragState?.draggedCard?.type === 'monster')) : {})}
                 >
                   <div className="w-28 h-40 bg-stone-400/30 border-2 border-stone-600/50 rounded-lg overflow-hidden relative flex items-center justify-center">
                     {card ? (
@@ -125,19 +156,28 @@ export const PrepOverlay: React.FC<PrepOverlayProps> = ({
             </div>
           </div>
 
-          {/* Hand / Drag */}
+          {/* Hand / Click Selection */}
           <div>
             <div className="w-full h-32 bg-stone-900/40 rounded-lg backdrop-blur-sm border border-stone-600/50 flex items-center justify-center overflow-x-auto overflow-y-hidden p-4">
               <div className="flex gap-3">
-                {prepHand.map((card, index) => (
-                  <HandCard
-                    key={card.id}
-                    card={card}
-                    onClick={() => { /* no-op selection during prep */ }}
-                    dragHandlers={getDragHandlers ? getDragHandlers(card, index) : undefined}
-                    isDragging={dragState?.draggedCard?.id === card.id}
-                  />
-                ))}
+                {prepHand.map((card, index) => {
+                  const isSelected = prepField.some(fieldCard => fieldCard?.id === card.id);
+                  return (
+                    <div key={card.id} className="relative">
+                      <HandCard
+                        card={card}
+                        onClick={() => {
+                          console.log('HandCard onClick triggered for:', card.name);
+                          handleCardClick(card);
+                        }}
+                        isDragging={false}
+                      />
+                      {isSelected && (
+                        <div className="absolute inset-0 border-2 border-amber-400 rounded-lg pointer-events-none animate-pulse" />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
