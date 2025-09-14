@@ -281,17 +281,6 @@ function BattlefieldContent() {
             onFieldCardClick={onFieldCardClick}
             selectedCard={selectedCard}
             onGraveyardCard={handleGraveyardCard}
-            onAttackCard={startAttack}
-            onEffectCard={async (slotIndex) => {
-              const card = playerField[slotIndex];
-              if (!card) return;
-              try {
-                const result = await battle?.useCardEffect?.(card.name);
-                console.log('Effect result:', result);
-              } catch (error) {
-                console.error('Effect failed:', error);
-              }
-            }}
           />
         </div>
 
