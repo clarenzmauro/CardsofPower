@@ -56,6 +56,7 @@ export const CardSlot: React.FC<CardSlotProps> = ({
                 {card.position === 'defense' ? 'DEF' : 'ATK'}
               </div>
             )}
+            
           </div>
         ) : (
           <div className="text-sm text-white text-center p-2">
