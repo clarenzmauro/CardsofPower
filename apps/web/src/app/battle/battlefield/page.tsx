@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import type { Card, Player } from './types';
-import { CardDisplay, GraveyardPile, PlayerSection, EnemySection, AnimatingCard, HealthBar, Timer, PrepOverlay } from './components';
+import { CardDisplay, GraveyardPile, PlayerSection, EnemySection, AnimatingCard, HealthBar, Timer, PrepOverlay, FloatingDragPreview } from './components';
 import { useGraveyard } from './hooks/useGraveyard';
 import { useDragAndDrop } from './hooks/useDragAndDrop';
 import { useSearchParams } from 'next/navigation';
@@ -304,6 +304,15 @@ function BattlefieldContent() {
           </div>
         </div>
       </div>
+
+      {/* Floating Drag Preview */}
+      {dragState.isDragging && dragState.draggedCard && (
+        <FloatingDragPreview
+          card={dragState.draggedCard}
+          position={dragState.mousePosition}
+          isVisible={dragState.isDragging}
+        />
+      )}
 
       {/* Animating Card to Graveyard */}
       {animationState.isAnimating && animationState.animatingCard && (
