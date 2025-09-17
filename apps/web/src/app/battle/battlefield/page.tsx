@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import type { Card, Player } from './types';
-import { CardDisplay, GraveyardPile, PlayerSection, EnemySection, AnimatingCard, HealthBar, Timer, PrepOverlay, FloatingDragPreview, DisintegrationEffect } from './components';
+import { CardDisplay, GraveyardPile, PlayerSection, EnemySection, AnimatingCard, HealthBar, Timer, PrepOverlay, FloatingDragPreview, DisintegrationEffect, BattleLog } from './components';
 import { useGraveyard } from './hooks/useGraveyard';
 import { useDragAndDrop } from './hooks/useDragAndDrop';
 import { useSearchParams } from 'next/navigation';
@@ -37,6 +37,24 @@ function BattlefieldContent() {
     card: Card;
     position: { x: number; y: number };
   }>>([]);
+
+  // Battle log state
+  const [battleLogs, setBattleLogs] = useState<Array<{
+    id: string;
+    message: string;
+    timestamp: number;
+    type: 'effect' | 'action' | 'system';
+  }>>([]);
+
+  const addBattleLog = (message: string, type: 'effect' | 'action' | 'system' = 'system') => {
+    const newLog = {
+      id: `${Date.now()}-${Math.random()}`,
+      message,
+      timestamp: Date.now(),
+      type
+    };
+    setBattleLogs(prev => [...prev, newLog]);
+  };
 
   // Player and Enemy data from server battle data
   const player: Player = {
@@ -135,14 +153,26 @@ function BattlefieldContent() {
             position
           }]);
           
-          // Execute spell/trap effect
+          // Execute spell/trap effect and add to battle log
           if (card.type === 'spell' && battle?.useSpellEffect) {
-            battle.useSpellEffect(card.name);
+            battle.useSpellEffect(card.name, fromIndex).then((result) => {
+              if (result?.logs) {
+                result.logs.forEach((log: string) => addBattleLog(log, 'effect'));
+              }
+              addBattleLog(`${card.name} used on ${targetType === 'enemy' ? 'enemy' : 'player'} monster "${targetCard.name}"`, 'action');
+            }).catch((error) => {
+              addBattleLog(`Failed to use ${card.name}: ${error.message}`, 'system');
+            });
           } else if (card.type === 'trap' && battle?.useTrapEffect) {
-            battle.useTrapEffect(card.name);
+            battle.useTrapEffect(card.name, fromIndex).then((result) => {
+              if (result?.logs) {
+                result.logs.forEach((log: string) => addBattleLog(log, 'effect'));
+              }
+              addBattleLog(`${card.name} used on ${targetType === 'enemy' ? 'enemy' : 'player'} monster "${targetCard.name}"`, 'action');
+            }).catch((error) => {
+              addBattleLog(`Failed to use ${card.name}: ${error.message}`, 'system');
+            });
           }
-          
-          console.log(`${card.type} card "${card.name}" used on ${targetType === 'enemy' ? 'enemy' : 'player'} monster "${targetCard.name}"`);
         }
         return;
       }
@@ -151,6 +181,7 @@ function BattlefieldContent() {
       if (card.type === 'monster' && !targetCard && targetType !== 'enemy') {
         if (battle?.playCard) {
           battle.playCard(fromIndex, toSlotIndex, 'attack');
+          addBattleLog(`${card.name} summoned to the field in attack position`, 'action');
         }
       }
     },
@@ -199,6 +230,21 @@ function BattlefieldContent() {
 
   // Enable/disable interactions based on turn and battle state
   useEffect(() => {
+    console.log('Battle state updated:', {
+      hasStarted: battle?.hasStarted,
+      isMyTurn: battle?.isMyTurn,
+      status: battle?.status,
+      isPaused: battle?.isPaused,
+      timer: battle?.timer,
+      preparation: battle?.preparation
+    });
+
+    // Add initial battle log when game starts
+    if (battle?.hasStarted && battleLogs.length === 0) {
+      addBattleLog('Battle has begun!', 'system');
+      addBattleLog(`${battle.isMyTurn ? 'Your' : "Opponent's"} turn`, 'system');
+    }
+
     const canInteract = !!(battle && battle.status === 'active' && !battle.isPaused && !battle.isInPreparation && battle.isMyTurn);
     console.log('Battle state check:', {
       status: battle?.status,
@@ -210,7 +256,7 @@ function BattlefieldContent() {
     });
     setDragDropEnabled(canInteract); // Enable drag & drop during battle phase
     setGraveyardEnabled(canInteract);
-  }, [battle?.status, battle?.isPaused, battle?.isInPreparation, battle?.isMyTurn]);
+  }, [battle?.hasStarted, battle?.isMyTurn, battle?.status, battle?.isPaused, battle?.timer, battle?.preparation, battleLogs.length]);
 
   // Click-to-place state
   const [selectedHandIndex, setSelectedHandIndex] = useState<number | null>(null);
@@ -363,9 +409,13 @@ function BattlefieldContent() {
           />
         </div>
 
-        {/* Right Side - Graveyards */}
-        <div className="w-32 flex flex-col justify-center gap-8 pl-4 pr-4">
+        {/* Right Side - Graveyards and Battle Log */}
+        <div className="w-80 flex flex-col justify-center gap-4 pl-4 pr-4">
           <GraveyardPile cards={enemyGraveyard} label="" />
+          
+          {/* Battle Log */}
+          <BattleLog logs={battleLogs} className="flex-1" />
+          
           <div data-graveyard="player">
             <GraveyardPile cards={playerGraveyard} label="" />
           </div>

@@ -165,14 +165,14 @@ export function useBattle(battleId: Id<"battles">) {
     return await useCardEffectMutation({ battleId, cardName });
   };
 
-  const useSpellEffect = async (cardName: string) => {
+  const useSpellEffect = async (cardName: string, handIndex: number) => {
     if (!battleData?.isMyTurn) return;
-    return await useSpellEffectMutation({ battleId, cardName });
+    return await useSpellEffectMutation({ battleId, cardName, handIndex });
   };
 
-  const useTrapEffect = async (cardName: string) => {
+  const useTrapEffect = async (cardName: string, handIndex: number) => {
     if (!battleData?.isMyTurn) return;
-    return await useTrapEffectMutation({ battleId, cardName });
+    return await useTrapEffectMutation({ battleId, cardName, handIndex });
   };
 
   return {

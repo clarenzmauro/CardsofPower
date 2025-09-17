@@ -1146,8 +1146,9 @@ export const useSpellEffect = mutation({
   args: {
     battleId: v.id("battles"),
     cardName: v.string(),
+    handIndex: v.number(),
   },
-  handler: async (ctx, { battleId, cardName }) => {
+  handler: async (ctx, { battleId, cardName, handIndex }) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Not authenticated");
 
@@ -1167,16 +1168,23 @@ export const useSpellEffect = mutation({
       // Execute the spell effect
       const result = executeSpellEffect(ctx, battleId, user._id, cardName);
       
-      // Update battle with last action timestamp
-      await ctx.db.patch(battleId, {
-        lastActionAt: new Date().toISOString(),
-      });
+      // Remove card from player's hand
+      const player = isPlayerA ? battle.playerA : battle.playerB;
+      if (!player) throw new Error("Player not found");
+      const newHand = player.hand.filter((_: any, index: number) => index !== handIndex);
+      
+      const updateData = isPlayerA 
+        ? { playerA: { ...player, hand: newHand }, lastActionAt: new Date().toISOString() }
+        : { playerB: { ...player, hand: newHand }, lastActionAt: new Date().toISOString() };
+      
+      await ctx.db.patch(battleId, updateData);
 
       return {
         success: true,
         message: result.message,
         logs: result.logs,
-        effectResult: result
+        effectResult: result,
+        cardRemoved: true
       };
     } catch (error) {
       console.error(`Failed to execute spell effect for ${cardName}:`, error);
@@ -1190,8 +1198,9 @@ export const useTrapEffect = mutation({
   args: {
     battleId: v.id("battles"),
     cardName: v.string(),
+    handIndex: v.number(),
   },
-  handler: async (ctx, { battleId, cardName }) => {
+  handler: async (ctx, { battleId, cardName, handIndex }) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Not authenticated");
 
@@ -1211,16 +1220,23 @@ export const useTrapEffect = mutation({
       // Execute the trap effect
       const result = executeTrapEffect(ctx, battleId, user._id, cardName);
       
-      // Update battle with last action timestamp
-      await ctx.db.patch(battleId, {
-        lastActionAt: new Date().toISOString(),
-      });
+      // Remove card from player's hand
+      const player = isPlayerA ? battle.playerA : battle.playerB;
+      if (!player) throw new Error("Player not found");
+      const newHand = player.hand.filter((_: any, index: number) => index !== handIndex);
+      
+      const updateData = isPlayerA 
+        ? { playerA: { ...player, hand: newHand }, lastActionAt: new Date().toISOString() }
+        : { playerB: { ...player, hand: newHand }, lastActionAt: new Date().toISOString() };
+      
+      await ctx.db.patch(battleId, updateData);
 
       return {
         success: true,
         message: result.message,
         logs: result.logs,
-        effectResult: result
+        effectResult: result,
+        cardRemoved: true
       };
     } catch (error) {
       console.error(`Failed to execute trap effect for ${cardName}:`, error);
