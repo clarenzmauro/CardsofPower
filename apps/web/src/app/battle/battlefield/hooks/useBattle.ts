@@ -50,6 +50,8 @@ export function useBattle(battleId: Id<"battles">) {
   const submitPreparationMutation = useMutation(api.battle.submitPreparation);
   const attackMutation = useMutation(api.battle.attack);
   const useCardEffectMutation = useMutation(api.battle.useCardEffect);
+  const useSpellEffectMutation = useMutation(api.battle.useSpellEffect);
+  const useTrapEffectMutation = useMutation(api.battle.useTrapEffect);
 
   useEffect(() => {
     if (!battleData) return;
@@ -163,6 +165,16 @@ export function useBattle(battleId: Id<"battles">) {
     return await useCardEffectMutation({ battleId, cardName });
   };
 
+  const useSpellEffect = async (cardName: string) => {
+    if (!battleData?.isMyTurn) return;
+    return await useSpellEffectMutation({ battleId, cardName });
+  };
+
+  const useTrapEffect = async (cardName: string) => {
+    if (!battleData?.isMyTurn) return;
+    return await useTrapEffectMutation({ battleId, cardName });
+  };
+
   return {
     ...state,
     hasStarted: battleData?.hasStarted ?? false,
@@ -190,5 +202,7 @@ export function useBattle(battleId: Id<"battles">) {
     submitPreparation,
     attack,
     useCardEffect,
+    useSpellEffect,
+    useTrapEffect,
   };
 }

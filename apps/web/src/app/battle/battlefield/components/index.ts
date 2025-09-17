@@ -10,3 +10,4 @@ export { HealthBar } from './HealthBar';
 export { Timer } from './Timer';
 export { PrepOverlay } from './prep-overlay';
 export { FloatingDragPreview } from './FloatingDragPreview';
+export { DisintegrationEffect } from './DisintegrationEffect';

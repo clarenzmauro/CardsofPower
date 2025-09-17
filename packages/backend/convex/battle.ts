@@ -3,6 +3,8 @@ import { v } from "convex/values";
 import { getCurrentUser } from "./users";
 import { type Id, type Doc } from "./_generated/dataModel";
 import { executeCardEffect } from "./effects/cardEffects";
+import { executeSpellEffect } from "./effects/spellEffects";
+import { executeTrapEffect } from "./effects/trapEffects";
 
 // Turn/presence constants
 const DEFAULT_TURN_DURATION_SEC = 30; // server default; client may override at creation
@@ -1135,6 +1137,94 @@ export const useCardEffect = mutation({
     } catch (error) {
       console.error(`Failed to execute effect for ${cardName}:`, error);
       const errorMessage = error instanceof Error ? error.message : `Effect failed for card: ${cardName}`;
+      throw new Error(errorMessage);
+    }
+  },
+});
+
+export const useSpellEffect = mutation({
+  args: {
+    battleId: v.id("battles"),
+    cardName: v.string(),
+  },
+  handler: async (ctx, { battleId, cardName }) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Not authenticated");
+
+    const battle = await ctx.db.get(battleId);
+    if (!battle) throw new Error("Battle not found");
+    if (battle.status !== "active") throw new Error("Battle is not active");
+
+    // Check if it's the user's turn
+    const isPlayerA = battle.playerA?.userId === user._id;
+    const isPlayerB = battle.playerB?.userId === user._id;
+    if (!isPlayerA && !isPlayerB) throw new Error("Not a participant in this battle");
+
+    const isMyTurn = battle.currentTurnPlayerId === user._id;
+    if (!isMyTurn) throw new Error("Not your turn");
+
+    try {
+      // Execute the spell effect
+      const result = executeSpellEffect(ctx, battleId, user._id, cardName);
+      
+      // Update battle with last action timestamp
+      await ctx.db.patch(battleId, {
+        lastActionAt: new Date().toISOString(),
+      });
+
+      return {
+        success: true,
+        message: result.message,
+        logs: result.logs,
+        effectResult: result
+      };
+    } catch (error) {
+      console.error(`Failed to execute spell effect for ${cardName}:`, error);
+      const errorMessage = error instanceof Error ? error.message : `Spell effect failed for card: ${cardName}`;
+      throw new Error(errorMessage);
+    }
+  },
+});
+
+export const useTrapEffect = mutation({
+  args: {
+    battleId: v.id("battles"),
+    cardName: v.string(),
+  },
+  handler: async (ctx, { battleId, cardName }) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Not authenticated");
+
+    const battle = await ctx.db.get(battleId);
+    if (!battle) throw new Error("Battle not found");
+    if (battle.status !== "active") throw new Error("Battle is not active");
+
+    // Check if it's the user's turn
+    const isPlayerA = battle.playerA?.userId === user._id;
+    const isPlayerB = battle.playerB?.userId === user._id;
+    if (!isPlayerA && !isPlayerB) throw new Error("Not a participant in this battle");
+
+    const isMyTurn = battle.currentTurnPlayerId === user._id;
+    if (!isMyTurn) throw new Error("Not your turn");
+
+    try {
+      // Execute the trap effect
+      const result = executeTrapEffect(ctx, battleId, user._id, cardName);
+      
+      // Update battle with last action timestamp
+      await ctx.db.patch(battleId, {
+        lastActionAt: new Date().toISOString(),
+      });
+
+      return {
+        success: true,
+        message: result.message,
+        logs: result.logs,
+        effectResult: result
+      };
+    } catch (error) {
+      console.error(`Failed to execute trap effect for ${cardName}:`, error);
+      const errorMessage = error instanceof Error ? error.message : `Trap effect failed for card: ${cardName}`;
       throw new Error(errorMessage);
     }
   },

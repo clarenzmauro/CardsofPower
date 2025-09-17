@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import type { Card, Player } from './types';
-import { CardDisplay, GraveyardPile, PlayerSection, EnemySection, AnimatingCard, HealthBar, Timer, PrepOverlay, FloatingDragPreview } from './components';
+import { CardDisplay, GraveyardPile, PlayerSection, EnemySection, AnimatingCard, HealthBar, Timer, PrepOverlay, FloatingDragPreview, DisintegrationEffect } from './components';
 import { useGraveyard } from './hooks/useGraveyard';
 import { useDragAndDrop } from './hooks/useDragAndDrop';
 import { useSearchParams } from 'next/navigation';
@@ -30,6 +30,13 @@ function BattlefieldContent() {
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [dragDropEnabled, setDragDropEnabled] = useState<boolean>(false);
   const [graveyardEnabled, setGraveyardEnabled] = useState<boolean>(true);
+
+  // Disintegration effects state
+  const [disintegrationEffects, setDisintegrationEffects] = useState<Array<{
+    id: string;
+    card: Card;
+    position: { x: number; y: number };
+  }>>([]);
 
   // Player and Enemy data from server battle data
   const player: Player = {
@@ -86,14 +93,65 @@ function BattlefieldContent() {
   // Enable drag & drop for battle phase
   const { dragState, getDragHandlers, getDropHandlers, logSlotContents, updateMousePosition } = useDragAndDrop({
     enabled: dragDropEnabled,
-    onCardMove: (card: Card, fromIndex: number, toSlotIndex: number) => {
-      // Only allow monster cards to be placed during battle
-      if (card.type !== 'monster') {
+    onCardMove: (card: Card, fromIndex: number, toSlotIndex: number, targetType?: 'player' | 'enemy') => {
+      console.log('onCardMove called:', { 
+        cardName: card.name, 
+        cardType: card.type, 
+        fromIndex, 
+        toSlotIndex, 
+        targetType 
+      });
+      
+      // Determine which field we're targeting based on targetType or slot position
+      let targetCard = null;
+      let slotSelector = '';
+      
+      if (targetType === 'enemy') {
+        targetCard = enemyField[toSlotIndex];
+        slotSelector = `[data-enemy-slot-index="${toSlotIndex}"]`;
+      } else {
+        targetCard = playerField[toSlotIndex];
+        slotSelector = `[data-slot-index="${toSlotIndex}"]`;
+      }
+      
+      console.log('Target card:', targetCard?.name || 'empty slot');
+      
+      // Handle spell/trap cards being dropped on ANY card (player or enemy)
+      if ((card.type === 'spell' || card.type === 'trap') && targetCard) {
+        // Get the position of the target slot for disintegration effect
+        const slotElement = document.querySelector(slotSelector);
+        if (slotElement) {
+          const rect = slotElement.getBoundingClientRect();
+          const position = {
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2
+          };
+          
+          // Add disintegration effect
+          const effectId = `${card.id}-${Date.now()}`;
+          setDisintegrationEffects(prev => [...prev, {
+            id: effectId,
+            card,
+            position
+          }]);
+          
+          // Execute spell/trap effect
+          if (card.type === 'spell' && battle?.useSpellEffect) {
+            battle.useSpellEffect(card.name);
+          } else if (card.type === 'trap' && battle?.useTrapEffect) {
+            battle.useTrapEffect(card.name);
+          }
+          
+          console.log(`${card.type} card "${card.name}" used on ${targetType === 'enemy' ? 'enemy' : 'player'} monster "${targetCard.name}"`);
+        }
         return;
       }
-      // Use existing battle system to place card
-      if (battle?.playCard) {
-        battle.playCard(fromIndex, toSlotIndex, 'attack');
+      
+      // Only allow monster cards to be placed on empty player slots
+      if (card.type === 'monster' && !targetCard && targetType !== 'enemy') {
+        if (battle?.playCard) {
+          battle.playCard(fromIndex, toSlotIndex, 'attack');
+        }
       }
     },
   });
@@ -142,6 +200,14 @@ function BattlefieldContent() {
   // Enable/disable interactions based on turn and battle state
   useEffect(() => {
     const canInteract = !!(battle && battle.status === 'active' && !battle.isPaused && !battle.isInPreparation && battle.isMyTurn);
+    console.log('Battle state check:', {
+      status: battle?.status,
+      isPaused: battle?.isPaused,
+      isInPreparation: battle?.isInPreparation,
+      isMyTurn: battle?.isMyTurn,
+      canInteract,
+      dragDropEnabled
+    });
     setDragDropEnabled(canInteract); // Enable drag & drop during battle phase
     setGraveyardEnabled(canInteract);
   }, [battle?.status, battle?.isPaused, battle?.isInPreparation, battle?.isMyTurn]);
@@ -281,6 +347,7 @@ function BattlefieldContent() {
             onCardSelect={setSelectedCard}
             onFieldCardClick={onEnemyFieldClick}
             isAttackMode={isAttackMode}
+            getDropHandlers={(slotIndex, isEmpty) => getDropHandlers(slotIndex, isEmpty, 'enemy')}
           />
           <PlayerSection 
             hand={playerHand} 
@@ -292,7 +359,7 @@ function BattlefieldContent() {
             selectedCard={selectedCard}
             onGraveyardCard={handleGraveyardCard}
             getDragHandlers={getDragHandlers}
-            getDropHandlers={getDropHandlers}
+            getDropHandlers={(slotIndex, isEmpty) => getDropHandlers(slotIndex, isEmpty, 'player')}
           />
         </div>
 
@@ -560,6 +627,20 @@ function BattlefieldContent() {
           </div>
         </div>
       )}
+
+      {/* Disintegration Effects */}
+      {disintegrationEffects.map((effect) => (
+        <DisintegrationEffect
+          key={effect.id}
+          card={effect.card}
+          position={effect.position}
+          onComplete={() => {
+            setDisintegrationEffects(prev => 
+              prev.filter(e => e.id !== effect.id)
+            );
+          }}
+        />
+      ))}
 
     </div>
   );

@@ -9,9 +9,10 @@ interface EnemySectionProps {
   onCardSelect: (card: Card | null) => void;
   onFieldCardClick?: (slotIndex: number) => void;
   isAttackMode?: boolean;
+  getDropHandlers?: (slotIndex: number, isEmpty: boolean) => any;
 }
 
-export const EnemySection: React.FC<EnemySectionProps> = ({ hand, field, onCardSelect, onFieldCardClick, isAttackMode }) => (
+export const EnemySection: React.FC<EnemySectionProps> = ({ hand, field, onCardSelect, onFieldCardClick, isAttackMode, getDropHandlers }) => (
   <>
     {/* Enemy Hand - Full Width Rectangle */}
     <div className="mb-6">
@@ -30,19 +31,24 @@ export const EnemySection: React.FC<EnemySectionProps> = ({ hand, field, onCardS
         {field.map((card, index) => {
           const isAttackable = isAttackMode && card && card.type === 'monster';
           return (
-            <CardSlot 
+            <div 
               key={`enemy-${index}`} 
-              card={card} 
-              onClick={() => {
-                if (onFieldCardClick && isAttackable) {
-                  onFieldCardClick(index);
-                } else {
-                  onCardSelect(card);
-                }
-              }}
-              faceDown={card?.position === 'defense'}
-              className={isAttackable ? 'ring-2 ring-red-500 ring-opacity-75 shadow-lg shadow-red-500/50 animate-pulse' : ''}
-            />
+              data-enemy-slot-index={index}
+              {...(getDropHandlers ? getDropHandlers(index, !card) : {})}
+            >
+              <CardSlot 
+                card={card} 
+                onClick={() => {
+                  if (onFieldCardClick && isAttackable) {
+                    onFieldCardClick(index);
+                  } else {
+                    onCardSelect(card);
+                  }
+                }}
+                faceDown={card?.position === 'defense'}
+                className={isAttackable ? 'ring-2 ring-red-500 ring-opacity-75 shadow-lg shadow-red-500/50 animate-pulse' : ''}
+              />
+            </div>
           );
         })}
       </div>

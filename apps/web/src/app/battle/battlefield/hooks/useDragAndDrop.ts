@@ -3,7 +3,7 @@ import type { Card } from '../types';
 
 export interface DragAndDropConfig {
   enabled: boolean;
-  onCardMove?: (card: Card, fromIndex: number, toSlotIndex: number) => void;
+  onCardMove?: (card: Card, fromIndex: number, toSlotIndex: number, targetType?: 'player' | 'enemy') => void;
   onSlotUpdate?: (slots: (Card | null)[]) => void;
 }
 
@@ -96,14 +96,21 @@ export const useDragAndDrop = (config: DragAndDropConfig) => {
     }));
   }, []);
 
-  const handleDrop = useCallback((toSlotIndex: number) => {
+  const handleDrop = useCallback((toSlotIndex: number, targetType?: 'player' | 'enemy') => {
     if (!config.enabled || !dragState.isDragging || !dragState.draggedCard || dragState.draggedFromIndex === null) {
       return false;
     }
 
+    console.log('handleDrop called:', { 
+      card: dragState.draggedCard.name, 
+      type: dragState.draggedCard.type, 
+      toSlotIndex, 
+      targetType 
+    });
+
     // Call the move callback if provided
     if (config.onCardMove) {
-      config.onCardMove(dragState.draggedCard, dragState.draggedFromIndex, toSlotIndex);
+      config.onCardMove(dragState.draggedCard, dragState.draggedFromIndex, toSlotIndex, targetType);
     }
 
     endDrag();
@@ -136,11 +143,16 @@ export const useDragAndDrop = (config: DragAndDropConfig) => {
   }, []);
 
   const getDragHandlers = useCallback((card: Card, index: number) => {
-    if (!config.enabled) return {};
+    if (!config.enabled) {
+      console.log('Drag handlers disabled - config.enabled is false');
+      return {};
+    }
 
+    console.log('Creating drag handlers for:', card.name, card.type);
     return {
       draggable: true,
       onDragStart: (e: React.DragEvent) => {
+        console.log('Drag started for:', card.name, card.type);
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', card.id);
         // Hide the default drag image
@@ -164,12 +176,16 @@ export const useDragAndDrop = (config: DragAndDropConfig) => {
     };
   }, [config.enabled, startDrag, endDrag]);
 
-  const getDropHandlers = useCallback((slotIndex: number, isEmpty: boolean) => {
+  const getDropHandlers = useCallback((slotIndex: number, isEmpty: boolean, targetType?: 'player' | 'enemy') => {
     if (!config.enabled) return {};
 
     return {
       onDragOver: (e: React.DragEvent) => {
-        if (isEmpty && dragState.isDragging) {
+        // Allow dropping on empty slots OR on occupied slots for spell/trap cards
+        const canDrop = isEmpty || (dragState.isDragging && dragState.draggedCard && 
+          (dragState.draggedCard.type === 'spell' || dragState.draggedCard.type === 'trap'));
+        
+        if (canDrop && dragState.isDragging) {
           e.preventDefault();
           e.dataTransfer.dropEffect = 'move';
           setDragOverSlot(slotIndex);
@@ -186,12 +202,11 @@ export const useDragAndDrop = (config: DragAndDropConfig) => {
       onDrop: (e: React.DragEvent) => {
         e.preventDefault();
         setDragOverSlot(null);
-        if (isEmpty) {
-          handleDrop(slotIndex);
-        }
+        console.log('Drop detected:', { slotIndex, isEmpty, targetType, draggedCard: dragState.draggedCard });
+        handleDrop(slotIndex, targetType);
       },
     };
-  }, [config.enabled, dragState.isDragging, handleDrop, setDragOverSlot]);
+  }, [config.enabled, dragState.isDragging, dragState.draggedCard, handleDrop, setDragOverSlot]);
 
   const logSlotContents = useCallback((slots: (Card | null)[]) => {
     console.log('=== SLOT CONTENTS ===');
