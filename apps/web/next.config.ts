@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '5mb',
     },
   },
+  transpilePackages: ['@cards-of-power/backend'],
   images: {
     remotePatterns: [
       {

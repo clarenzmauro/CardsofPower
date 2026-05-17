@@ -3,4 +3,4 @@ node_modules
 .alchemy
 .env
 
-/database-backup/*
+/database-backup/*.DS_Store
