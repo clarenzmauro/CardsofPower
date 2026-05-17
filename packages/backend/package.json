@@ -10,12 +10,12 @@
 	"license": "ISC",
 	"description": "",
 	"devDependencies": {
-		"@types/node": "^24.3.0",
-		"typescript": "^5.9.2"
+		"@types/node": "^24.12.4",
+		"typescript": "^5.9.3"
 	},
 	"dependencies": {
-		"@clerk/backend": "^2.10.1",
-		"convex": "^1.25.4",
-		"svix": "^1.75.0"
+		"@clerk/backend": "^2.33.3",
+		"convex": "^1.39.1",
+		"svix": "^1.93.0"
 	}
 }
